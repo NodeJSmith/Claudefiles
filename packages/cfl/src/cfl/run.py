@@ -182,6 +182,8 @@ def run_status(
     last_completed = _derive_last_completed(tasks)
     current_task = _derive_current_task(tasks)
     needs_intervention = _derive_needs_intervention(tasks, current_task)
+    gates = _derive_run_level_gates(conn, run_id)
+    open_dispatches = _derive_open_run_level_dispatches(conn, run_id)
 
     tmpdir_exists = False
     if run_row["tmpdir"]:
@@ -212,6 +214,8 @@ def run_status(
             "last_completed": last_completed,
             "current_task": current_task,
             "needs_intervention": needs_intervention,
+            "gates": gates,
+            "open_dispatches": open_dispatches,
             "session_count": session_count,
         }
     )
@@ -759,6 +763,71 @@ def _derive_needs_intervention(tasks: list[dict], current_task: str | None) -> b
         if t["task_id"] == current_task:
             return t["status"] in INTERVENTION_STATUSES
     return False
+
+
+def _derive_run_level_gates(conn: sqlite3.Connection, run_id: int) -> list[dict]:
+    """Latest recorded verdict per run-level (task_id IS NULL) gate_type.
+
+    Run-level gates are Phase 3's post-execution pipeline steps (impl-review,
+    cross-file-review, ship-challenge, clean-code, final-review, shipping-gate).
+    Returning only the latest iteration per gate_type lets a resumed session
+    tell which steps already reached a recorded result without re-deriving it
+    from the full gate history.
+    """
+    rows = conn.execute(
+        """SELECT gate_type, iteration, verdict, detail, data, created_at
+           FROM gates
+           WHERE run_id=? AND task_id IS NULL
+             AND id IN (
+                 SELECT MAX(id) FROM gates WHERE run_id=? AND task_id IS NULL
+                 GROUP BY gate_type
+             )
+           ORDER BY id""",
+        (run_id, run_id),
+    ).fetchall()
+
+    return [
+        {
+            "gate_type": r["gate_type"],
+            "iteration": r["iteration"],
+            "verdict": r["verdict"],
+            "detail": r["detail"],
+            "data": json.loads(r["data"]) if r["data"] else None,
+            "created_at": output_module.to_iso(r["created_at"]),
+        }
+        for r in rows
+    ]
+
+
+def _derive_open_run_level_dispatches(
+    conn: sqlite3.Connection, run_id: int
+) -> list[dict]:
+    """Run-level dispatches (task_id IS NULL) with no recorded completed_at.
+
+    A gate_type's dispatch is recorded before its subagent runs and ended after
+    it returns. If a session is interrupted mid-dispatch (context compaction,
+    reset, crash), the dispatch is left open with no corresponding gate record
+    or findings — that work is unrecoverable, but the open dispatch is durable
+    evidence a resumed session can surface instead of silently redoing the work
+    with no mention that a prior attempt existed.
+    """
+    rows = conn.execute(
+        """SELECT id, role, agent_type, dispatched_at
+           FROM dispatches
+           WHERE run_id=? AND task_id IS NULL AND completed_at IS NULL
+           ORDER BY id""",
+        (run_id,),
+    ).fetchall()
+
+    return [
+        {
+            "dispatch_id": r["id"],
+            "role": r["role"],
+            "agent_type": r["agent_type"],
+            "dispatched_at": output_module.to_iso(r["dispatched_at"]),
+        }
+        for r in rows
+    ]
 
 
 def stop_orphans(conn: sqlite3.Connection) -> None:

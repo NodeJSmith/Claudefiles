@@ -28,6 +28,86 @@ Before the first Phase 3 dispatch, create its report directories:
 mkdir -p <dir>/impl-fix <dir>/cross-file <dir>/final
 ```
 
+## Phase 3 entry: resume check
+
+Phase 3 is reached both on a fresh run (right after Phase 2's task loop finishes) and on a resume
+(context compaction, a manual `/clear`, or an external reset that landed a new session back at
+`/mine-orchestrate <dir>` while Phase 3 was mid-flight in an earlier session of this same run). Every
+step below already records its result durably via `cfl gate <gate_type> --verdict ...` — read that
+history back before deciding where to start, instead of always restarting at Step 1.
+
+Read `cfl run status` (already required for Step 1's verdict table; do this first if entering Phase 3
+directly). Two fields drive this check:
+
+- **`gates`** — the latest recorded verdict per run-level gate_type (`task_id` is always null for these;
+  Phase 2's per-task gates are a separate concern already handled by `resume-protocol.md`).
+- **`open_dispatches`** — run-level dispatches with no matching `cfl dispatch end`: durable evidence a
+  subagent was still running when the interrupting session ended. Only Step 3.5 uses this field below —
+  its dispatch role happens to equal its gate_type (`challenge-gate.md`'s own dispatch call), but that
+  isn't true generally: Step 4's dispatch role is `clean-code-executor` (gate_type `clean-code`), Step
+  5's are `final-code-reviewer`/`final-integration-reviewer` (gate_type `final-review`), and Step 2's
+  `/mine-implementation-review` invocation isn't dispatch-tracked at all. Don't assume role == gate_type
+  for any step other than Step 3.5.
+
+**If `tmpdir_exists` is false**, the per-step artifact files this resume-ahead logic depends on
+(`<dir>/clean-code-summary.md`, `<dir>/challenge-summary.md`, `<dir>/cross-file/review.md`,
+`<dir>/final/*.md`) are gone even though `gates` still has their verdicts. Do not skip ahead — start at
+Step 1 as a fresh Phase 3 entry, and note in the initial report that the prior tmpdir was lost, so
+earlier gate verdicts are historical context only, not something a later step can read from disk.
+
+**Otherwise**, walk the steps in order and find the first one that is not yet complete:
+
+| Step | gate_type | Complete when |
+|---|---|---|
+| 2 | `impl-review` | latest verdict is `PASS` |
+| 3 | `cross-file-review` | latest verdict is `PASS` or `WARN` (both mean resolved — see Step 3's own PASS/WARN handling) |
+| 3.5 | `ship-challenge` | a `challenge.findings-persisted` event exists for this run with `"gate_type": "ship-challenge"` in its data — **not** merely a recorded `gates` verdict; see the dedicated paragraph below |
+| 4 | `clean-code` | any verdict recorded — only recorded after severity-escalation handling completes, so a recorded verdict (of any kind) means that work already finished |
+| 5 | `final-review` | latest verdict is `PASS` |
+| 6 | `shipping-gate` | never treat as "complete, skip it" — its presence means Steps 1–5 all finished and the run is still active, which only happens after "Run smoke test" or "Stop here" was chosen. Re-enter directly at Step 6 to re-present the gate. |
+
+A latest verdict of `FAIL` for `impl-review`, `cross-file-review`, or `final-review` means that step's
+own gate prompt was never resolved — the interrupting session ended between recording `FAIL` and the
+user answering. Treat it as **not complete**: re-enter that step from its beginning (re-run its
+reviewer(s) fresh; do not try to resume a partially-run fixer loop — that is the mid-step resume this
+run deliberately does not attempt).
+
+**Step 3.5's completion check is deliberately not `gates`-based.** `challenge-gate.md` records the
+`ship-challenge` gate verdict at its own step 4, *before* findings are persisted (step 5), resolved
+(step 6), and `<post_resolution>` completes (step 7) — a session interrupted between those steps would
+show a recorded `ship-challenge` verdict with no findings ever written to disk or DB, which is exactly
+the silent-data-loss failure mode this whole resume check exists to prevent. `challenge-gate.md`'s own
+step 8 emits `cfl event challenge.findings-persisted --data '{"gate_type": "ship-challenge"}'` for
+precisely this reason, and `mine-define`/`mine-sketch` already use this same event (with their own
+gate_types, `define-challenge`/`sketch-challenge`) as their challenge-resume check — this mirrors that
+established pattern rather than inventing a new one:
+
+```bash
+cfl event list --event challenge.findings-persisted --run <run_id>
+```
+
+If no row's data contains `"gate_type": "ship-challenge"`, Step 3.5 is **not complete** regardless of
+what `gates` shows for it — re-enter Step 3.5 from its beginning. `challenge-gate.md` is idempotent to
+re-run (that is the same recovery `mine-define`/`mine-sketch` rely on for their own challenge gates),
+so this does not require reconstructing partial findings. If `open_dispatches` also shows an open
+`ship-challenge` dispatch at this point, end it (`cfl dispatch end <dispatch_id>`) and say so explicitly
+before re-running: "A previous challenge attempt (dispatch #<id>, started <dispatched_at>) was
+interrupted before completing — its findings were not recorded and can't be recovered. Running a fresh
+challenge now." This replaces the prior silent re-run (which produced duplicate, contradictory findings
+and dropped unresolved ones without telling anyone) with a visible, honest one, even though the
+underlying recovery — re-run from scratch — is the same either way.
+
+Re-enter Phase 3 at the first not-complete step, skipping every step before it — do not rerun a step
+whose gate already shows a complete result. Every step already recomputes the full-branch scope fresh
+immediately before its own dispatch (see the "recompute the scope" rule above), so nothing here is
+stale from being skipped.
+
+Report the resume point before proceeding, mirroring the Phase 2 resume report in
+`resume-protocol.md`: "Resuming Phase 3 from Step <N>. Already recorded: <gate_type>: <verdict>[,
+<gate_type>: <verdict>...]." If every gate_type's latest verdict already shows Step 6 reached (per the
+table above), skip straight to Step 6 without repeating this report structure — the shipping gate
+re-presentation itself is the report.
+
 ## Step 1: Summary (automatic)
 
 Present a verdict table. **Read the run state via `cfl run status`** and build the table from the `tasks` array:

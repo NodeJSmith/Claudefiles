@@ -130,7 +130,10 @@ Report this to the user instead of silently continuing.
   cfl run resume
   ```
   If `status` is already `"running"` — re-entry after context compaction or a manual `/clear`, with no intervening `cfl run stop` — skip this call entirely. `cfl run resume` requires a `stopped` run and errors `run_already_active` otherwise; the run is already active in the DB, so there is nothing to resume.
-- Jump directly to Phase 2 (skip Phase 1 entirely).
+- Jump directly to Phase 2 (skip Phase 1 entirely). If every task already has a verdict, Phase 2's
+  task loop has nothing left to do and falls through into Phase 3 as normal — which runs its own
+  resume check (see `post-execution-pipeline.md`'s "Phase 3 entry: resume check") against the same
+  run status read here, so a run interrupted mid-Phase-3 does not restart Phase 3 from Step 1.
 
 **On restart (if the user explicitly asks to discard the active run instead of resuming it):** auto-resume above shows no prompt with an "Other" option to select — this path is reached only if the user says so directly, in their own words, mid- or pre-resume.
 - Stop the current run: `cfl run stop --reason "user chose restart fresh"`

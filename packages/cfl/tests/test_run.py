@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from cfl.dispatch import end_dispatch, record_dispatch
+from cfl.gate import record_gate
 from cfl.run import (
     run_advance_phase,
     run_complete,
@@ -16,7 +18,6 @@ from cfl.run import (
     stop_orphans,
 )
 from tests.helpers import REMOTE_URL, insert_spec_no_run, insert_spec_with_run
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -328,6 +329,165 @@ def test_run_status_needs_intervention_true_when_task_blocked(
     data = json.loads(capsys.readouterr().out)
     assert data["current_task"] == "T01"
     assert data["needs_intervention"] is True
+
+
+# ---------------------------------------------------------------------------
+# run_status: gates (Phase 3 durable resumption)
+# ---------------------------------------------------------------------------
+
+
+def test_run_status_includes_run_level_gates(db_conn, tmp_path, capsys):
+    """run_status returns the latest verdict per run-level gate_type."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()  # consume run_start output
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", detail="clean")
+    capsys.readouterr()  # consume record_gate output
+    record_gate(
+        db_conn, run_id, "cross-file-review", verdict="WARN", data='{"findings": 1}'
+    )
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    gate_types = {g["gate_type"]: g for g in data["gates"]}
+    assert gate_types["impl-review"]["verdict"] == "PASS"
+    assert gate_types["impl-review"]["detail"] == "clean"
+    assert gate_types["cross-file-review"]["verdict"] == "WARN"
+    assert gate_types["cross-file-review"]["data"] == {"findings": 1}
+
+
+def test_run_status_gates_returns_latest_iteration_only(db_conn, tmp_path, capsys):
+    """A gate_type re-recorded (e.g. after 'Address fixes') shows only its latest verdict."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    record_gate(db_conn, run_id, "impl-review", verdict="FAIL")
+    capsys.readouterr()
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS")
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    impl_review_gates = [g for g in data["gates"] if g["gate_type"] == "impl-review"]
+    assert len(impl_review_gates) == 1
+    assert impl_review_gates[0]["verdict"] == "PASS"
+    assert impl_review_gates[0]["iteration"] == 2
+
+
+def test_run_status_gates_empty_when_no_gates_recorded(db_conn, tmp_path, capsys):
+    """run_status returns an empty gates array before any Phase 3 step has run."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["gates"] == []
+
+
+def test_run_status_gates_excludes_task_level_gates(db_conn, tmp_path, capsys):
+    """Task-level gates (per-task code review, etc.) are not run-level Phase 3 gates."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    record_gate(db_conn, run_id, "code-review", task_id="T01", verdict="PASS")
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["gates"] == []
+
+
+# ---------------------------------------------------------------------------
+# run_status: open_dispatches (Phase 3 durable resumption)
+# ---------------------------------------------------------------------------
+
+
+def test_run_status_includes_open_run_level_dispatch(db_conn, tmp_path, capsys):
+    """A run-level dispatch never ended (interrupted mid-flight) shows up as open."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    record_dispatch(db_conn, run_id, "ship-challenge", agent_type="standard-worker")
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert len(data["open_dispatches"]) == 1
+    assert data["open_dispatches"][0]["role"] == "ship-challenge"
+
+
+def test_run_status_excludes_ended_dispatch(db_conn, tmp_path, capsys):
+    """A dispatch that was properly ended does not show up as open."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    record_dispatch(db_conn, run_id, "ship-challenge", agent_type="standard-worker")
+    dispatch_out = json.loads(capsys.readouterr().out)
+    end_dispatch(db_conn, dispatch_out["dispatch_id"])
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["open_dispatches"] == []
+
+
+def test_run_status_excludes_task_level_open_dispatch(db_conn, tmp_path, capsys):
+    """A task-level (per-task executor) dispatch is not a Phase 3 run-level dispatch."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    record_dispatch(
+        db_conn, run_id, "executor", task_id="T01", agent_type="standard-worker"
+    )
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["open_dispatches"] == []
 
 
 # ---------------------------------------------------------------------------
