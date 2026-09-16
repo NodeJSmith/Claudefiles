@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Fixed
 
 - Every custom agent in `agents/*.md` gains the `Skill` and `Agent` tools, closing the whole class of bug where an agent silently improvises instead of erroring when a dispatched task tells it to run a skill or delegate to a subagent it can't reach. `researcher.md`'s stale `"Task"` tool entry (never a valid tool name in this harness) is also corrected to `"Agent"`. (#573)
+- `mine-orchestrate`'s Phase 3 post-execution review pipeline now resumes at the first genuinely incomplete step instead of always restarting from Step 1 — a session reset mid-challenge-gate used to silently rerun all critics from scratch, producing duplicate/contradictory findings and dropping unresolved ones without telling anyone. (#574)
 
 ## 2026-09-15
 
