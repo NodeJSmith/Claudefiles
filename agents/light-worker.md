@@ -3,7 +3,7 @@ name: light-worker
 model: haiku
 effort: high
 description: Lightweight generic worker for triage, batch classification, and other high-volume, low-complexity dispatches. The caller supplies the full task methodology in its prompt.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
 ---
 

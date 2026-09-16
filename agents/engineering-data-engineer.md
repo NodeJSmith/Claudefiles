@@ -6,7 +6,7 @@ description: Expert data engineer specializing in PySpark pipelines, Delta Lake,
 color: orange
 emoji: 🔧
 vibe: Builds the pipelines that turn raw data into trusted, analytics-ready assets.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: engineering
 ---
 

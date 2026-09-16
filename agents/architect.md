@@ -3,7 +3,7 @@ name: architect
 model: sonnet  # claude-sonnet-5 as of 2026-07-07
 effort: medium
 description: Architecture documentation specialist — generates Mermaid diagrams and architectural overviews. May write or update documentation but does not modify application code. Use when onboarding to a new codebase, before major refactors, or after significant changes.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: extra-agents
 ---
 

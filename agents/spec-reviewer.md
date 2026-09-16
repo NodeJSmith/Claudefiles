@@ -3,7 +3,7 @@ name: spec-reviewer
 model: sonnet
 effort: medium
 description: Independently verifies a completed orchestrate task against its Verify section and design doc, from actual files and evidence rather than the executor's self-report.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
 ---
 

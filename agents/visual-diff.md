@@ -3,7 +3,7 @@ name: visual-diff
 model: sonnet  # claude-sonnet-5 as of 2026-07-07 — vision required for screenshot comparison
 effort: medium
 description: Visual regression testing via Playwright MCP — captures before/after screenshots to detect unintended UI changes. Use before and after UI changes to catch regressions. Requires Playwright MCP.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: extra-agents
 ---
 

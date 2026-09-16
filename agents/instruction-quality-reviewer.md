@@ -3,7 +3,7 @@ name: instruction-quality-reviewer
 model: sonnet
 effort: medium
 description: Instruction quality reviewer — assesses skill files, rules, and agent prompts against five quality dimensions. Use for instruction-file reviews in mine-review instruction mode.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
 ---
 

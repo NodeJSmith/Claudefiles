@@ -3,7 +3,7 @@ name: secrets-auditor
 model: haiku
 effort: high
 description: Credential scanner — scans staged diff and working tree for secrets, tokens, and credentials. Groups findings by severity (Blocker/Review/Clear).
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
 ---
 
