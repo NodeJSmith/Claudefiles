@@ -55,11 +55,19 @@ directly). Two fields drive this check:
 Step 1 as a fresh Phase 3 entry, and note in the initial report that the prior tmpdir was lost, so
 earlier gate verdicts are historical context only, not something a later step can read from disk.
 
-**If `gates` is empty**, no run-level gate has ever been recorded for this run — this is a genuinely
-fresh Phase 3 entry (right after Phase 2's task loop finishes), not a resume. Start at Step 1. Without
-this check, the "walk the table, find the first not-complete step" logic below would still apply (Step
-2's `impl-review` row reads as not complete the same way it would mid-resume) and skip straight past
-Step 1's mandatory verdict summary on every normal run, not just on resume.
+**If `gates` contains no entry whose `gate_type` matches any `gate_type` value in the table
+below** — this is a genuinely fresh Phase 3 entry (right after Phase 2's task loop finishes), not a
+resume. Start at Step 1. Match against the table's own `gate_type` column rather than a separately
+spelled-out list here, so this check can't drift out of sync the next time a step is added to the
+table (as `known-issues-walkthrough` was earlier in this same pipeline). Checking for an empty
+`gates` array instead would be wrong: `cfl run status` derives `gates` from every run-level gate
+ever recorded for this run_id regardless of phase (`_derive_run_level_gates` filters only on
+`task_id IS NULL`, not gate_type), so a run that advanced here from
+`mine-define`/`mine-plan`/`mine-sketch` already carries earlier-phase gates (`plan-approval`,
+`sketch-comb`, etc.) in the same array — an empty-array check would miss a fresh Phase 3 entry on
+exactly that path and fall through to the "walk the table" logic below (Step 2's `impl-review` row
+reads as not complete the same way it would mid-resume), skipping Step 1's mandatory verdict
+summary.
 
 **Otherwise**, walk the steps in order and find the first one that is not yet complete:
 
