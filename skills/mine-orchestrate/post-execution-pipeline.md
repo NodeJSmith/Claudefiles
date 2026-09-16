@@ -37,7 +37,7 @@ step below already records its result durably via `cfl gate <gate_type> --verdic
 history back before deciding where to start, instead of always restarting at Step 1.
 
 Read `cfl run status` (already required for Step 1's verdict table; do this first if entering Phase 3
-directly). Two fields drive this check:
+directly). Three fields drive this check:
 
 - **`gates`** — the latest recorded verdict per run-level gate_type (`task_id` is always null for these;
   Phase 2's per-task gates are a separate concern already handled by `resume-protocol.md`).
@@ -48,6 +48,8 @@ directly). Two fields drive this check:
   5's are `final-code-reviewer`/`final-integration-reviewer` (gate_type `final-review`), and Step 2's
   `/mine-implementation-review` invocation isn't dispatch-tracked at all. Don't assume role == gate_type
   for any step other than Step 3.5.
+- **`tmpdir_exists`** — whether the tmpdir path stored in the run row still exists on disk. Checked
+  first: if false, per-step artifact files are gone and the resume-ahead logic below cannot work.
 
 **If `tmpdir_exists` is false**, the per-step artifact files this resume-ahead logic depends on
 (`<dir>/clean-code-summary.md`, `<dir>/challenge-summary.md`, `<dir>/cross-file/review.md`,
@@ -658,15 +660,13 @@ AskUserQuestion:
 
 On **Pass**: re-present the shipping gate without the "Run smoke test" option — it has been satisfied.
 
-On **Fail**: the feature is broken end-to-end. Investigate the failure with the user. If the fix
-modifies implementation code (not just configuration or test data), fix the issue and commit the
-changes, then re-run Steps 2–5 (implementation review through final review — this numeric range
-includes 3.5 and 4 as well) before re-presenting the shipping gate. The committed fix moves HEAD past
-the `reviewed_head` recorded on the earlier gates, so a session interrupted mid-re-run detects the
-staleness on resume and re-enters at Step 2 rather than skipping to the shipping gate with unreviewed
-changes. If the fix is configuration or test data only (no implementation code changed), commit and
-re-present the shipping gate directly. Re-present the shipping gate with the "Run smoke test" option
-still available so the user can re-verify after the fix.
+On **Fail**: the feature is broken end-to-end. Investigate the failure with the user. Fix the issue
+and commit the changes, then re-run Steps 2–5.6 (implementation review through the known-issues
+walkthrough — this numeric range includes 3.5, 4, 5.5, and 5.6 as well) before re-presenting the
+shipping gate. The committed fix moves HEAD past the `reviewed_head` recorded on the earlier gates, so
+a session interrupted mid-re-run detects the staleness on resume and re-enters at Step 2 rather than
+skipping to the shipping gate with unreviewed changes. Re-present the shipping gate with the "Run
+smoke test" option still available so the user can re-verify after the fix.
 
 **On "Stop here":** Leave the run active. The user can resume later.
 
