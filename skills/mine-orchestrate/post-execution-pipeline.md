@@ -64,7 +64,8 @@ earlier gate verdicts are historical context only, not something a later step ca
 | 3.5 | `ship-challenge` | a `challenge.findings-persisted` event exists for this run with `"gate_type": "ship-challenge"` in its data — **not** merely a recorded `gates` verdict; see the dedicated paragraph below |
 | 4 | `clean-code` | any verdict recorded — only recorded after severity-escalation handling completes, so a recorded verdict (of any kind) means that work already finished |
 | 5 | `final-review` | latest verdict is `PASS` |
-| 6 | `shipping-gate` | never treat as "complete, skip it" — its presence means Steps 1–5 all finished and the run is still active, which only happens after "Run smoke test" or "Stop here" was chosen. Re-enter directly at Step 6 to re-present the gate. |
+| 5.5–5.6 | `known-issues-walkthrough` | latest verdict is `PASS` — recorded only after the known-issues walkthrough fully completes; see the dedicated paragraph below |
+| 6 | `shipping-gate` | never treat as "complete, skip it" — its presence means Steps 1–5.6 all finished and the run is still active, which only happens after "Run smoke test" or "Stop here" was chosen. Re-enter directly at Step 6 to re-present the gate. |
 
 A latest verdict of `FAIL` for `impl-review`, `cross-file-review`, or `final-review` means that step's
 own gate prompt was never resolved — the interrupting session ended between recording `FAIL` and the
@@ -96,6 +97,21 @@ interrupted before completing — its findings were not recorded and can't be re
 challenge now." This replaces the prior silent re-run (which produced duplicate, contradictory findings
 and dropped unresolved ones without telling anyone) with a visible, honest one, even though the
 underlying recovery — re-run from scratch — is the same either way.
+
+**Step 5.5–5.6's completion check exists because these steps have no resume marker of their own
+otherwise.** Unlike Steps 2–5, which each write their gate verdict as part of doing the work,
+Steps 5.5/5.6 only mutate `known-issues.md` — nothing in the table above would notice if a session
+ended between `final-review: PASS` and the walkthrough finishing. Without this gate, a resume would
+see Steps 2–5 all complete and jump straight to Step 6's "never skip, re-enter directly" rule one
+step early, silently skipping the mandatory known-issues walkthrough for any new-this-run entries
+recorded in that session (this is the same silent-data-loss shape Step 3.5's event marker exists to
+prevent, applied to the next step that lacked one). Record
+`cfl gate known-issues-walkthrough --verdict PASS` at the end of Step 5.5 (when `known-issues.md`
+doesn't exist — nothing to walk through) or at the end of Step 5.6 (after every new-this-run entry
+has been asked about and the backlog choice — "Not now" or "Review them" — has been made).
+Re-entering Step 5.5 fresh on resume is always safe: it recomputes the new-this-run/backlog split
+from `known-issues.md`'s live `Status: open` field, so any entry already resolved or filed in an
+earlier session naturally drops out of the walkthrough instead of being re-asked.
 
 Re-enter Phase 3 at the first not-complete step, skipping every step before it — do not rerun a step
 whose gate already shows a complete result. Every step already recomputes the full-branch scope fresh
@@ -490,7 +506,7 @@ cfl gate final-review --verdict <PASS|FAIL> --data '{"fixed": <N>, "deferred": <
 
 ## Step 5.5: Known issues summary (automatic)
 
-Read the known-issues artifact defined by `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` if it exists. Capture every entry's ID, title, status, and `Run:` field. If the file does not exist, there is nothing to summarize or walk through — skip Step 5.6 and treat the shipping gate's known issues field as `0 open`.
+Read the known-issues artifact defined by `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` if it exists. Capture every entry's ID, title, status, and `Run:` field. If the file does not exist, there is nothing to summarize or walk through — record `cfl gate known-issues-walkthrough --verdict PASS --detail "no known issues file"`, skip Step 5.6, and treat the shipping gate's known issues field as `0 open`.
 
 Split entries with `Status: open` into two groups by comparing each entry's `Run:` field against the current `run_id` (from `cfl run status`, read fresh here — durable across a mid-run session boundary, unlike an in-context list):
 
@@ -547,6 +563,12 @@ AskUserQuestion:
 ```
 
 If "Review them," walk through each backlog entry with the same three-option AskUserQuestion used for new-this-run entries above.
+
+After the new-this-run walkthrough and the backlog choice above both complete, record:
+
+```bash
+cfl gate known-issues-walkthrough --verdict PASS
+```
 
 ## Step 6: Shipping gate
 

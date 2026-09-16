@@ -24,6 +24,7 @@ KNOWN_GATE_TYPES: frozenset[str] = frozenset(
         "cross-file-review",
         "clean-code",
         "final-review",
+        "known-issues-walkthrough",
         "shipping-gate",
         "define-blindspot",
         "define-comb",

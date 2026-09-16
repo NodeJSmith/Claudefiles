@@ -769,8 +769,8 @@ def _derive_run_level_gates(conn: sqlite3.Connection, run_id: int) -> list[dict]
     """Latest recorded verdict per run-level (task_id IS NULL) gate_type.
 
     Run-level gates are Phase 3's post-execution pipeline steps (impl-review,
-    cross-file-review, ship-challenge, clean-code, final-review, shipping-gate).
-    Returning only the latest iteration per gate_type lets a resumed session
+    cross-file-review, ship-challenge, clean-code, final-review,
+    known-issues-walkthrough, shipping-gate). Returning only the latest iteration per gate_type lets a resumed session
     tell which steps already reached a recorded result without re-deriving it
     from the full gate history.
     """

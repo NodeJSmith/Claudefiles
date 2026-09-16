@@ -296,6 +296,7 @@ def test_known_gate_types_exported():
     assert "define-challenge" in KNOWN_GATE_TYPES
     assert "sketch-challenge" in KNOWN_GATE_TYPES
     assert "ship-challenge" in KNOWN_GATE_TYPES
+    assert "known-issues-walkthrough" in KNOWN_GATE_TYPES
 
 
 def test_valid_gate_verdicts_exported():
