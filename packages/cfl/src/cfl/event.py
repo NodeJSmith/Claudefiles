@@ -46,7 +46,6 @@ KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
         "sketch.approved",
         "phase.advanced",
         "challenge.findings-persisted",
-        "orchestrate.gates-invalidated",
     }
 )
 

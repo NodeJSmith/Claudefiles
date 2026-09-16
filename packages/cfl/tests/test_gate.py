@@ -9,6 +9,7 @@ from cfl.gate import (
     record_gate,
     resolve_run_id_for_gate,
 )
+from cfl.run import _get_head_commit
 
 from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
 
@@ -323,3 +324,64 @@ def test_resolve_run_id_for_gate_missing_gate_exits_2(db_conn):
     with pytest.raises(SystemExit) as exc_info:
         resolve_run_id_for_gate(db_conn, 999999)
     assert exc_info.value.code == 2
+
+
+# ---------------------------------------------------------------------------
+# reviewed_head auto-capture
+# ---------------------------------------------------------------------------
+
+
+def test_record_gate_auto_captures_reviewed_head(db_conn, capsys):
+    """record_gate automatically stores reviewed_head (current HEAD SHA) in data."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS")
+
+    gate = db_conn.execute(
+        "SELECT data FROM gates WHERE run_id=? AND gate_type='impl-review'",
+        (run_id,),
+    ).fetchone()
+    stored = json.loads(gate["data"])
+    head = _get_head_commit()
+    assert stored["reviewed_head"] == head
+
+
+def test_record_gate_merges_reviewed_head_into_existing_data(db_conn, capsys):
+    """reviewed_head is merged into caller-supplied data, not replacing it."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(
+        db_conn,
+        run_id,
+        "ship-challenge",
+        verdict="PASS",
+        data='{"findings": 3}',
+    )
+
+    gate = db_conn.execute(
+        "SELECT data FROM gates WHERE run_id=? AND gate_type='ship-challenge'",
+        (run_id,),
+    ).fetchone()
+    stored = json.loads(gate["data"])
+    assert stored["findings"] == 3
+    assert "reviewed_head" in stored
+
+
+def test_record_gate_rejects_non_object_data(db_conn, capsys):
+    """record_gate exits 2 when --data is valid JSON but not an object."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    with pytest.raises(SystemExit) as exc_info:
+        record_gate(db_conn, run_id, "impl-review", verdict="PASS", data="[1, 2]")
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_json"
+
+
+def test_get_head_commit_returns_sha(db_conn):
+    """_get_head_commit returns a 40-char hex SHA in a git repo."""
+    head = _get_head_commit()
+    assert head != "unknown"
+    assert len(head) == 40
+    assert all(c in "0123456789abcdef" for c in head)

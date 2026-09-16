@@ -8,6 +8,7 @@ import json
 import sqlite3
 
 import cfl.output as output_module
+from cfl.run import _get_head_commit
 from cfl.session import read_context_pct
 from cfl.vocabulary import COMMON_VERDICTS
 
@@ -60,6 +61,9 @@ def record_gate(
     Atomically INSERTs into gates and emits task.gated (when task_id is set)
     or review.gated (when task_id is None) into events.
 
+    Automatically merges ``reviewed_head`` (current HEAD SHA) into the data
+    field for resume-time staleness detection.
+
     Warns to stderr for unknown gate_type but still writes.
     Exits 2 for invalid verdict.
     data must be a valid JSON string when provided.
@@ -77,15 +81,28 @@ def record_gate(
             exit_code=2,
         )
 
+    parsed: dict = {}
     if data is not None:
         try:
-            json.loads(data)
+            parsed = json.loads(data)
         except json.JSONDecodeError as exc:
             output_module.emit_error(
                 f"--data is not valid JSON: {exc}",
                 code="invalid_json",
                 exit_code=2,
             )
+        if not isinstance(parsed, dict):
+            output_module.emit_error(
+                f"--data must be a JSON object, got {type(parsed).__name__}.",
+                code="invalid_json",
+                exit_code=2,
+            )
+
+    head = _get_head_commit()
+    if head != "unknown":
+        parsed["reviewed_head"] = head
+    if parsed:
+        data = json.dumps(parsed)
 
     context_pct = read_context_pct()
 

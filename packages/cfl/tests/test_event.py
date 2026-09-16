@@ -235,7 +235,6 @@ def test_known_event_names_exported():
     assert "plan.started" in KNOWN_EVENT_NAMES
     assert "phase.advanced" in KNOWN_EVENT_NAMES
     assert "challenge.findings-persisted" in KNOWN_EVENT_NAMES
-    assert "orchestrate.gates-invalidated" in KNOWN_EVENT_NAMES
 
 
 # ---------------------------------------------------------------------------

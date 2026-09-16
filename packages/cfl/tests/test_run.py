@@ -360,7 +360,8 @@ def test_run_status_includes_run_level_gates(db_conn, tmp_path, capsys):
     assert gate_types["impl-review"]["verdict"] == "PASS"
     assert gate_types["impl-review"]["detail"] == "clean"
     assert gate_types["cross-file-review"]["verdict"] == "WARN"
-    assert gate_types["cross-file-review"]["data"] == {"findings": 1}
+    assert gate_types["cross-file-review"]["data"]["findings"] == 1
+    assert "reviewed_head" in gate_types["cross-file-review"]["data"]
 
 
 def test_run_status_gates_returns_latest_iteration_only(db_conn, tmp_path, capsys):
