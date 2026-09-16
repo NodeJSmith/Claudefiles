@@ -55,6 +55,12 @@ directly). Two fields drive this check:
 Step 1 as a fresh Phase 3 entry, and note in the initial report that the prior tmpdir was lost, so
 earlier gate verdicts are historical context only, not something a later step can read from disk.
 
+**If `gates` is empty**, no run-level gate has ever been recorded for this run — this is a genuinely
+fresh Phase 3 entry (right after Phase 2's task loop finishes), not a resume. Start at Step 1. Without
+this check, the "walk the table, find the first not-complete step" logic below would still apply (Step
+2's `impl-review` row reads as not complete the same way it would mid-resume) and skip straight past
+Step 1's mandatory verdict summary on every normal run, not just on resume.
+
 **Otherwise**, walk the steps in order and find the first one that is not yet complete:
 
 | Step | gate_type | Complete when |
@@ -66,6 +72,25 @@ earlier gate verdicts are historical context only, not something a later step ca
 | 5 | `final-review` | latest verdict is `PASS` |
 | 5.5–5.6 | `known-issues-walkthrough` | latest verdict is `PASS` — recorded only after the known-issues walkthrough fully completes; see the dedicated paragraph below |
 | 6 | `shipping-gate` | never treat as "complete, skip it" — its presence means Steps 1–5.6 all finished and the run is still active, which only happens after "Run smoke test" or "Stop here" was chosen. Re-enter directly at Step 6 to re-present the gate. |
+
+**Every row above is subject to invalidation before it counts as complete.** Step 6's smoke-test
+"Fail — needs fixing" path can require re-running Steps 2 through 5.5–5.6 after an implementation fix
+made after those steps already passed once (see its own instructions below), and records a
+`orchestrate.gates-invalidated` event for exactly this reason before making any of those code changes.
+Check whether one exists for this run (`cfl event list --event orchestrate.gates-invalidated --run
+<run_id>`; if more than one, use only the most recent) and compare its `created_at` against each
+gate_type's own latest verdict `created_at` (both already present in `cfl run status`'s `gates`
+array). A gate_type whose latest verdict is **not strictly newer than** the invalidation event (i.e.
+its `created_at` is less than or equal to the event's) counts as **not complete** regardless of its
+recorded verdict — use `<=`, not `<`, since both timestamps come from SQLite's `datetime('now')` at
+one-second resolution and a stale verdict landing in the same second as the invalidation event must
+not be mistaken for fresh. This overrides `clean-code`'s "any verdict recorded" rule (an invalidated
+verdict doesn't count as recorded for this purpose), and for Step 3.5 applies the same comparison to
+its `challenge.findings-persisted` event's `created_at` instead of a `gates` row. Resolving a tie
+toward "invalidate" only costs a redundant re-run of an already-fresh step — safe, since every step
+here is already idempotent to re-run (see Step 3.5's own paragraph below). Without this check, a
+session interrupted mid-re-run after a smoke-test fix would still see the old, now-stale PASS
+verdicts as complete and resume straight to shipping the unreviewed fix.
 
 A latest verdict of `FAIL` for `impl-review`, `cross-file-review`, or `final-review` means that step's
 own gate prompt was never resolved — the interrupting session ended between recording `FAIL` and the
@@ -626,7 +651,19 @@ AskUserQuestion:
 
 On **Pass**: re-present the shipping gate without the "Run smoke test" option — it has been satisfied.
 
-On **Fail**: the feature is broken end-to-end. Investigate the failure with the user and fix the issue. If the fix modified implementation code (not just configuration or test data), re-run Steps 2–5 (implementation review through final review) before re-presenting the shipping gate — those prior gate results are stale after code changes. Re-present the shipping gate with the "Run smoke test" option still available so the user can re-verify after the fix.
+On **Fail**: the feature is broken end-to-end. Investigate the failure with the user. If the fix will
+modify implementation code (not just configuration or test data), record the invalidation event
+*before* making any of those changes — a session interrupted after this point must not resume
+treating the now-stale Steps 2–5.5/5.6 verdicts as complete:
+
+```bash
+cfl event orchestrate.gates-invalidated --data '{"reason": "smoke-test-fix"}'
+```
+
+Then fix the issue and re-run Steps 2–5 (implementation review through final review — this numeric
+range includes 3.5 and 4 as well) before re-presenting the shipping gate; see the dedicated paragraph
+in the resume check above for how this event is used to detect staleness on resume. Re-present the
+shipping gate with the "Run smoke test" option still available so the user can re-verify after the fix.
 
 **On "Stop here":** Leave the run active. The user can resume later.
 
