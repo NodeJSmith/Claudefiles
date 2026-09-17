@@ -186,9 +186,9 @@ The current `resume-protocol.md` handles Phase 0→Phase 2 resume only. It has n
 
 1. Read `pipeline_step` and `reviewed_head` from `cfl run status`
 2. If `pipeline_step` is NULL → start Phase 3 from Step 1 (summary)
-3. If `reviewed_head` != current HEAD → reset to Step 2 (impl-review) — code changed since last review
-4. If `pipeline_step` is `shipping-gate` → Phase 3 is complete; proceed to run finalization (Step 7)
-5. If `pipeline_step` is non-NULL but not a key in `GATE_TYPE_TO_STEP` → treat as NULL (restart Phase 3 from Step 1) and surface a warning
+3. If `pipeline_step` is `shipping-gate` → Phase 3 is complete; proceed to run finalization (Step 7)
+4. If `pipeline_step` is non-NULL but not a key in `GATE_TYPE_TO_STEP` → treat as NULL (restart Phase 3 from Step 1) and surface a warning
+5. If `reviewed_head` != current HEAD → reset to Step 2 (impl-review) — code changed since last review
 6. Otherwise → jump to the step AFTER `pipeline_step` in `GATE_TYPE_TO_STEP` order and continue forward
 
 Gate verdicts remain as an audit trail. They are not read for navigation.

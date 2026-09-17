@@ -58,7 +58,7 @@ Add tests in `packages/cfl/tests/test_gate.py`. Call `record_gate()` directly (n
 3. Non-Phase-3 gate (e.g., `define-comb`) → `pipeline_step` unchanged (AC#3)
 4. Phase 3 run-level gate + any verdict → `reviewed_head` updated (AC#4)
 5. Non-Phase-3 gate → `reviewed_head` unchanged (AC#10)
-6. Task-scoped Phase-3 gate (pass `task_id="T01"`) → neither `pipeline_step` nor `reviewed_head` updated (AC#9, AC#10)
+6. Task-scoped Phase-3 gate (pass `task_id="T01"` AND `reviewed_head="abc1234"`) → neither `pipeline_step` nor `reviewed_head` updated (AC#9, AC#10) — must pass `reviewed_head` explicitly to exercise the `task_id is None` guard, otherwise the assertion is trivially true
 7. `known-issues-walkthrough` is in `KNOWN_GATE_TYPES` (AC#8)
 8. `known-issues-walkthrough` is in `GATE_TYPE_TO_STEP` (AC#8)
 
