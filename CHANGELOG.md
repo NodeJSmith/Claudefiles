@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-17
+
+### Removed
+
+- The unused Smoke Test workflow — the `## Smoke Test` section in `mine-define`/`mine-sketch` design templates, `mine-plan`'s extraction of it, and the `mine-orchestrate` shipping gate's "Run smoke test" branch. Added in #511, never exercised in practice. (#576)
+
 ## 2026-09-16
 
 ### Fixed
