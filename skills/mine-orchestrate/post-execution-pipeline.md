@@ -87,19 +87,23 @@ summary.
 automatically records `reviewed_head` (the HEAD SHA at recording time) in its `data` field — `cfl
 gate` captures this from `git rev-parse HEAD` on every call, so no per-step `--data` flag is needed.
 Before walking the table, capture the current HEAD: `current_head=$(git rev-parse HEAD)`. After
-identifying all completed steps per the checks above, find the **most recently recorded gate** among
-them — the one with the latest `created_at`, excluding `shipping-gate` (Step 6's row is never treated
-as complete, so it never participates in this lookup even if a recorded row exists from a prior
-shipping-gate presentation). If that gate's `data.reviewed_head` differs from `current_head` — or is
-absent — the code has changed since the pipeline last ran. Treat all completed steps as stale and
-re-enter at Step 2 (Step 1's verdict summary does not need re-running for staleness). This catches
-code changes from any source: the smoke-test fix path (which commits changes before re-running
-gates), manual user edits committed between sessions, rebases, or anything else that moves HEAD. A
-blanket restart from Step 2 is safe because every Phase 3 step is idempotent to re-run (see Step
-3.5's own paragraph below). Note on Step 3.5: its completion is event-based (the
-`challenge.findings-persisted` event, not a `gates` row), but `challenge-gate.md` also records a
-`ship-challenge` gate verdict in the same flow, and that gate carries `reviewed_head` — so the
-staleness lookup can still find it when Step 3.5 is the last completed step.
+identifying all completed steps per the checks above, check **every** completed gate's
+`data.reviewed_head` against `current_head`. If **any** completed gate's `reviewed_head` differs from
+`current_head` — or is absent — the code has changed since that gate ran. Treat all completed steps
+as stale and re-enter at Step 2 (Step 1's verdict summary does not need re-running for staleness).
+Checking every gate rather than only the most recent one prevents a partial re-run from masking stale
+later gates: if Step 2 gets a fresh gate matching current HEAD but Steps 3–5.6 still carry gates from
+a previous HEAD, the per-gate check catches the mismatch. Exclude `shipping-gate` from this check
+(Step 6's row is never treated as complete, so it never participates even if a recorded row exists
+from a prior shipping-gate presentation). This catches code changes from any source: the smoke-test
+fix path (which commits changes before re-running gates), manual user edits committed between
+sessions, rebases, or anything else that moves HEAD. A blanket restart from Step 2 is safe because
+every Phase 3 step is idempotent to re-run (see Step 3.5's own paragraph below). Note on Step 3.5:
+its completion is event-based (the `challenge.findings-persisted` event, not a `gates` row), but
+`challenge-gate.md` also records a `ship-challenge` gate verdict in the same flow, and that gate
+carries `reviewed_head` — so the staleness check can still find it when Step 3.5 is the last
+completed step. The `challenge.findings-persisted` event itself also carries `reviewed_head` (auto-
+captured by `cfl event`), which is checked separately — see the dedicated paragraph below.
 
 A latest verdict of `FAIL` for `impl-review`, `cross-file-review`, or `final-review` means that step's
 own gate prompt was never resolved — the interrupting session ended between recording `FAIL` and the
@@ -122,7 +126,15 @@ cfl event list --event challenge.findings-persisted --run <run_id>
 ```
 
 If no row's data contains `"gate_type": "ship-challenge"`, Step 3.5 is **not complete** regardless of
-what `gates` shows for it — re-enter Step 3.5 from its beginning. `challenge-gate.md` is idempotent to
+what `gates` shows for it — re-enter Step 3.5 from its beginning. Additionally, if a matching row
+exists, verify its `data.reviewed_head` matches `current_head` — `cfl event` auto-captures
+`reviewed_head` the same way `cfl gate` does, so a stale event from a prior challenge attempt (run
+against a different HEAD) is correctly rejected without timestamp comparison. This is a **second,
+layered** check on top of the blanket gate staleness check above: the blanket check catches the
+`ship-challenge` gate verdict's `reviewed_head` (any stale gate → restart from Step 2), while this
+event-level check catches the case where the gate was re-recorded in a fresh attempt but the
+findings-persisted event is still from a prior attempt. Both must pass for Step 3.5 to count as
+complete. `challenge-gate.md` is idempotent to
 re-run (that is the same recovery `mine-define`/`mine-sketch` rely on for their own challenge gates),
 so this does not require reconstructing partial findings. If `open_dispatches` also shows an open
 `ship-challenge` dispatch at this point, end it (`cfl dispatch end <dispatch_id>`) and say so explicitly

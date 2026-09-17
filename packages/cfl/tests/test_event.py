@@ -5,9 +5,10 @@ import os
 import sqlite3
 
 import pytest
+
 from cfl.db import setup_db
 from cfl.event import KNOWN_EVENT_NAMES, list_events, record_event
-
+from cfl.run import _get_head_commit
 from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
 
 # ---------------------------------------------------------------------------
@@ -68,6 +69,46 @@ def test_record_event_stores_detail_and_data(db_conn, capsys):
     stored = json.loads(event["data"])
     assert stored["criterion"] == "perf"
     assert stored["decision"] == "accept"
+
+
+# ---------------------------------------------------------------------------
+# reviewed_head auto-capture
+# ---------------------------------------------------------------------------
+
+
+def test_record_event_auto_captures_reviewed_head(db_conn, capsys):
+    """record_event automatically stores reviewed_head in data when data is a JSON object."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_event(
+        db_conn,
+        run_id,
+        "challenge.findings-persisted",
+        data='{"gate_type": "ship-challenge"}',
+    )
+
+    event = db_conn.execute(
+        "SELECT data FROM events WHERE run_id=? AND event='challenge.findings-persisted'",
+        (run_id,),
+    ).fetchone()
+    stored = json.loads(event["data"])
+    head = _get_head_commit()
+    assert stored["reviewed_head"] == head
+    assert stored["gate_type"] == "ship-challenge"
+
+
+def test_record_event_no_reviewed_head_without_data(db_conn, capsys):
+    """record_event does not inject reviewed_head when no --data is provided."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    insert_task(db_conn, run_id, "T01")
+
+    record_event(db_conn, run_id, "task.started", task_id="T01")
+
+    event = db_conn.execute(
+        "SELECT data FROM events WHERE run_id=? AND event='task.started'",
+        (run_id,),
+    ).fetchone()
+    assert event["data"] is None
 
 
 def test_record_event_run_id_none_allowed(db_conn, capsys):

@@ -8,6 +8,7 @@ import json
 import sqlite3
 
 import cfl.output as output_module
+from cfl.run import _get_head_commit
 from cfl.session import read_context_pct
 
 KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
@@ -102,6 +103,9 @@ def record_event(
 ) -> None:
     """Append an event to the audit trail. Fire-and-forget: never raises.
 
+    When ``data`` is a JSON object, automatically merges ``reviewed_head``
+    (current HEAD SHA) into it for resume-time staleness detection.
+
     On any exception, emits a JSON warning to stderr and returns normally.
     The caller always sees exit 0 — DB write failures are non-fatal.
     """
@@ -113,7 +117,12 @@ def record_event(
             )
 
         if data is not None:
-            json.loads(data)
+            parsed = json.loads(data)
+            if isinstance(parsed, dict):
+                head = _get_head_commit()
+                if head != "unknown":
+                    parsed["reviewed_head"] = head
+                data = json.dumps(parsed)
 
         context_pct = read_context_pct()
 
