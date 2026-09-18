@@ -468,6 +468,13 @@ AskUserQuestion:
 
 If "Review them," walk through each backlog entry with the same three-option AskUserQuestion used for new-this-run entries above.
 
+After the new-this-run and backlog handling above complete, record the gate result so
+`pipeline_step` advances past `final-review`:
+
+```bash
+cfl gate known-issues-walkthrough --verdict PASS
+```
+
 ## Step 6: Shipping gate
 
 Re-read `<feature_dir>/known-issues.md` (statuses may have changed in Step 5.6) and recount entries with `Status: open` for the shipping gate's known issues field.

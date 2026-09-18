@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Update resume protocol and pipeline skill files"
-status: "planned"
+status: "done"
 depends_on: ["T02", "T03"]
 implements: ["FR#9"]
 ---
