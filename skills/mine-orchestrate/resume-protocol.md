@@ -158,9 +158,17 @@ top of this file — no second query is needed.
    stale value) — treat it the same as NULL: start Phase 3 from Step 1, and surface a warning that
    the recorded `pipeline_step` value was unrecognized and Phase 3 is restarting from the top.
 5. **Otherwise, check staleness**: if `reviewed_head` does not match the current `git rev-parse
-   HEAD`, code changed since the last review recorded at that step. Reset to Step 2 (Implementation
-   review) in `post-execution-pipeline.md`, regardless of how far `pipeline_step` had advanced —
-   this is a resume-time re-entry decision, not a mid-pass backward jump.
+   HEAD`, code changed since the last review recorded at that step. Clear the stored position so the
+   re-review can checkpoint forward progress normally (without the monotonicity guard rejecting
+   earlier gates as backward moves):
+
+   ```bash
+   cfl set run <run_id> pipeline_step=NULL reviewed_head=NULL
+   ```
+
+   Then reset to Step 2 (Implementation review) in `post-execution-pipeline.md`, regardless of how
+   far `pipeline_step` had previously advanced — this is a resume-time re-entry decision, not a
+   mid-pass backward jump.
 6. **Otherwise** (`reviewed_head` matches current HEAD) — jump to the step immediately after
    `pipeline_step` in `GATE_TYPE_TO_STEP`'s insertion order (impl-review → cross-file-review →
    ship-challenge → clean-code → final-review → known-issues-walkthrough → shipping-gate) and
