@@ -39,7 +39,7 @@ from cfl.question import (
 )
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
-    _get_head_commit,
+    get_head_commit,
     run_advance_phase,
     run_complete,
     run_resume,
@@ -547,7 +547,7 @@ def cmd_gate(
         reviewed_head: str | None = None
         if task_id is None:
             run_cwd = ctx["run"]["cwd"] if ctx.get("run") else None
-            head = _get_head_commit(cwd=run_cwd)
+            head = get_head_commit(cwd=run_cwd)
             if head == "unknown":
                 output_module.emit_warning(
                     "Could not resolve HEAD commit; reviewed_head not updated.",

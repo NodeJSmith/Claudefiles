@@ -191,7 +191,7 @@ def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(monkeypatch):
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
-    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+    monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
 
     @contextmanager
     def conn_ok():
@@ -210,7 +210,7 @@ def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(monkeypatch):
 
 
 def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch):
-    """cmd_gate passes the active run's stored cwd to _get_head_commit, not the ambient cwd."""
+    """cmd_gate passes the active run's stored cwd to get_head_commit, not the ambient cwd."""
     mock_record = MagicMock()
     mock_ctx = {
         "active_run_id": 7,
@@ -223,7 +223,7 @@ def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch):
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
-    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+    monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
 
     @contextmanager
     def conn_ok():
@@ -248,7 +248,7 @@ def test_cmd_gate_passes_none_when_git_rev_parse_fails(monkeypatch):
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
-    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+    monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
 
     @contextmanager
     def conn_ok():
@@ -275,7 +275,7 @@ def test_cmd_gate_skips_head_capture_for_task_level_gate(monkeypatch):
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
-    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+    monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
 
     @contextmanager
     def conn_ok():

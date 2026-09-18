@@ -692,7 +692,7 @@ def _resolve_base_commit(base_commit: str | None) -> str:
     """
     if base_commit is not None:
         return base_commit
-    resolved = _get_head_commit()
+    resolved = get_head_commit()
     if resolved == "unknown":
         output_module.emit_warning(
             "Could not resolve HEAD commit; base_commit set to 'unknown'.",
@@ -719,7 +719,7 @@ def task_id_sort_key(task_id: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def _get_head_commit(*, cwd: str | None = None) -> str:
+def get_head_commit(*, cwd: str | None = None) -> str:
     """Return current HEAD commit SHA, or 'unknown' if git fails.
 
     `cwd` pins the subprocess to a specific repo (e.g. a run's stored `cwd`
