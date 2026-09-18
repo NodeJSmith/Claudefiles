@@ -14,7 +14,10 @@ import sqlite3
 import cfl.output as output_module
 from cfl.gate import GATE_TYPE_TO_STEP
 
-_SHA_PATTERN = re.compile(r"[0-9a-f]{7,40}")
+# Git's minimum unambiguous short-SHA length is 7 hex chars; a full SHA-1 is 40.
+MIN_SHA_LEN: int = 7
+MAX_SHA_LEN: int = 40
+_SHA_PATTERN = re.compile(rf"[0-9a-f]{{{MIN_SHA_LEN},{MAX_SHA_LEN}}}")
 
 VALID_ENTITIES: frozenset[str] = frozenset({"task", "run", "spec", "session"})
 

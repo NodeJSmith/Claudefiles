@@ -57,6 +57,9 @@ GATE_TYPE_TO_STEP: dict[str, str] = {
 # Shared base from vocabulary.py; extend here when gate verdicts diverge from task verdicts.
 VALID_GATE_VERDICTS: frozenset[str] = COMMON_VERDICTS
 
+# Verdicts that count as "the step is done" for pipeline_step advancement.
+ADVANCING_VERDICTS: frozenset[str] = frozenset({"PASS", "WARN"})
+
 
 def record_gate(
     conn: sqlite3.Connection,
@@ -133,37 +136,14 @@ def record_gate(
             (run_id, task_id, event_name, event_data, context_pct),
         )
 
-        step = GATE_TYPE_TO_STEP.get(gate_type)
-        if step and task_id is None and verdict in ("PASS", "WARN"):
-            step_order = list(GATE_TYPE_TO_STEP.values())
-            current_step = conn.execute(
-                "SELECT pipeline_step FROM runs WHERE id = ?", (run_id,)
-            ).fetchone()["pipeline_step"]
-            is_forward = (
-                current_step is None
-                or current_step not in step_order
-                or step_order.index(step) >= step_order.index(current_step)
-            )
-            if is_forward:
-                conn.execute(
-                    "UPDATE runs SET pipeline_step = ? WHERE id = ?",
-                    (step, run_id),
-                )
-            else:
-                output_module.emit_warning(
-                    f"Gate '{gate_type}' would move pipeline_step backward "
-                    f"(from '{current_step}' to '{step}'); not advancing. "
-                    "Use `cfl set run` to force a backward move if intentional.",
-                    code="pipeline_step_backward_move",
-                )
-        # Unlike pipeline_step above, this has no verdict check — SKIPPED (and
-        # FAIL) still update reviewed_head. Intentional: reviewed_head tracks
-        # "code as of this HEAD was seen by this step," not "this step passed."
-        if step and task_id is None and reviewed_head is not None:
-            conn.execute(
-                "UPDATE runs SET reviewed_head = ? WHERE id = ?",
-                (reviewed_head, run_id),
-            )
+        _advance_pipeline_position(
+            conn,
+            run_id,
+            gate_type,
+            task_id=task_id,
+            verdict=verdict,
+            reviewed_head=reviewed_head,
+        )
 
         conn.execute("COMMIT")
     except Exception:
@@ -180,6 +160,64 @@ def record_gate(
             "iteration": iteration,
         }
     )
+
+
+def _advance_pipeline_position(
+    conn: sqlite3.Connection,
+    run_id: int,
+    gate_type: str,
+    *,
+    task_id: str | None,
+    verdict: str,
+    reviewed_head: str | None,
+) -> None:
+    """Update runs.pipeline_step and runs.reviewed_head for a Phase 3 run-level gate.
+
+    Must be called inside record_gate()'s open transaction — issues UPDATEs
+    only, no BEGIN/COMMIT of its own. No-op when gate_type isn't in
+    GATE_TYPE_TO_STEP or task_id is set (task-scoped gates never touch
+    run-level position).
+    """
+    step = GATE_TYPE_TO_STEP.get(gate_type)
+    is_phase3_run_level = step is not None and task_id is None
+    if not is_phase3_run_level:
+        return
+
+    if verdict in ADVANCING_VERDICTS:
+        step_order = list(GATE_TYPE_TO_STEP.values())
+        current_step = conn.execute(
+            "SELECT pipeline_step FROM runs WHERE id = ?", (run_id,)
+        ).fetchone()["pipeline_step"]
+        # A pipeline_step written out-of-band (e.g. via `cfl set run`) to a
+        # value outside GATE_TYPE_TO_STEP's vocabulary is treated as unset
+        # here: recovery is "accept this gate's step and move on" rather than
+        # refusing to advance past an unrecognized value forever.
+        is_forward = (
+            current_step is None
+            or current_step not in step_order
+            or step_order.index(step) >= step_order.index(current_step)
+        )
+        if is_forward:
+            conn.execute(
+                "UPDATE runs SET pipeline_step = ? WHERE id = ?",
+                (step, run_id),
+            )
+        else:
+            output_module.emit_warning(
+                f"Gate '{gate_type}' would move pipeline_step backward "
+                f"(from '{current_step}' to '{step}'); not advancing. "
+                "Use `cfl set run` to force a backward move if intentional.",
+                code="pipeline_step_backward_move",
+            )
+
+    # Unlike pipeline_step above, this has no verdict check — SKIPPED (and
+    # FAIL) still update reviewed_head. Intentional: reviewed_head tracks
+    # "code as of this HEAD was seen by this step," not "this step passed."
+    if reviewed_head is not None:
+        conn.execute(
+            "UPDATE runs SET reviewed_head = ? WHERE id = ?",
+            (reviewed_head, run_id),
+        )
 
 
 def resolve_run_id_for_gate(conn: sqlite3.Connection, gate_id: int) -> int:
