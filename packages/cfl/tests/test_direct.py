@@ -155,10 +155,15 @@ def test_set_run_field_logs_event(db_conn, spec_and_run, capsys):
 
 
 def test_set_run_pipeline_step_succeeds(db_conn, spec_and_run, capsys):
-    """cfl set run <id> pipeline_step=impl-review updates the column."""
+    """cfl set run <id> pipeline_step=impl-review reviewed_head=abc1234 updates both columns."""
     _, run_id = spec_and_run
 
-    set_field(db_conn, "run", str(run_id), {"pipeline_step": "impl-review"})
+    set_field(
+        db_conn,
+        "run",
+        str(run_id),
+        {"pipeline_step": "impl-review", "reviewed_head": "abc1234"},
+    )
 
     row = db_conn.execute(
         "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
@@ -167,15 +172,48 @@ def test_set_run_pipeline_step_succeeds(db_conn, spec_and_run, capsys):
 
 
 def test_set_run_reviewed_head_succeeds(db_conn, spec_and_run, capsys):
-    """cfl set run <id> reviewed_head=abc1234 updates the column."""
+    """cfl set run <id> reviewed_head=abc1234 pipeline_step=null updates the column."""
     _, run_id = spec_and_run
 
-    set_field(db_conn, "run", str(run_id), {"reviewed_head": "abc1234"})
+    set_field(
+        db_conn,
+        "run",
+        str(run_id),
+        {"reviewed_head": "abc1234", "pipeline_step": None},
+    )
 
     row = db_conn.execute(
         "SELECT reviewed_head FROM runs WHERE id=?", (run_id,)
     ).fetchone()
     assert row["reviewed_head"] == "abc1234"
+
+
+def test_set_run_pipeline_step_without_reviewed_head_exits_2(
+    db_conn, spec_and_run, capsys
+):
+    """Setting pipeline_step alone (without reviewed_head) is rejected."""
+    _, run_id = spec_and_run
+
+    with pytest.raises(SystemExit) as exc_info:
+        set_field(db_conn, "run", str(run_id), {"pipeline_step": "impl-review"})
+
+    assert exc_info.value.code == 2
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "pipeline_step_reviewed_head_must_pair"
+
+
+def test_set_run_reviewed_head_without_pipeline_step_exits_2(
+    db_conn, spec_and_run, capsys
+):
+    """Setting reviewed_head alone (without pipeline_step) is rejected."""
+    _, run_id = spec_and_run
+
+    with pytest.raises(SystemExit) as exc_info:
+        set_field(db_conn, "run", str(run_id), {"reviewed_head": "abc1234"})
+
+    assert exc_info.value.code == 2
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "pipeline_step_reviewed_head_must_pair"
 
 
 def test_set_run_pipeline_step_unknown_value_emits_warning(
@@ -184,7 +222,12 @@ def test_set_run_pipeline_step_unknown_value_emits_warning(
     """Writing an out-of-vocabulary pipeline_step warns but still writes."""
     _, run_id = spec_and_run
 
-    set_field(db_conn, "run", str(run_id), {"pipeline_step": "not-a-real-step"})
+    set_field(
+        db_conn,
+        "run",
+        str(run_id),
+        {"pipeline_step": "not-a-real-step", "reviewed_head": "abc1234"},
+    )
 
     err = json.loads(capsys.readouterr().err)
     assert err["code"] == "unknown_pipeline_step"
@@ -193,6 +236,28 @@ def test_set_run_pipeline_step_unknown_value_emits_warning(
         "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
     ).fetchone()
     assert row["pipeline_step"] == "not-a-real-step"
+
+
+def test_set_run_reviewed_head_malformed_value_emits_warning(
+    db_conn, spec_and_run, capsys
+):
+    """Writing a reviewed_head that doesn't look like a git SHA warns but still writes."""
+    _, run_id = spec_and_run
+
+    set_field(
+        db_conn,
+        "run",
+        str(run_id),
+        {"reviewed_head": "not-a-sha", "pipeline_step": "impl-review"},
+    )
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "malformed_reviewed_head"
+
+    row = db_conn.execute(
+        "SELECT reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["reviewed_head"] == "not-a-sha"
 
 
 def test_set_session_field_preserves_run_id(db_conn, spec_and_run):

@@ -545,7 +545,13 @@ def cmd_gate(
     reviewed_head: str | None = None
     if task_id is None:
         head = _get_head_commit()
-        reviewed_head = None if head == "unknown" else head
+        if head == "unknown":
+            output_module.emit_warning(
+                "Could not resolve HEAD commit; reviewed_head not updated.",
+                code="reviewed_head_unknown",
+            )
+        else:
+            reviewed_head = head
     with db_connection() as conn:
         ctx = resolve_context(conn, spec_override=_spec_override)
         record_gate(

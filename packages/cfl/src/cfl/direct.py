@@ -8,10 +8,13 @@ event captures before/after state for the audit trail.
 """
 
 import json
+import re
 import sqlite3
 
 import cfl.output as output_module
 from cfl.gate import GATE_TYPE_TO_STEP
+
+_SHA_PATTERN = re.compile(r"[0-9a-f]{7,40}")
 
 VALID_ENTITIES: frozenset[str] = frozenset({"task", "run", "spec", "session"})
 
@@ -130,6 +133,20 @@ def set_field(
             exit_code=2,
         )
 
+    if (
+        entity == "run"
+        and ("pipeline_step" in fields or "reviewed_head" in fields)
+        and ("pipeline_step" not in fields or "reviewed_head" not in fields)
+    ):
+        output_module.emit_error(
+            "pipeline_step and reviewed_head must be set together via "
+            "cfl set run — setting one without the other can desync "
+            "position from a stale staleness-check value, or vice versa. "
+            "Pass both fields (use =null to clear one explicitly).",
+            code="pipeline_step_reviewed_head_must_pair",
+            exit_code=2,
+        )
+
     if entity == "run" and "pipeline_step" in fields:
         pipeline_step = fields["pipeline_step"]
         if (
@@ -140,6 +157,15 @@ def set_field(
                 f"Unknown pipeline_step '{pipeline_step}'. Known steps: "
                 f"{sorted(set(GATE_TYPE_TO_STEP.values()))}",
                 code="unknown_pipeline_step",
+            )
+
+    if entity == "run" and "reviewed_head" in fields:
+        reviewed_head = fields["reviewed_head"]
+        if reviewed_head is not None and not _SHA_PATTERN.fullmatch(reviewed_head):
+            output_module.emit_warning(
+                f"reviewed_head '{reviewed_head}' does not look like a git SHA "
+                "(expected 7-40 hex characters).",
+                code="malformed_reviewed_head",
             )
 
     table = _ENTITY_TABLE[entity]
