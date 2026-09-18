@@ -36,8 +36,23 @@ KNOWN_GATE_TYPES: frozenset[str] = frozenset(
         "define-challenge",
         "sketch-challenge",
         "ship-challenge",
+        "known-issues-walkthrough",
     }
 )
+
+# Maps Phase 3 gate types to pipeline step names (identity mapping — step
+# names ARE the gate type names). Insertion order matches the pipeline step
+# sequence and is load-bearing: resume uses it to determine "the step after
+# pipeline_step."
+GATE_TYPE_TO_STEP: dict[str, str] = {
+    "impl-review": "impl-review",
+    "cross-file-review": "cross-file-review",
+    "ship-challenge": "ship-challenge",
+    "clean-code": "clean-code",
+    "final-review": "final-review",
+    "known-issues-walkthrough": "known-issues-walkthrough",
+    "shipping-gate": "shipping-gate",
+}
 
 # Shared base from vocabulary.py; extend here when gate verdicts diverge from task verdicts.
 VALID_GATE_VERDICTS: frozenset[str] = COMMON_VERDICTS
@@ -53,11 +68,15 @@ def record_gate(
     iteration: int | None = None,
     detail: str | None = None,
     data: str | None = None,
+    reviewed_head: str | None = None,
 ) -> None:
     """Record a gate evaluation result.
 
     Atomically INSERTs into gates and emits task.gated (when task_id is set)
-    or review.gated (when task_id is None) into events.
+    or review.gated (when task_id is None) into events. For Phase 3 run-level
+    gates (task_id is None and gate_type is in GATE_TYPE_TO_STEP), also
+    advances runs.pipeline_step (on PASS/WARN) and runs.reviewed_head (when
+    reviewed_head is provided) in the same transaction.
 
     Warns to stderr for unknown gate_type but still writes.
     Exits 2 for invalid verdict.
@@ -113,6 +132,18 @@ def record_gate(
                VALUES (?, ?, ?, ?, ?, datetime('now'))""",
             (run_id, task_id, event_name, event_data, context_pct),
         )
+
+        step = GATE_TYPE_TO_STEP.get(gate_type)
+        if step and task_id is None and verdict in ("PASS", "WARN"):
+            conn.execute(
+                "UPDATE runs SET pipeline_step = ? WHERE id = ?",
+                (step, run_id),
+            )
+        if step and task_id is None and reviewed_head is not None:
+            conn.execute(
+                "UPDATE runs SET reviewed_head = ? WHERE id = ?",
+                (reviewed_head, run_id),
+            )
 
         conn.execute("COMMIT")
     except Exception:

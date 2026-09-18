@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Merge position advancement into record_gate()"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#8", "AC#1", "AC#2", "AC#3", "AC#4", "AC#8", "AC#9", "AC#10"]
 ---
