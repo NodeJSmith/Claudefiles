@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Add pipeline_step and reviewed_head columns via migration 9"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#7", "AC#7"]
 ---

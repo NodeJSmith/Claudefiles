@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 8
+SCHEMA_VERSION: int = 9
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -135,6 +135,14 @@ MIGRATIONS: dict[int, list[str]] = {
         )""",
         "CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id)",
     ],
+    # Purely additive: two nullable columns with no default and no CHECK
+    # constraint. NULL means "Phase 3 hasn't passed any gate yet." Keep these
+    # identical to the runs DDL in _SCHEMA_STATEMENTS — they are the same end
+    # state reached by two paths.
+    9: [
+        "ALTER TABLE runs ADD COLUMN pipeline_step TEXT",
+        "ALTER TABLE runs ADD COLUMN reviewed_head TEXT",
+    ],
 }
 
 _SCHEMA_STATEMENTS: list[str] = [
@@ -167,7 +175,9 @@ _SCHEMA_STATEMENTS: list[str] = [
         phase           TEXT DEFAULT 'orchestrate'
             CHECK(phase IN ('sketch', 'define', 'plan', 'orchestrate')),
         started_at      TEXT NOT NULL,
-        ended_at        TEXT
+        ended_at        TEXT,
+        pipeline_step   TEXT,
+        reviewed_head   TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_runs_spec ON runs(spec_id)",

@@ -99,7 +99,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 8
+    assert SCHEMA_VERSION == 9
 
 
 # ---------------------------------------------------------------------------
@@ -431,6 +431,91 @@ def test_migration_v8_adds_findings_table(tmp_db_path):
     assert finding["visibility"] == "presented"
 
     conn.close()
+
+
+def test_migration_v9_adds_pipeline_step_and_reviewed_head_columns(tmp_db_path):
+    """Migration v9 adds pipeline_step and reviewed_head to a populated v8 database.
+
+    Purely additive, nullable, no default — existing rows survive with both
+    columns NULL.
+    """
+    conn = sqlite3.connect(tmp_db_path, isolation_level=None)
+    create_legacy_schema(
+        conn,
+        8,
+        LEGACY_SPECS_TABLE_SQL,
+        LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+    )
+    conn.execute(
+        "INSERT INTO specs(id, number, slug, repo_url, created_at)"
+        " VALUES(1, 1, 'feat', 'https://github.com/test/repo.git', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO runs(id, spec_id, base_commit, started_at)"
+        " VALUES(1, 1, 'abc123', datetime('now'))"
+    )
+    conn.close()
+
+    conn = setup_db(tmp_db_path)
+
+    version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+    assert "pipeline_step" in cols
+    assert "reviewed_head" in cols
+
+    row = conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=1"
+    ).fetchone()
+    assert row["pipeline_step"] is None
+    assert row["reviewed_head"] is None
+
+    # No CHECK constraint — any TEXT value is accepted, including a value
+    # outside the known GATE_TYPE_TO_STEP vocabulary (soft validation only).
+    conn.execute(
+        "UPDATE runs SET pipeline_step = 'impl-review', reviewed_head = 'def456'"
+        " WHERE id = 1"
+    )
+    row = conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=1"
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+    assert row["reviewed_head"] == "def456"
+
+    conn.close()
+
+
+def test_fresh_vs_migrated_runs_schema_convergence(tmp_db_path, tmp_path):
+    """A freshly created database and a database migrated v8->v9 produce
+    identical `runs` schemas.
+
+    The `_SCHEMA_STATEMENTS`/`MIGRATIONS` duplication is hand-synced and is
+    only enforced by this convergence check.
+    """
+    fresh_conn = setup_db(tmp_db_path)
+    fresh_info = fresh_conn.execute("PRAGMA table_info(runs)").fetchall()
+    fresh_conn.close()
+
+    migrated_path = str(tmp_path / "migrated-runs.db")
+    conn = sqlite3.connect(migrated_path, isolation_level=None)
+    create_legacy_schema(
+        conn,
+        8,
+        LEGACY_SPECS_TABLE_SQL,
+        LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+    )
+    conn.close()
+
+    migrated_conn = setup_db(migrated_path)
+    migrated_version = migrated_conn.execute(
+        "SELECT MAX(version) FROM schema_version"
+    ).fetchone()[0]
+    assert migrated_version == SCHEMA_VERSION
+    migrated_info = migrated_conn.execute("PRAGMA table_info(runs)").fetchall()
+    migrated_conn.close()
+
+    assert fresh_info == migrated_info
 
 
 def test_fresh_vs_migrated_findings_schema_convergence(tmp_db_path, tmp_path):
