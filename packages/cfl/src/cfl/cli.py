@@ -542,18 +542,19 @@ def cmd_gate(
     ] = None,
 ) -> None:
     """Record a gate evaluation result."""
-    reviewed_head: str | None = None
-    if task_id is None:
-        head = _get_head_commit()
-        if head == "unknown":
-            output_module.emit_warning(
-                "Could not resolve HEAD commit; reviewed_head not updated.",
-                code="reviewed_head_unknown",
-            )
-        else:
-            reviewed_head = head
     with db_connection() as conn:
         ctx = resolve_context(conn, spec_override=_spec_override)
+        reviewed_head: str | None = None
+        if task_id is None:
+            run_cwd = ctx["run"]["cwd"] if ctx.get("run") else None
+            head = _get_head_commit(cwd=run_cwd)
+            if head == "unknown":
+                output_module.emit_warning(
+                    "Could not resolve HEAD commit; reviewed_head not updated.",
+                    code="reviewed_head_unknown",
+                )
+            else:
+                reviewed_head = head
         record_gate(
             conn,
             ctx["active_run_id"],

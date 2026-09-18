@@ -209,6 +209,35 @@ def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(monkeypatch):
     assert call.kwargs["reviewed_head"] == "abc1234"
 
 
+def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch):
+    """cmd_gate passes the active run's stored cwd to _get_head_commit, not the ambient cwd."""
+    mock_record = MagicMock()
+    mock_ctx = {
+        "active_run_id": 7,
+        "session_id": "sess",
+        "run": {"cwd": "/repo/worktree"},
+    }
+    mock_conn = MagicMock()
+    mock_get_head = MagicMock(return_value="abc1234")
+
+    monkeypatch.setattr("cfl.cli.record_gate", mock_record)
+    monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
+    monkeypatch.setattr("cfl.cli._spec_override", None)
+    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+
+    @contextmanager
+    def conn_ok():
+        yield mock_conn
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    from cfl.cli import cmd_gate
+
+    cmd_gate(gate_type="impl-review", verdict="PASS")
+
+    mock_get_head.assert_called_once_with(cwd="/repo/worktree")
+
+
 def test_cmd_gate_passes_none_when_git_rev_parse_fails(monkeypatch):
     """cmd_gate passes reviewed_head=None instead of failing when git is unavailable."""
     mock_record = MagicMock()

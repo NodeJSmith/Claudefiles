@@ -719,11 +719,17 @@ def task_id_sort_key(task_id: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def _get_head_commit() -> str:
-    """Return current HEAD commit SHA, or 'unknown' if git fails."""
+def _get_head_commit(*, cwd: str | None = None) -> str:
+    """Return current HEAD commit SHA, or 'unknown' if git fails.
+
+    `cwd` pins the subprocess to a specific repo (e.g. a run's stored `cwd`
+    column) instead of trusting the calling process's ambient working
+    directory. Defaults to the process cwd when omitted.
+    """
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
+            cwd=cwd,
             capture_output=True,
             text=True,
             check=True,
