@@ -135,10 +135,27 @@ def record_gate(
 
         step = GATE_TYPE_TO_STEP.get(gate_type)
         if step and task_id is None and verdict in ("PASS", "WARN"):
-            conn.execute(
-                "UPDATE runs SET pipeline_step = ? WHERE id = ?",
-                (step, run_id),
+            step_order = list(GATE_TYPE_TO_STEP.values())
+            current_step = conn.execute(
+                "SELECT pipeline_step FROM runs WHERE id = ?", (run_id,)
+            ).fetchone()["pipeline_step"]
+            is_forward = (
+                current_step is None
+                or current_step not in step_order
+                or step_order.index(step) >= step_order.index(current_step)
             )
+            if is_forward:
+                conn.execute(
+                    "UPDATE runs SET pipeline_step = ? WHERE id = ?",
+                    (step, run_id),
+                )
+            else:
+                output_module.emit_warning(
+                    f"Gate '{gate_type}' would move pipeline_step backward "
+                    f"(from '{current_step}' to '{step}'); not advancing. "
+                    "Use `cfl set run` to force a backward move if intentional.",
+                    code="pipeline_step_backward_move",
+                )
         if step and task_id is None and reviewed_head is not None:
             conn.execute(
                 "UPDATE runs SET reviewed_head = ? WHERE id = ?",

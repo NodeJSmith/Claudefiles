@@ -355,6 +355,37 @@ def test_record_gate_phase3_fail_does_not_advance_pipeline_step(db_conn, capsys)
     assert row["pipeline_step"] is None
 
 
+def test_record_gate_backward_move_does_not_regress_pipeline_step(db_conn, capsys):
+    """A gate call earlier in GATE_TYPE_TO_STEP order than the current step warns and does not regress pipeline_step."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "cross-file-review", verdict="PASS")
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "cross-file-review"
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "pipeline_step_backward_move"
+
+
+def test_record_gate_same_step_reissued_does_not_warn(db_conn, capsys):
+    """Re-issuing the same gate type is a no-op advance (equal index), not a backward move."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "final-review", verdict="PASS")
+    capsys.readouterr()
+    record_gate(db_conn, run_id, "final-review", verdict="PASS")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "final-review"
+    captured = capsys.readouterr()
+    assert captured.err == "" or "pipeline_step_backward_move" not in captured.err
+
+
 def test_record_gate_non_phase3_gate_does_not_advance_pipeline_step(db_conn, capsys):
     """A non-Phase-3 gate type leaves pipeline_step unchanged (AC#3)."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
