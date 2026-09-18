@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from cfl.gate import GATE_TYPE_TO_STEP
 from cfl.run import (
     run_advance_phase,
     run_complete,
@@ -330,6 +331,7 @@ def test_run_status_includes_pipeline_step_and_reviewed_head_when_set(
     data = json.loads(capsys.readouterr().out)
     assert data["pipeline_step"] == "impl-review"
     assert data["reviewed_head"] == "abc1234"
+    assert data["pipeline_steps"] == list(GATE_TYPE_TO_STEP.values())
 
 
 def test_run_status_needs_intervention_true_when_task_blocked(

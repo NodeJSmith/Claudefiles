@@ -20,6 +20,7 @@ from pathlib import Path
 import frontmatter
 
 import cfl.output as output_module
+from cfl.gate import GATE_TYPE_TO_STEP
 from cfl.session import SESSION_ID_ENV_VAR, auto_join_session
 
 STALE_RUN_HOURS: int = 4
@@ -215,6 +216,7 @@ def run_status(
             "session_count": session_count,
             "pipeline_step": run_row["pipeline_step"],
             "reviewed_head": run_row["reviewed_head"],
+            "pipeline_steps": list(GATE_TYPE_TO_STEP.values()),
         }
     )
 
