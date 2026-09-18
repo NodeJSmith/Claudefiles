@@ -8,12 +8,27 @@ import pytest
 from cfl.cli import (
     _parse_argv_for_telemetry,
     app,
+    cmd_dispatch,
     cmd_dispatch_end,
     cmd_finding_record,
     cmd_finding_record_batch,
+    cmd_gate,
+    dispatch_app,
     handle_event,
     run_app,
 )
+
+
+@pytest.fixture
+def db_connection_ok(monkeypatch):
+    """Patch cfl.cli.db_connection to yield a fresh MagicMock connection."""
+
+    @contextmanager
+    def conn_ok():
+        yield MagicMock()
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
 
 # ---------------------------------------------------------------------------
 # Command registration smoke test
@@ -69,14 +84,8 @@ def test_handle_event_does_not_raise_when_db_connection_always_fails(monkeypatch
 
 
 def test_handle_event_does_not_raise_when_event_write_fails_and_prints_warning(
-    monkeypatch, capsys
+    monkeypatch, capsys, db_connection_ok
 ):
-
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
     monkeypatch.setattr(
         "cfl.cli.resolve_context", MagicMock(side_effect=RuntimeError("no run"))
     )
@@ -98,13 +107,9 @@ def test_handle_event_does_not_raise_when_event_write_fails_and_prints_warning(
     assert "DB locked" in warning["warning"]
 
 
-def test_handle_event_does_not_raise_when_context_resolution_fails(monkeypatch):
-
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+def test_handle_event_does_not_raise_when_context_resolution_fails(
+    monkeypatch, db_connection_ok
+):
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(side_effect=SystemExit(1)))
     monkeypatch.setattr("cfl.cli.record_event", MagicMock())
 
@@ -122,15 +127,9 @@ def test_handle_event_does_not_raise_when_context_resolution_fails(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_dispatch_end_calls_end_dispatch_with_integer_id(monkeypatch):
+def test_dispatch_end_calls_end_dispatch_with_integer_id(monkeypatch, db_connection_ok):
     mock_end = MagicMock()
     monkeypatch.setattr("cfl.cli.end_dispatch", mock_end)
-
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
 
     cmd_dispatch_end(42)
 
@@ -139,28 +138,19 @@ def test_dispatch_end_calls_end_dispatch_with_integer_id(monkeypatch):
 
 
 def test_dispatch_end_rejects_non_integer_id():
-    from cfl.cli import dispatch_app
-
     with pytest.raises(SystemExit):
         dispatch_app(["end", "not-an-int"])
 
 
-def test_dispatch_create_calls_record_dispatch_with_role_and_task_id(monkeypatch):
+def test_dispatch_create_calls_record_dispatch_with_role_and_task_id(
+    monkeypatch, db_connection_ok
+):
     mock_record = MagicMock()
     mock_ctx = {"active_run_id": 7, "session_id": "sess"}
-    mock_conn = MagicMock()
 
     monkeypatch.setattr("cfl.cli.record_dispatch", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
-
-    @contextmanager
-    def conn_ok():
-        yield mock_conn
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
-    from cfl.cli import cmd_dispatch
 
     cmd_dispatch(
         role="executor",
@@ -181,25 +171,18 @@ def test_dispatch_create_calls_record_dispatch_with_role_and_task_id(monkeypatch
 # ---------------------------------------------------------------------------
 
 
-def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(monkeypatch):
+def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(
+    monkeypatch, db_connection_ok
+):
     """cmd_gate captures HEAD via git rev-parse and forwards it as reviewed_head."""
     mock_record = MagicMock()
     mock_ctx = {"active_run_id": 7, "session_id": "sess"}
-    mock_conn = MagicMock()
     mock_get_head = MagicMock(return_value="abc1234")
 
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
     monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
-
-    @contextmanager
-    def conn_ok():
-        yield mock_conn
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
-    from cfl.cli import cmd_gate
 
     cmd_gate(gate_type="impl-review", verdict="PASS")
 
@@ -209,7 +192,7 @@ def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(monkeypatch):
     assert call.kwargs["reviewed_head"] == "abc1234"
 
 
-def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch):
+def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch, db_connection_ok):
     """cmd_gate passes the active run's stored cwd to get_head_commit, not the ambient cwd."""
     mock_record = MagicMock()
     mock_ctx = {
@@ -217,7 +200,6 @@ def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch):
         "session_id": "sess",
         "run": {"cwd": "/repo/worktree"},
     }
-    mock_conn = MagicMock()
     mock_get_head = MagicMock(return_value="abc1234")
 
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
@@ -225,38 +207,21 @@ def test_cmd_gate_passes_run_cwd_to_head_capture(monkeypatch):
     monkeypatch.setattr("cfl.cli._spec_override", None)
     monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
 
-    @contextmanager
-    def conn_ok():
-        yield mock_conn
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
-    from cfl.cli import cmd_gate
-
     cmd_gate(gate_type="impl-review", verdict="PASS")
 
     mock_get_head.assert_called_once_with(cwd="/repo/worktree")
 
 
-def test_cmd_gate_passes_none_when_git_rev_parse_fails(monkeypatch):
+def test_cmd_gate_passes_none_when_git_rev_parse_fails(monkeypatch, db_connection_ok):
     """cmd_gate passes reviewed_head=None instead of failing when git is unavailable."""
     mock_record = MagicMock()
     mock_ctx = {"active_run_id": 7, "session_id": "sess"}
-    mock_conn = MagicMock()
     mock_get_head = MagicMock(return_value="unknown")
 
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
     monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
-
-    @contextmanager
-    def conn_ok():
-        yield mock_conn
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
-    from cfl.cli import cmd_gate
 
     cmd_gate(gate_type="impl-review", verdict="PASS")
 
@@ -265,25 +230,16 @@ def test_cmd_gate_passes_none_when_git_rev_parse_fails(monkeypatch):
     assert call.kwargs["reviewed_head"] is None
 
 
-def test_cmd_gate_skips_head_capture_for_task_level_gate(monkeypatch):
+def test_cmd_gate_skips_head_capture_for_task_level_gate(monkeypatch, db_connection_ok):
     """cmd_gate does not spawn a git subprocess for per-task gates (task_id set)."""
     mock_record = MagicMock()
     mock_ctx = {"active_run_id": 7, "session_id": "sess"}
-    mock_conn = MagicMock()
     mock_get_head = MagicMock(return_value="abc1234")
 
     monkeypatch.setattr("cfl.cli.record_gate", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
     monkeypatch.setattr("cfl.cli.get_head_commit", mock_get_head)
-
-    @contextmanager
-    def conn_ok():
-        yield mock_conn
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
-    from cfl.cli import cmd_gate
 
     cmd_gate(gate_type="code-review", task_id="T01", verdict="PASS")
 
@@ -337,21 +293,13 @@ def test_parse_argv_question_mine_grill_does_not_group():
     assert positional_args == ["mine-grill", "pain-point"]
 
 
-def test_dispatch_create_without_task_id_passes_none(monkeypatch):
+def test_dispatch_create_without_task_id_passes_none(monkeypatch, db_connection_ok):
     mock_record = MagicMock()
     mock_ctx = {"active_run_id": 3, "session_id": "sess"}
 
     monkeypatch.setattr("cfl.cli.record_dispatch", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
     monkeypatch.setattr("cfl.cli._spec_override", None)
-
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
-    from cfl.cli import cmd_dispatch
 
     cmd_dispatch(
         role="impl-review",
@@ -370,7 +318,7 @@ def test_dispatch_create_without_task_id_passes_none(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_finding_record_batch_derives_run_id_from_gate(monkeypatch):
+def test_finding_record_batch_derives_run_id_from_gate(monkeypatch, db_connection_ok):
     """record-batch must derive run_id from the gate it's attached to, not
     the ambiguous repo-wide active-run lookup (which returns None whenever
     more than one run is active)."""
@@ -382,12 +330,6 @@ def test_finding_record_batch_derives_run_id_from_gate(monkeypatch):
     monkeypatch.setattr("cfl.cli.resolve_run_id_for_gate", mock_resolve_gate)
     monkeypatch.setattr("cfl.cli.try_resolve_active_run_id", mock_active_run)
 
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
-
     cmd_finding_record_batch(gate_id=7, file="findings.json", source="challenge")
 
     mock_resolve_gate.assert_called_once()
@@ -397,7 +339,9 @@ def test_finding_record_batch_derives_run_id_from_gate(monkeypatch):
     assert mock_record_batch.call_args.kwargs["run_id"] == 42
 
 
-def test_finding_record_with_gate_id_derives_run_id_from_gate(monkeypatch):
+def test_finding_record_with_gate_id_derives_run_id_from_gate(
+    monkeypatch, db_connection_ok
+):
     """A single `finding record --gate-id N` derives run_id from the gate,
     same as record-batch."""
     mock_record = MagicMock()
@@ -407,12 +351,6 @@ def test_finding_record_with_gate_id_derives_run_id_from_gate(monkeypatch):
     monkeypatch.setattr("cfl.cli.record_finding", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_run_id_for_gate", mock_resolve_gate)
     monkeypatch.setattr("cfl.cli.try_resolve_active_run_id", mock_active_run)
-
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
 
     cmd_finding_record(
         "challenge",
@@ -430,7 +368,9 @@ def test_finding_record_with_gate_id_derives_run_id_from_gate(monkeypatch):
     assert mock_record.call_args.args[1] == 42
 
 
-def test_finding_record_without_gate_id_falls_back_to_active_run(monkeypatch):
+def test_finding_record_without_gate_id_falls_back_to_active_run(
+    monkeypatch, db_connection_ok
+):
     """A gate-less `finding record` (no --gate-id) keeps using the
     repo-wide active-run lookup — there's no gate to derive it from."""
     mock_record = MagicMock()
@@ -440,12 +380,6 @@ def test_finding_record_without_gate_id_falls_back_to_active_run(monkeypatch):
     monkeypatch.setattr("cfl.cli.record_finding", mock_record)
     monkeypatch.setattr("cfl.cli.resolve_run_id_for_gate", mock_resolve_gate)
     monkeypatch.setattr("cfl.cli.try_resolve_active_run_id", mock_active_run)
-
-    @contextmanager
-    def conn_ok():
-        yield MagicMock()
-
-    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
 
     cmd_finding_record(
         "challenge",
