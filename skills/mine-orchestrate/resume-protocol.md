@@ -149,18 +149,13 @@ top of this file — no second query is needed.
 1. Read `pipeline_step` and `reviewed_head` from that JSON.
 2. **If `pipeline_step` is NULL** — Phase 3 has not passed any gate yet. Start Phase 3 from Step 1
    (Summary) in `post-execution-pipeline.md`.
-3. **If `pipeline_step` is `shipping-gate`** — the user approved shipping but `/mine-ship` may not
-   have completed (the gate records the user's decision before shipping executes). Re-invoke
-   `/mine-ship` — on a clean working tree with an existing PR, commit/push is a no-op and PR
-   creation detects the existing PR. Then proceed to Step 7 (Complete the run) in
-   `post-execution-pipeline.md`.
-4. **If `pipeline_step` is non-NULL but is not a key in `GATE_TYPE_TO_STEP`** (an unrecognized or
+3. **If `pipeline_step` is non-NULL but is not a key in `GATE_TYPE_TO_STEP`** (an unrecognized or
    stale value) — treat it the same as NULL: start Phase 3 from Step 1, and surface a warning that
    the recorded `pipeline_step` value was unrecognized and Phase 3 is restarting from the top.
-5. **Otherwise, check staleness**: if `reviewed_head` does not match the current `git rev-parse
-   HEAD`, code changed since the last review recorded at that step. Clear the stored position so the
-   re-review can checkpoint forward progress normally (without the monotonicity guard rejecting
-   earlier gates as backward moves):
+4. **Check staleness**: if `reviewed_head` does not match the current `git rev-parse HEAD`, code
+   changed since the last review recorded at that step. Clear the stored position so the re-review
+   can checkpoint forward progress normally (without the monotonicity guard rejecting earlier gates
+   as backward moves):
 
    ```bash
    cfl set run <run_id> pipeline_step=NULL reviewed_head=NULL
@@ -168,7 +163,13 @@ top of this file — no second query is needed.
 
    Then reset to Step 2 (Implementation review) in `post-execution-pipeline.md`, regardless of how
    far `pipeline_step` had previously advanced — this is a resume-time re-entry decision, not a
-   mid-pass backward jump.
+   mid-pass backward jump. This check runs before the `shipping-gate` branch below so that a
+   shipping approval is never applied to a different revision than was reviewed.
+5. **If `pipeline_step` is `shipping-gate`** — the user approved shipping but `/mine-ship` may not
+   have completed (the gate records the user's decision before shipping executes). Re-invoke
+   `/mine-ship` — on a clean working tree with an existing PR, commit/push is a no-op and PR
+   creation detects the existing PR. Then proceed to Step 7 (Complete the run) in
+   `post-execution-pipeline.md`.
 6. **Otherwise** (`reviewed_head` matches current HEAD) — jump to the step immediately after
    `pipeline_step` in `GATE_TYPE_TO_STEP`'s insertion order (impl-review → cross-file-review →
    ship-challenge → clean-code → final-review → known-issues-walkthrough → shipping-gate) and
