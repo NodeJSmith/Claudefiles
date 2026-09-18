@@ -370,6 +370,29 @@ def test_record_gate_backward_move_does_not_regress_pipeline_step(db_conn, capsy
     assert err["code"] == "pipeline_step_backward_move"
 
 
+def test_record_gate_backward_move_does_not_regress_reviewed_head(db_conn, capsys):
+    """A backward-move gate call must leave reviewed_head unchanged too, not just pipeline_step.
+
+    Otherwise the staleness check (reviewed_head vs current git HEAD) can report "not stale"
+    for a later step that never actually re-ran against that HEAD.
+    """
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(
+        db_conn, run_id, "cross-file-review", verdict="PASS", reviewed_head="H1"
+    )
+    capsys.readouterr()
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="H2")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "cross-file-review"
+    assert row["reviewed_head"] == "H1"
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "pipeline_step_backward_move"
+
+
 def test_record_gate_same_step_reissued_does_not_warn(db_conn, capsys):
     """Re-issuing the same gate type is a no-op advance (equal index), not a backward move."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)

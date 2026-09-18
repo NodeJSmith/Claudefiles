@@ -183,20 +183,21 @@ def _advance_pipeline_position(
     if not is_phase3_run_level:
         return
 
+    step_order = list(GATE_TYPE_TO_STEP.values())
+    current_step = conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id = ?", (run_id,)
+    ).fetchone()["pipeline_step"]
+    # A pipeline_step written out-of-band (e.g. via `cfl set run`) to a
+    # value outside GATE_TYPE_TO_STEP's vocabulary is treated as unset
+    # here: recovery is "accept this gate's step and move on" rather than
+    # refusing to advance past an unrecognized value forever.
+    is_forward = (
+        current_step is None
+        or current_step not in step_order
+        or step_order.index(step) >= step_order.index(current_step)
+    )
+
     if verdict in ADVANCING_VERDICTS:
-        step_order = list(GATE_TYPE_TO_STEP.values())
-        current_step = conn.execute(
-            "SELECT pipeline_step FROM runs WHERE id = ?", (run_id,)
-        ).fetchone()["pipeline_step"]
-        # A pipeline_step written out-of-band (e.g. via `cfl set run`) to a
-        # value outside GATE_TYPE_TO_STEP's vocabulary is treated as unset
-        # here: recovery is "accept this gate's step and move on" rather than
-        # refusing to advance past an unrecognized value forever.
-        is_forward = (
-            current_step is None
-            or current_step not in step_order
-            or step_order.index(step) >= step_order.index(current_step)
-        )
         if is_forward:
             conn.execute(
                 "UPDATE runs SET pipeline_step = ? WHERE id = ?",
@@ -213,7 +214,11 @@ def _advance_pipeline_position(
     # Unlike pipeline_step above, this has no verdict check — SKIPPED (and
     # FAIL) still update reviewed_head. Intentional: reviewed_head tracks
     # "code as of this HEAD was seen by this step," not "this step passed."
-    if reviewed_head is not None:
+    # It IS gated on is_forward, though: a gate call for a step behind the
+    # run's current pipeline_step must not move reviewed_head forward either,
+    # or the staleness check (reviewed_head vs current git HEAD) can report
+    # "not stale" for a later step that never actually re-ran against that HEAD.
+    if reviewed_head is not None and is_forward:
         conn.execute(
             "UPDATE runs SET reviewed_head = ? WHERE id = ?",
             (reviewed_head, run_id),
