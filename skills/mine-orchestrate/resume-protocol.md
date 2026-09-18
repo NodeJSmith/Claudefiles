@@ -149,8 +149,11 @@ top of this file — no second query is needed.
 1. Read `pipeline_step` and `reviewed_head` from that JSON.
 2. **If `pipeline_step` is NULL** — Phase 3 has not passed any gate yet. Start Phase 3 from Step 1
    (Summary) in `post-execution-pipeline.md`.
-3. **If `pipeline_step` is `shipping-gate`** — Phase 3 is already complete. Skip straight to Step 7
-   (Complete the run) in `post-execution-pipeline.md`; do not re-run any earlier step.
+3. **If `pipeline_step` is `shipping-gate`** — the user approved shipping but `/mine-ship` may not
+   have completed (the gate records the user's decision before shipping executes). Re-invoke
+   `/mine-ship` — on a clean working tree with an existing PR, commit/push is a no-op and PR
+   creation detects the existing PR. Then proceed to Step 7 (Complete the run) in
+   `post-execution-pipeline.md`.
 4. **If `pipeline_step` is non-NULL but is not a key in `GATE_TYPE_TO_STEP`** (an unrecognized or
    stale value) — treat it the same as NULL: start Phase 3 from Step 1, and surface a warning that
    the recorded `pipeline_step` value was unrecognized and Phase 3 is restarting from the top.

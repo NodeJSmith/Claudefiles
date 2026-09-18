@@ -78,8 +78,8 @@ def record_gate(
     Atomically INSERTs into gates and emits task.gated (when task_id is set)
     or review.gated (when task_id is None) into events. For Phase 3 run-level
     gates (task_id is None and gate_type is in GATE_TYPE_TO_STEP), also
-    advances runs.pipeline_step (on PASS/WARN) and runs.reviewed_head (when
-    reviewed_head is provided) in the same transaction.
+    advances runs.pipeline_step (on PASS/WARN) and runs.reviewed_head (on any
+    verdict except FAIL, when reviewed_head is provided) in the same transaction.
 
     Warns to stderr for unknown gate_type but still writes.
     Exits 2 for invalid verdict.
@@ -211,14 +211,16 @@ def _advance_pipeline_position(
                 code="pipeline_step_backward_move",
             )
 
-    # Unlike pipeline_step above, this has no verdict check — SKIPPED (and
-    # FAIL) still update reviewed_head. Intentional: reviewed_head tracks
-    # "code as of this HEAD was seen by this step," not "this step passed."
-    # It IS gated on is_forward, though: a gate call for a step behind the
-    # run's current pipeline_step must not move reviewed_head forward either,
-    # or the staleness check (reviewed_head vs current git HEAD) can report
-    # "not stale" for a later step that never actually re-ran against that HEAD.
-    if reviewed_head is not None and is_forward:
+    # reviewed_head updates on any verdict except FAIL. FAIL means the step
+    # needs to re-run, so reviewed_head must stay at the previous value —
+    # otherwise resume sees reviewed_head matching HEAD and skips the failed
+    # step. SKIPPED (and any future non-FAIL verdict) means the step was at
+    # least evaluated, so the HEAD is "seen."
+    # Also gated on is_forward: a gate call for a step behind the run's
+    # current pipeline_step must not move reviewed_head forward either, or the
+    # staleness check can report "not stale" for a later step that never
+    # actually re-ran against that HEAD.
+    if reviewed_head is not None and is_forward and verdict != "FAIL":
         conn.execute(
             "UPDATE runs SET reviewed_head = ? WHERE id = ?",
             (reviewed_head, run_id),

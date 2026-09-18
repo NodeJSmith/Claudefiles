@@ -739,7 +739,7 @@ def get_head_commit(*, cwd: str | None = None) -> str:
     except (
         subprocess.CalledProcessError,
         subprocess.TimeoutExpired,
-        FileNotFoundError,
+        OSError,
     ):
         return "unknown"
 

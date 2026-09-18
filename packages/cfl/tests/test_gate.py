@@ -425,12 +425,46 @@ def test_record_gate_phase3_run_level_updates_reviewed_head(db_conn, capsys):
     """Phase 3 run-level gate with reviewed_head passed updates runs.reviewed_head (AC#4)."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_gate(db_conn, run_id, "impl-review", verdict="FAIL", reviewed_head="deadbee")
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="deadbee")
 
     row = db_conn.execute(
         "SELECT reviewed_head FROM runs WHERE id=?", (run_id,)
     ).fetchone()
     assert row["reviewed_head"] == "deadbee"
+
+
+def test_record_gate_fail_at_current_step_does_not_update_reviewed_head(
+    db_conn, capsys
+):
+    """A FAIL at the run's already-advanced current step must not update reviewed_head.
+
+    Otherwise resume sees reviewed_head matching the current git HEAD and concludes
+    the failed step isn't stale, skipping it instead of re-running it.
+    """
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="H1")
+    record_gate(db_conn, run_id, "impl-review", verdict="FAIL", reviewed_head="H2")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+    assert row["reviewed_head"] == "H1"
+
+
+def test_record_gate_skipped_at_current_step_updates_reviewed_head(db_conn, capsys):
+    """SKIPPED means the step was evaluated and doesn't need to run — reviewed_head updates."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="H1")
+    record_gate(db_conn, run_id, "impl-review", verdict="SKIPPED", reviewed_head="H2")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+    assert row["reviewed_head"] == "H2"
 
 
 def test_record_gate_non_phase3_gate_does_not_update_reviewed_head(db_conn, capsys):
