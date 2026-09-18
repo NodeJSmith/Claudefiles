@@ -156,6 +156,9 @@ def record_gate(
                     "Use `cfl set run` to force a backward move if intentional.",
                     code="pipeline_step_backward_move",
                 )
+        # Unlike pipeline_step above, this has no verdict check — SKIPPED (and
+        # FAIL) still update reviewed_head. Intentional: reviewed_head tracks
+        # "code as of this HEAD was seen by this step," not "this step passed."
         if step and task_id is None and reviewed_head is not None:
             conn.execute(
                 "UPDATE runs SET reviewed_head = ? WHERE id = ?",
