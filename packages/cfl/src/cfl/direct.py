@@ -11,6 +11,7 @@ import json
 import sqlite3
 
 import cfl.output as output_module
+from cfl.gate import GATE_TYPE_TO_STEP
 
 VALID_ENTITIES: frozenset[str] = frozenset({"task", "run", "spec", "session"})
 
@@ -53,6 +54,8 @@ ENTITY_COLUMNS: dict[str, frozenset[str]] = {
             "cwd",
             "started_at",
             "ended_at",
+            "pipeline_step",
+            "reviewed_head",
         }
     ),
     "spec": frozenset(
@@ -126,6 +129,18 @@ def set_field(
             code="unknown_field",
             exit_code=2,
         )
+
+    if entity == "run" and "pipeline_step" in fields:
+        pipeline_step = fields["pipeline_step"]
+        if (
+            pipeline_step is not None
+            and pipeline_step not in GATE_TYPE_TO_STEP.values()
+        ):
+            output_module.emit_warning(
+                f"Unknown pipeline_step '{pipeline_step}'. Known steps: "
+                f"{sorted(set(GATE_TYPE_TO_STEP.values()))}",
+                code="unknown_pipeline_step",
+            )
 
     table = _ENTITY_TABLE[entity]
 

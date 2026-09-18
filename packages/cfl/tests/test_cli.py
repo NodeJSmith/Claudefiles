@@ -177,6 +177,94 @@ def test_dispatch_create_calls_record_dispatch_with_role_and_task_id(monkeypatch
 
 
 # ---------------------------------------------------------------------------
+# cmd_gate: auto-captures reviewed_head via git rev-parse HEAD
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_gate_passes_reviewed_head_from_git_rev_parse(monkeypatch):
+    """cmd_gate captures HEAD via git rev-parse and forwards it as reviewed_head."""
+    mock_record = MagicMock()
+    mock_ctx = {"active_run_id": 7, "session_id": "sess"}
+    mock_conn = MagicMock()
+    mock_get_head = MagicMock(return_value="abc1234")
+
+    monkeypatch.setattr("cfl.cli.record_gate", mock_record)
+    monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
+    monkeypatch.setattr("cfl.cli._spec_override", None)
+    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+
+    @contextmanager
+    def conn_ok():
+        yield mock_conn
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    from cfl.cli import cmd_gate
+
+    cmd_gate(gate_type="impl-review", verdict="PASS")
+
+    mock_get_head.assert_called_once()
+    mock_record.assert_called_once()
+    call = mock_record.call_args
+    assert call.kwargs["reviewed_head"] == "abc1234"
+
+
+def test_cmd_gate_passes_none_when_git_rev_parse_fails(monkeypatch):
+    """cmd_gate passes reviewed_head=None instead of failing when git is unavailable."""
+    mock_record = MagicMock()
+    mock_ctx = {"active_run_id": 7, "session_id": "sess"}
+    mock_conn = MagicMock()
+    mock_get_head = MagicMock(return_value="unknown")
+
+    monkeypatch.setattr("cfl.cli.record_gate", mock_record)
+    monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
+    monkeypatch.setattr("cfl.cli._spec_override", None)
+    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+
+    @contextmanager
+    def conn_ok():
+        yield mock_conn
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    from cfl.cli import cmd_gate
+
+    cmd_gate(gate_type="impl-review", verdict="PASS")
+
+    mock_record.assert_called_once()
+    call = mock_record.call_args
+    assert call.kwargs["reviewed_head"] is None
+
+
+def test_cmd_gate_skips_head_capture_for_task_level_gate(monkeypatch):
+    """cmd_gate does not spawn a git subprocess for per-task gates (task_id set)."""
+    mock_record = MagicMock()
+    mock_ctx = {"active_run_id": 7, "session_id": "sess"}
+    mock_conn = MagicMock()
+    mock_get_head = MagicMock(return_value="abc1234")
+
+    monkeypatch.setattr("cfl.cli.record_gate", mock_record)
+    monkeypatch.setattr("cfl.cli.resolve_context", MagicMock(return_value=mock_ctx))
+    monkeypatch.setattr("cfl.cli._spec_override", None)
+    monkeypatch.setattr("cfl.cli._get_head_commit", mock_get_head)
+
+    @contextmanager
+    def conn_ok():
+        yield mock_conn
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    from cfl.cli import cmd_gate
+
+    cmd_gate(gate_type="code-review", task_id="T01", verdict="PASS")
+
+    mock_get_head.assert_not_called()
+    mock_record.assert_called_once()
+    call = mock_record.call_args
+    assert call.kwargs["reviewed_head"] is None
+
+
+# ---------------------------------------------------------------------------
 # _parse_argv_for_telemetry: grouped command detection
 # ---------------------------------------------------------------------------
 

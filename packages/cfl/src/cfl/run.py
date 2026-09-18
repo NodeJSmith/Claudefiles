@@ -213,6 +213,8 @@ def run_status(
             "current_task": current_task,
             "needs_intervention": needs_intervention,
             "session_count": session_count,
+            "pipeline_step": run_row["pipeline_step"],
+            "reviewed_head": run_row["reviewed_head"],
         }
     )
 

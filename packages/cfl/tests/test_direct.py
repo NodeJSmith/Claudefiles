@@ -154,6 +154,47 @@ def test_set_run_field_logs_event(db_conn, spec_and_run, capsys):
     assert data["id"] == str(run_id)
 
 
+def test_set_run_pipeline_step_succeeds(db_conn, spec_and_run, capsys):
+    """cfl set run <id> pipeline_step=impl-review updates the column."""
+    _, run_id = spec_and_run
+
+    set_field(db_conn, "run", str(run_id), {"pipeline_step": "impl-review"})
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+
+
+def test_set_run_reviewed_head_succeeds(db_conn, spec_and_run, capsys):
+    """cfl set run <id> reviewed_head=abc1234 updates the column."""
+    _, run_id = spec_and_run
+
+    set_field(db_conn, "run", str(run_id), {"reviewed_head": "abc1234"})
+
+    row = db_conn.execute(
+        "SELECT reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["reviewed_head"] == "abc1234"
+
+
+def test_set_run_pipeline_step_unknown_value_emits_warning(
+    db_conn, spec_and_run, capsys
+):
+    """Writing an out-of-vocabulary pipeline_step warns but still writes."""
+    _, run_id = spec_and_run
+
+    set_field(db_conn, "run", str(run_id), {"pipeline_step": "not-a-real-step"})
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "unknown_pipeline_step"
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "not-a-real-step"
+
+
 def test_set_session_field_preserves_run_id(db_conn, spec_and_run):
     """set_field for 'session' entity writes the session's run_id on the audit event."""
     spec_id, run_id = spec_and_run

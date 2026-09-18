@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Expose position in run_status and wire CLI auto-capture"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#5", "FR#6", "AC#5", "AC#6"]
 ---

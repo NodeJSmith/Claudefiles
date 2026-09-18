@@ -39,6 +39,7 @@ from cfl.question import (
 )
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
+    _get_head_commit,
     run_advance_phase,
     run_complete,
     run_resume,
@@ -541,6 +542,10 @@ def cmd_gate(
     ] = None,
 ) -> None:
     """Record a gate evaluation result."""
+    reviewed_head: str | None = None
+    if task_id is None:
+        head = _get_head_commit()
+        reviewed_head = None if head == "unknown" else head
     with db_connection() as conn:
         ctx = resolve_context(conn, spec_override=_spec_override)
         record_gate(
@@ -552,6 +557,7 @@ def cmd_gate(
             iteration=iteration,
             detail=detail,
             data=data,
+            reviewed_head=reviewed_head,
         )
 
 
