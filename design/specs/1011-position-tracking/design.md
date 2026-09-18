@@ -1,7 +1,7 @@
 # Design: Explicit Position Tracking
 
 **Date:** 2026-09-17
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Research:** design/research/2026-09-17-position-tracking/research.md
 
