@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-18
+
+### Changed
+
+- `mine-orchestrate` Phase 3 resume now reads an authoritative `pipeline_step` recorded on the run itself instead of deriving position from gate history — `cfl run status` exposes `pipeline_step` and `reviewed_head` for both internal resume and the Dotfiles auto-reset consumer. (#577)
+
 ## 2026-09-17
 
 ### Removed
