@@ -20,6 +20,7 @@ from pathlib import Path
 import frontmatter
 
 import cfl.output as output_module
+from cfl.gate import GATE_TYPE_TO_STEP
 from cfl.session import SESSION_ID_ENV_VAR, auto_join_session
 
 STALE_RUN_HOURS: int = 4
@@ -213,6 +214,9 @@ def run_status(
             "current_task": current_task,
             "needs_intervention": needs_intervention,
             "session_count": session_count,
+            "pipeline_step": run_row["pipeline_step"],
+            "reviewed_head": run_row["reviewed_head"],
+            "pipeline_steps": list(GATE_TYPE_TO_STEP.values()),
         }
     )
 
@@ -688,7 +692,7 @@ def _resolve_base_commit(base_commit: str | None) -> str:
     """
     if base_commit is not None:
         return base_commit
-    resolved = _get_head_commit()
+    resolved = get_head_commit()
     if resolved == "unknown":
         output_module.emit_warning(
             "Could not resolve HEAD commit; base_commit set to 'unknown'.",
@@ -715,11 +719,17 @@ def task_id_sort_key(task_id: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def _get_head_commit() -> str:
-    """Return current HEAD commit SHA, or 'unknown' if git fails."""
+def get_head_commit(*, cwd: str | None = None) -> str:
+    """Return current HEAD commit SHA, or 'unknown' if git fails.
+
+    `cwd` pins the subprocess to a specific repo (e.g. a run's stored `cwd`
+    column) instead of trusting the calling process's ambient working
+    directory. Defaults to the process cwd when omitted.
+    """
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
+            cwd=cwd,
             capture_output=True,
             text=True,
             check=True,
@@ -729,7 +739,7 @@ def _get_head_commit() -> str:
     except (
         subprocess.CalledProcessError,
         subprocess.TimeoutExpired,
-        FileNotFoundError,
+        OSError,
     ):
         return "unknown"
 

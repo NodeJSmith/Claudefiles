@@ -4,6 +4,7 @@ import json
 
 import pytest
 from cfl.gate import (
+    GATE_TYPE_TO_STEP,
     KNOWN_GATE_TYPES,
     VALID_GATE_VERDICTS,
     record_gate,
@@ -322,3 +323,190 @@ def test_resolve_run_id_for_gate_missing_gate_exits_2(db_conn):
     with pytest.raises(SystemExit) as exc_info:
         resolve_run_id_for_gate(db_conn, 999999)
     assert exc_info.value.code == 2
+
+
+# ---------------------------------------------------------------------------
+# Position advancement (FR#1, FR#2, FR#3, FR#4, FR#8, AC#1, AC#2, AC#3, AC#4,
+# AC#8, AC#9, AC#10)
+# ---------------------------------------------------------------------------
+
+
+def test_record_gate_phase3_pass_advances_pipeline_step(db_conn, capsys):
+    """Phase 3 run-level gate + PASS advances pipeline_step to the gate type name (AC#1)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+
+
+def test_record_gate_phase3_fail_does_not_advance_pipeline_step(db_conn, capsys):
+    """Phase 3 run-level gate + FAIL leaves pipeline_step unchanged (AC#2)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="FAIL")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] is None
+
+
+def test_record_gate_backward_move_does_not_regress_pipeline_step(db_conn, capsys):
+    """A gate call earlier in GATE_TYPE_TO_STEP order than the current step warns and does not regress pipeline_step."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "cross-file-review", verdict="PASS")
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "cross-file-review"
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "pipeline_step_backward_move"
+
+
+def test_record_gate_backward_move_does_not_regress_reviewed_head(db_conn, capsys):
+    """A backward-move gate call must leave reviewed_head unchanged too, not just pipeline_step.
+
+    Otherwise the staleness check (reviewed_head vs current git HEAD) can report "not stale"
+    for a later step that never actually re-ran against that HEAD.
+    """
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(
+        db_conn, run_id, "cross-file-review", verdict="PASS", reviewed_head="H1"
+    )
+    capsys.readouterr()
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="H2")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "cross-file-review"
+    assert row["reviewed_head"] == "H1"
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "pipeline_step_backward_move"
+
+
+def test_record_gate_same_step_reissued_does_not_warn(db_conn, capsys):
+    """Re-issuing the same gate type is a no-op advance (equal index), not a backward move."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "final-review", verdict="PASS")
+    capsys.readouterr()
+    record_gate(db_conn, run_id, "final-review", verdict="PASS")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "final-review"
+    captured = capsys.readouterr()
+    assert captured.err == "" or "pipeline_step_backward_move" not in captured.err
+
+
+def test_record_gate_non_phase3_gate_does_not_advance_pipeline_step(db_conn, capsys):
+    """A non-Phase-3 gate type leaves pipeline_step unchanged (AC#3)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "define-comb", verdict="PASS")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] is None
+
+
+def test_record_gate_phase3_run_level_updates_reviewed_head(db_conn, capsys):
+    """Phase 3 run-level gate with reviewed_head passed updates runs.reviewed_head (AC#4)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="deadbee")
+
+    row = db_conn.execute(
+        "SELECT reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["reviewed_head"] == "deadbee"
+
+
+def test_record_gate_fail_at_current_step_does_not_update_reviewed_head(
+    db_conn, capsys
+):
+    """A FAIL at the run's already-advanced current step must not update reviewed_head.
+
+    Otherwise resume sees reviewed_head matching the current git HEAD and concludes
+    the failed step isn't stale, skipping it instead of re-running it.
+    """
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="H1")
+    record_gate(db_conn, run_id, "impl-review", verdict="FAIL", reviewed_head="H2")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+    assert row["reviewed_head"] == "H1"
+
+
+def test_record_gate_skipped_at_current_step_updates_reviewed_head(db_conn, capsys):
+    """SKIPPED means the step was evaluated and doesn't need to run — reviewed_head updates."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "impl-review", verdict="PASS", reviewed_head="H1")
+    record_gate(db_conn, run_id, "impl-review", verdict="SKIPPED", reviewed_head="H2")
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] == "impl-review"
+    assert row["reviewed_head"] == "H2"
+
+
+def test_record_gate_non_phase3_gate_does_not_update_reviewed_head(db_conn, capsys):
+    """A non-Phase-3 gate type leaves reviewed_head unchanged, even if passed (AC#10)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_gate(db_conn, run_id, "define-comb", verdict="PASS", reviewed_head="deadbee")
+
+    row = db_conn.execute(
+        "SELECT reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["reviewed_head"] is None
+
+
+def test_record_gate_task_scoped_phase3_gate_does_not_advance_position(db_conn, capsys):
+    """A task-scoped gate reusing a Phase-3 gate type name must not advance
+    pipeline_step or reviewed_head (AC#9, AC#10)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    insert_task(db_conn, run_id, "T01")
+
+    record_gate(
+        db_conn,
+        run_id,
+        "impl-review",
+        task_id="T01",
+        verdict="PASS",
+        reviewed_head="abc1234",
+    )
+
+    row = db_conn.execute(
+        "SELECT pipeline_step, reviewed_head FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert row["pipeline_step"] is None
+    assert row["reviewed_head"] is None
+
+
+def test_known_issues_walkthrough_in_known_gate_types():
+    """known-issues-walkthrough is a recognized gate type (FR#8, AC#8)."""
+    assert "known-issues-walkthrough" in KNOWN_GATE_TYPES
+
+
+def test_known_issues_walkthrough_in_gate_type_to_step():
+    """known-issues-walkthrough maps to a pipeline step (FR#8, AC#8)."""
+    assert "known-issues-walkthrough" in GATE_TYPE_TO_STEP
+    assert GATE_TYPE_TO_STEP["known-issues-walkthrough"] == "known-issues-walkthrough"

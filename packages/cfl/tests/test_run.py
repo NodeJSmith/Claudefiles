@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from cfl.gate import GATE_TYPE_TO_STEP
 from cfl.run import (
     run_advance_phase,
     run_complete,
@@ -303,6 +304,34 @@ def test_run_status_returns_all_fields_with_correct_derivation(
     assert data["needs_intervention"] is False
     assert "tmpdir_exists" in data
     assert "session_count" in data
+    assert data["pipeline_step"] is None
+    assert data["reviewed_head"] is None
+
+
+def test_run_status_includes_pipeline_step_and_reviewed_head_when_set(
+    db_conn, tmp_path, capsys
+):
+    """run_status surfaces pipeline_step/reviewed_head directly from the run row."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    make_task_file(spec_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+
+    run_start(
+        db_conn, spec_id, feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()  # consume run_start output
+
+    db_conn.execute(
+        "UPDATE runs SET pipeline_step='impl-review', reviewed_head='abc1234' WHERE id=?",
+        (run_id,),
+    )
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["pipeline_step"] == "impl-review"
+    assert data["reviewed_head"] == "abc1234"
+    assert data["pipeline_steps"] == list(GATE_TYPE_TO_STEP.values())
 
 
 def test_run_status_needs_intervention_true_when_task_blocked(
