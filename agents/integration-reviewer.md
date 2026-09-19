@@ -230,12 +230,6 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Also check: does every emitter/producer of the parent type have a code path that produces the new value when appropriate? A new status that can never be emitted is dead code.
 - This dimension fires **only** when the diff introduces a new variant — if no new enum member, literal, or status value was added, mark as N/A
 
-#### 12. CLAUDE.md staleness
-- The diff changes code that a nearby CLAUDE.md file describes — does the CLAUDE.md still accurately reflect the code after this change?
-- Check: do any review questions, contracts, or data-flow descriptions in the CLAUDE.md reference behavior this diff has altered?
-- A CLAUDE.md with a stale claim is worse than no CLAUDE.md — it will confidently mislead future reviewers. Flag stale entries at MEDIUM severity.
-- If no CLAUDE.md exists in the affected directories, mark as N/A.
-
 </checklist>
 
 ---
