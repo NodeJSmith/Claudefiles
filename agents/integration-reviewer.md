@@ -320,7 +320,7 @@ After all findings, print a summary table:
 **Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 ```
 
-`N` = total count of all findings listed in the dimension table above, introduced by this change. `C`, `H`, `M`, `L` = per-severity counts. Do not count findings listed under `## Pre-existing Issues`. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
+`N` = total count of all findings listed in the dimension table above. `C`, `H`, `M`, `L` = per-severity counts. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
 
 **Verdict criteria:**
 - **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, or UNHANDLED_VARIANT finding
@@ -331,15 +331,9 @@ After all findings, print a summary table:
 
 ---
 
-### Step 6: Separate Pre-existing Issues
+### Step 6: Report All Issues Found
 
-If you notice issues in **unchanged** sibling files (not introduced by this diff), before labeling them pre-existing, confirm the file is actually unchanged since the default branch per the procedure in `rules/common/pre-existing-verification.md` (use `git-default-branch`, not `git-branch-base`, which resolves the closest branch rather than the default one) — not merely absent from the diff you were handed (which, on a `HEAD`- or upstream-scoped discovery cascade, may already sit several commits past the default branch). If confirmed, note it at the end under:
-
-```text
-## Pre-existing Issues (verified unchanged since the default branch)
-```
-
-If you have not verified it against the default branch, either skip the note (it's simply outside your review scope) or label it "outside this diff's scope, unverified against the default branch" — never "pre-existing" without the check. See `rules/common/pre-existing-verification.md`. Do not include verified pre-existing items in the verdict. Don't block a PR for debt confirmed to predate it.
+Report any issue you find in the code under review, regardless of whether this diff introduced it. A bug the diff touches, exposes, or makes reachable through new surfaces is a finding. Do not dismiss findings as "pre-existing" or "out of scope." If the code under review has a problem, report it — note when it was introduced if you know, but do not use that as a reason to omit it.
 
 ---
 

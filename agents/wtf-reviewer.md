@@ -129,7 +129,7 @@ End with:
 - Test files (unless the test is more complex than the code it tests)
 - Generated code, vendored files, or lock files
 - Working code that follows the project's established patterns even if you'd do it differently
-- Pre-existing issues in unchanged code — verify per the procedure in `rules/common/pre-existing-verification.md` (use `git-default-branch`, not `git-branch-base`, which resolves the closest branch rather than the default one) before calling it pre-existing, not just "outside this diff" (note separately if notable)
+- Report any readability issue you find in the code under review, regardless of whether this diff introduced it — do not dismiss findings as "pre-existing" or "out of scope"
 - LLM-specific smell patterns — those belong to the `llm-checker` agent
 
 ## What This Agent Does NOT Do

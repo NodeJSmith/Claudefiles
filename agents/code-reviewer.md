@@ -69,59 +69,49 @@ When invoked:
 
 <checklist>
 
+## Review Lenses
+
+Review the diff through all four lenses below. Each lens is a specific question to ask of the code — not a category to sort findings into. For each lens, trace the actual code paths before concluding.
+
+### 1. Error and Failure Paths
+
+How does the code behave when things go wrong?
+- **Sibling symmetry**: when two functions are declared as mirrors/siblings/wrappers of each other, diff their control flow line-by-line. If one has error handling the other lacks, that's a finding.
+- **Exception isolation**: when a loop or pipeline claims per-item error isolation, check whether ALL statements that can raise are inside the try/except — setup code, probes, and commit calls outside the boundary break the isolation claim.
+- **Timeout composition**: when two independent timeout/deadline mechanisms apply to the same call path, check whether the outer one accounts for the inner one's overhead.
+
+### 2. Cross-Surface Contract Consistency
+
+Do the backend model, API routes, CLI, and frontend agree?
+- **Field propagation**: for every new field added to a model, grep it across all changed files and verify every consumer reads it, writes it, and includes it in output. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal.
+- **Schema vs actual contract**: if a model has `field: X = default` but every constructor always passes the field explicitly, the default weakens the contract (makes "always present" look "optional").
+- **Stated invariants as claims to verify**: when a docstring says "this mirrors X" or "this field is always present," verify the claim against the code rather than treating the docstring as established fact.
+
+### 3. Authorization and Scope Boundaries
+
+Can operations be invoked in contexts where they shouldn't be?
+- **Guard completeness**: when a guard exists (is_blocked, is_disabled, permission check), trace whether it runs on ALL paths that reach the protected operation — API routes, CLI commands, frontend buttons. A guard that only runs in the service layer but not the route layer produces a false success response.
+- **Guard signaling**: a guard that returns normally instead of raising lets the caller fall through to a success response. Check return vs raise.
+
+### 4. Data Completeness
+
+Does the data source backing each UI surface include all entities it claims to represent?
+- **Derived counts and lists**: when a count or list drives user-visible controls (showing/hiding buttons, rendering rows), check whether the underlying data source covers every state an entity can be in. A list that only includes "tracked" items silently hides stopped/configured-but-never-started items.
+- **Name resolution completeness**: when a name-to-ID lookup iterates a data source, check whether that source includes all resolvable entities or just a subset.
+- **Unnecessary dependencies**: when an operation doesn't need a data source to function (e.g., a numeric ID needs no name resolution), check whether the code fetches it anyway — creating a dependency on an unrelated service.
+
 ## Security (CRITICAL)
 
 Flag injection (SQL/command/eval-exec), path traversal, unsafe deserialization (pickle, `yaml.load` without Loader), hardcoded secrets, and weak crypto (MD5/SHA1 for security).
 
-## Spec Verification (HIGH)
+## Severity Definitions
 
-Do not trust the implementer's self-reported status:
+Anchor severity to observable consequences, not subjective judgment:
 
-- Read the actual code against the spec — verify behavior, not just function signatures
-- Check edge cases mentioned in the spec are handled
-- Verify error paths are implemented, not just the happy path
-- Look for gaps between what the spec says and what the code does
-- Look for unrequested scope additions
-
-## Code Quality (HIGH)
-
-Apply the rules from `rules/common/python.md` (auto-loaded) and general best practices. Flag bare excepts/swallowed exceptions, mutable default arguments, resource leaks, functions over 50 lines or nesting over 4 levels, reimplemented stdlib, and missing `if __name__ == "__main__"` guards on scripts.
-
-Do not add verbose examples for patterns the model already knows. Flag the issue, cite the line, show the fix.
-
-## Performance (MEDIUM)
-
-Flag N+1 queries (database calls in loops) and unnecessary list materialization where a generator suffices.
-
-## LLM-Specific Smells (MEDIUM)
-
-LLM-generated code compiles and passes tests but degrades codebases through patterns that traditional review misses. Flag these with severity MEDIUM unless they compound (multiple smells in the same function → HIGH).
-
-### Happy Path Assumption
-
-LLMs systematically assume ideal conditions. Look for:
-- **Undifferentiated catch blocks** — `except Exception` or `catch (e)` that handle all errors identically instead of distinguishing recoverable from fatal
-- **Missing timeouts** — HTTP calls, database queries, or external service calls with no timeout parameter
-- **No retry logic** on idempotent operations that can transiently fail (network calls, file locks)
-- **Missing connection pooling** — creating new connections per request instead of reusing
-
-The code looks correct — the issue is what's *absent*. Ask: "what happens when this call takes 30 seconds or returns an unexpected error?"
-
-### Verbose Overengineering
-
-LLMs pattern-match to "production-ready" training examples and over-apply enterprise patterns:
-- **Premature abstraction** — factory/strategy/repository patterns applied where a plain function suffices; extract only when there are 2+ concrete callers
-- **"Universal" components** — a single class/component handling multiple dissimilar cases via conditional branches instead of separate focused implementations
-- **Excessive error handling** — try/except around operations that cannot fail in context (e.g., accessing a key that was just validated, catching TypeError on a statically-typed argument)
-- **Bloated tests** — unnecessary mocking of internal collaborators, redundant assertions that test the same behavior multiple ways, test setup that exceeds the test body
-
-### Readability Smells
-
-- **Nested ternaries** — ternary expressions nested more than one level deep; use if/elif or a mapping instead
-- **Complex boolean expressions** — conditions with 3+ clauses and mixed `and`/`or` without extraction to a named variable or function
-- **Magic numbers/strings** — unexplained literal values in logic (not in tests, config defaults, or well-known constants like HTTP status codes)
-- **Type assertions defeating safety** — `as unknown as X`, `cast()`, `# type: ignore` that bypass the type system instead of fixing the underlying type mismatch
-- **Copy-paste within a file** — two or more blocks in the same file with near-identical structure differing only in field names or literals; should be a loop, mapping, or shared helper
+- **CRITICAL** — If this ships, the damage is unrecoverable or silent. Data loss, auth/permission bypass, silent data corruption, an irreversible migration, a break in a contract other code depends on and cannot detect.
+- **HIGH** — If this ships, something breaks visibly and we can fix forward. A 500 on a real input path, a swallowed error that hides a failure, a race that corrupts one request, a guard that doesn't guard.
+- **MEDIUM** — A real bug with limited blast radius, or a contract inconsistency that hasn't broken yet but will when the next consumer arrives.
+- **LOW** — No runtime consequence today. It costs someone time later.
 
 </checklist>
 
@@ -149,11 +139,13 @@ The standard diagnostic tools above (ruff, pyright, bandit, etc.) have their own
 ## Critical Rules
 
 - **Every finding must include a fix** — show corrected code, not just the problem
+- **Finding nothing is a valid result** — a review with zero findings and a clear PASS is more valuable than manufactured findings. LLMs systematically overcorrect — flagging correct code as wrong. If you don't find real bugs, say so and stop.
 - **Don't mark nitpicks as CRITICAL** — severity inflation makes reviews useless. See Nitpick Gravity in Lead-Judgment Self-Check
 - **Don't review whitespace-only changes, renames, or auto-generated files** — skip silently
 - **Don't flag formatter-fixable issues** — if `ruff format`, `prettier`, or the project's formatter would auto-fix it, it's not a review finding. The executor runs lint/format before finishing; the Step 9 gate catches regressions. Review logic and correctness, not formatting.
-- **Pre-existing issues**: flag separately as "Pre-existing (verified unchanged since the default branch)" — verify per the procedure in `rules/common/pre-existing-verification.md` (use `git-default-branch`, not `git-branch-base`, which resolves the closest branch rather than the default one). Being outside the diff you were handed is not proof it's on the default branch, since that diff may start after other commits on this branch. If unverified, say "outside this diff's scope" instead. Don't block on debt confirmed to predate the change.
+- **Report any bug you find, regardless of whether this diff introduced it.** A bug the diff touches, exposes, or makes reachable through new surfaces is a finding. Do not dismiss findings as "pre-existing" or "out of scope." If the code under review has a bug, report it — the question of when it was introduced belongs in the write-up, not in the decision to report.
 - **MEDIUM in test code** is lower priority than MEDIUM in production code
+- **Do not report** formatting, naming, import order, comment style, "consider extracting this into a helper," test coverage where behavior did not change, or library/idiom preferences
 
 ## Lead-Judgment Self-Check
 
@@ -195,14 +187,20 @@ Don't use these filters to dismiss findings that make you uncomfortable. Signs a
 
 ## Review Output Format
 
-Start with a **Strengths** section — what the implementation does well. Then findings:
+Start with a **Strengths** section — what the implementation does well. Then findings, each with these fields:
 
 ```text
 [CRITICAL] SQL Injection vulnerability
 File: app/routes/user.py:42
 Issue: User input directly interpolated into SQL query
+Trigger: POST /api/users with name="'; DROP TABLE users;--"
+Consequence: Arbitrary SQL execution — data loss or exfiltration
+Confidence: high
+Falsifier: Show that user_id is validated/parameterized before reaching this line
 Fix: Use parameterized query — cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
 ```
+
+**Trigger** names a concrete input, state, or call sequence that reaches the bug. **Falsifier** names what evidence would prove the finding wrong. If you cannot fill both, downgrade to LOW and label the issue "unverified pattern match." **Confidence** is high, medium, or low.
 
 End with an **Assessment**:
 
