@@ -5,9 +5,10 @@
 # Detects: `grep -r`/`-R`/`--recursive`/`--dereference-recursive` in any flag
 # token after grep (not just the one immediately following it), any `rg`
 # invocation (ripgrep is recursive by default), or a `find ... *.jsonl`
-# targeting ~/.claude/projects/ (the transcript directory), as opposed to
-# inspecting a single known transcript file. Non-blocking — emits
-# additionalContext, never denies.
+# targeting the transcript directory (~/.claude/projects/ by default, or
+# $CLAUDE_CONFIG_DIR/projects when that's set), as opposed to inspecting a
+# single known transcript file. Non-blocking — emits additionalContext,
+# never denies.
 #
 # Exclusions:
 #   - A session working inside the ccrecall repo itself (cwd contains
@@ -78,10 +79,19 @@ fi
 # against the raw command, not $UNQUOTED — a find glob like -name "*.jsonl"
 # quotes its own argument on purpose, so stripping quotes here would erase
 # the very text this check looks for.
-case "$COMMAND" in
-  *.claude/projects*) ;;
-  *) exit 0 ;;
-esac
+#
+# Transcripts live under $CLAUDE_CONFIG_DIR/projects when that's set (same
+# resolution as project-docs-check.sh/project-meta-prompt.sh), not always
+# literally ~/.claude/projects. Match the resolved custom path, and the
+# literal env-var name too, in case the command references it unexpanded
+# (e.g. `rg foo "$CLAUDE_CONFIG_DIR/projects"`).
+CLAUDE_PROJECTS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
+if ! printf '%s' "$COMMAND" | grep -qF \
+  -e '.claude/projects' \
+  -e "$CLAUDE_PROJECTS_DIR" \
+  -e 'CLAUDE_CONFIG_DIR'; then
+  exit 0
+fi
 
 # Recursive grep, any ripgrep invocation (recursive by default), or a jsonl
 # glob via find

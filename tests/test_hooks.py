@@ -1799,6 +1799,27 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
         output = json.loads(result.stdout)
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
 
+    def test_custom_claude_config_dir_resolved_path_nudges(self):
+        # Transcripts live under $CLAUDE_CONFIG_DIR/projects, not always
+        # literally ~/.claude/projects
+        result = _run_ccrecall_nudge(
+            "rg foo /custom/claude/projects",
+            extra_env={"CLAUDE_CONFIG_DIR": "/custom/claude"},
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_custom_claude_config_dir_unexpanded_var_nudges(self):
+        # The command text can reference the env var itself, unexpanded
+        result = _run_ccrecall_nudge(
+            'rg foo "$CLAUDE_CONFIG_DIR/projects"',
+            extra_env={"CLAUDE_CONFIG_DIR": "/custom/claude"},
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
 
 class TestCcrecallNudgeStaysSilent:
     """Hook does not nudge for commands that don't match the transcript-search
@@ -1829,6 +1850,15 @@ class TestCcrecallNudgeStaysSilent:
         # the case that *does* still produce a false positive.
         result = _run_ccrecall_nudge(
             'echo "grep -rl safe-in-quotes ~/.claude/projects"'
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_custom_claude_config_dir_unrelated_path_silent(self):
+        # A custom CLAUDE_CONFIG_DIR must not widen matching to unrelated paths
+        result = _run_ccrecall_nudge(
+            "rg -rl foo /some/other/dir",
+            extra_env={"CLAUDE_CONFIG_DIR": "/custom/claude"},
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
