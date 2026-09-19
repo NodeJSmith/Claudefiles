@@ -83,28 +83,40 @@ fi
 # Transcripts live under $CLAUDE_CONFIG_DIR/projects when that's set (same
 # resolution as project-docs-check.sh/project-meta-prompt.sh), not always
 # literally ~/.claude/projects. Match the resolved custom path, and the
-# literal env-var name too, in case the command references it unexpanded
-# (e.g. `rg foo "$CLAUDE_CONFIG_DIR/projects"`).
+# literal env-var name followed by /projects too, in case the command
+# references it unexpanded (e.g. `rg foo "$CLAUDE_CONFIG_DIR/projects"`) —
+# require the /projects suffix so an unrelated config-dir reference (e.g.
+# "$CLAUDE_CONFIG_DIR/settings.json") doesn't count.
 CLAUDE_PROJECTS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
-if ! printf '%s' "$COMMAND" | grep -qF \
-  -e '.claude/projects' \
+if ! printf '%s' "$COMMAND" | grep -qE \
+  -e '\.claude/projects' \
   -e "$CLAUDE_PROJECTS_DIR" \
-  -e 'CLAUDE_CONFIG_DIR'; then
+  -e '\$\{?CLAUDE_CONFIG_DIR\}?/projects'; then
   exit 0
 fi
 
-# Recursive grep, any ripgrep invocation (recursive by default), or a jsonl
-# glob via find
+# -[a-zA-Z]*[rR][a-zA-Z]* matches -r/-R anywhere in a bundled short-flag
+# group (e.g. -rl, -Rl, -Hnr), case-insensitively (-r is --recursive, -R is
+# --dereference-recursive — both count). The optional
+# "([^;&|]*[[:space:]])?" lets that flag (or --recursive/
+# --dereference-recursive) appear in any token after grep within the same
+# command, not only the one immediately following it, e.g. `grep -n -r foo`.
+GREP_RECURSIVE_RE='(^|[;&|[:space:]])grep[[:space:]]+([^;&|]*[[:space:]])?(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive|--dereference-recursive)([[:space:]]|$)'
+
 case "$COMMAND" in
   *find*.jsonl*) ;;
+  *.jsonl*)
+    # A specific transcript file is named directly, not the directory. rg is
+    # only recursive against a directory operand — given a single file it's
+    # an ordinary single-file search, same as `grep` without a recursive
+    # flag — so bare `rg` doesn't count here; only an explicit recursive
+    # grep flag does.
+    printf '%s' "$COMMAND" | grep -qE "$GREP_RECURSIVE_RE" || exit 0
+    ;;
   *)
-    # -[a-zA-Z]*[rR][a-zA-Z]* matches -r/-R anywhere in a bundled short-flag
-    # group (e.g. -rl, -Rl, -Hnr), case-insensitively (-r is --recursive,
-    # -R is --dereference-recursive — both count). The optional
-    # "([^;&|]*[[:space:]])?" lets that flag (or --recursive/
-    # --dereference-recursive) appear in any token after grep within the same
-    # command, not only the one immediately following it, e.g. `grep -n -r foo`.
-    printf '%s' "$COMMAND" | grep -qE '(^|[;&|[:space:]])(rg([[:space:]]|$)|grep[[:space:]]+([^;&|]*[[:space:]])?(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive|--dereference-recursive)([[:space:]]|$))' || exit 0
+    # No specific file named — any rg invocation counts (recursive by
+    # default against the directory), alongside recursive grep.
+    printf '%s' "$COMMAND" | grep -qE "(^|[;&|[:space:]])rg([[:space:]]|\$)|$GREP_RECURSIVE_RE" || exit 0
     ;;
 esac
 

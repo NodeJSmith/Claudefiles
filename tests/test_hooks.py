@@ -1820,6 +1820,16 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
         output = json.loads(result.stdout)
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
 
+    def test_custom_claude_config_dir_braced_var_nudges(self):
+        # The braced form (${CLAUDE_CONFIG_DIR}) must also match
+        result = _run_ccrecall_nudge(
+            'rg foo "${CLAUDE_CONFIG_DIR}/projects"',
+            extra_env={"CLAUDE_CONFIG_DIR": "/custom/claude"},
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
 
 class TestCcrecallNudgeStaysSilent:
     """Hook does not nudge for commands that don't match the transcript-search
@@ -1859,6 +1869,23 @@ class TestCcrecallNudgeStaysSilent:
         result = _run_ccrecall_nudge(
             "rg -rl foo /some/other/dir",
             extra_env={"CLAUDE_CONFIG_DIR": "/custom/claude"},
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_unrelated_config_dir_file_silent(self):
+        # Referencing $CLAUDE_CONFIG_DIR for something other than /projects
+        # (e.g. settings.json) must not count as a transcript search
+        result = _run_ccrecall_nudge('rg foo "$CLAUDE_CONFIG_DIR/settings.json"')
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_rg_on_single_transcript_file_silent(self):
+        # ripgrep is only recursive against a directory operand — a specific
+        # .jsonl file is an ordinary single-file search, same as `grep`
+        # without a recursive flag
+        result = _run_ccrecall_nudge(
+            "rg foo ~/.claude/projects/my-project/session.jsonl"
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
