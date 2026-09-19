@@ -438,6 +438,47 @@ def test_cli_flags_bare_path_when_bin_dir_passed_directly(tmp_path: Path) -> Non
     assert "hard-coded '~/.claude'" in result.stderr
 
 
+def test_scripts_root_dir_passed_directly_scans_nested_hooks(tmp_path: Path) -> None:
+    # root ends in "scripts" (a prefix of the "scripts/hooks" subdir entry,
+    # not the whole thing) — resolve_target_dir must append only the
+    # remainder ("hooks"), not re-append "scripts/hooks" under it.
+    scripts_dir = tmp_path / "scripts"
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](scripts_dir)
+
+    assert scripts == [path]
+
+
+def test_cli_flags_bare_path_when_scripts_root_dir_passed_directly(
+    tmp_path: Path,
+) -> None:
+    scripts_dir = tmp_path / "scripts"
+    _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(scripts_dir)],
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "hard-coded '~/.claude'" in result.stderr
+
+
 def test_nested_script_dir_not_scanned_twice(tmp_path: Path) -> None:
     # root's own name coincidentally matches one SHELL_SCRIPT_DIRS entry
     # ("bin") while also containing another nested inside it

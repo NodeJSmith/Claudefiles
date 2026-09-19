@@ -95,15 +95,23 @@ def is_shell_script(path: Path) -> bool:
 
 
 def resolve_target_dir(root: Path, subdir: str) -> Path:
-    """The directory to scan for `subdir` under `root`: normally
-    `root / subdir`, but root itself when root's own trailing path
-    components already equal subdir's — true when the caller invoked us
-    directly on it (e.g. `lint-agent-files bin`), where appending subdir
-    again would look for e.g. bin/bin and scan nothing.
+    """The directory to scan for `subdir` under `root`.
+
+    Normally `root / subdir`. But when root's own trailing path components
+    already overlap with a prefix of subdir's — true when the caller
+    invoked us directly on `subdir` or on one of its parents (e.g.
+    `lint-agent-files bin`, or `lint-agent-files scripts` for
+    subdir="scripts/hooks") — only the non-overlapping remainder of subdir
+    gets appended, so root/bin or root/scripts/scripts/hooks don't get
+    double-counted or scanned as a nonexistent path.
     """
     subdir_parts = Path(subdir).parts
-    if root.parts[-len(subdir_parts) :] == subdir_parts:
-        return root
+    for overlap_len in range(len(subdir_parts), 0, -1):
+        if root.parts[-overlap_len:] == subdir_parts[:overlap_len]:
+            remainder = subdir_parts[overlap_len:]
+            if remainder:
+                return root / Path(*remainder)
+            return root
     return root / subdir
 
 
