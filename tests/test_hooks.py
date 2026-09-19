@@ -1771,6 +1771,34 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
         output = json.loads(result.stdout)
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
 
+    def test_grep_uppercase_r_nudges(self):
+        # -R (dereference-recursive) is a distinct GNU grep flag from -r
+        result = _run_ccrecall_nudge("grep -R foo ~/.claude/projects/")
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_grep_uppercase_r_bundled_nudges(self):
+        result = _run_ccrecall_nudge("grep -Rl foo ~/.claude/projects/")
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_grep_recursive_flag_as_later_token_nudges(self):
+        # -r doesn't have to be the first flag token after grep
+        result = _run_ccrecall_nudge("grep -n -r foo ~/.claude/projects/")
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_grep_dereference_recursive_long_flag_nudges(self):
+        result = _run_ccrecall_nudge(
+            "grep --dereference-recursive foo ~/.claude/projects/"
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
 
 class TestCcrecallNudgeStaysSilent:
     """Hook does not nudge for commands that don't match the transcript-search

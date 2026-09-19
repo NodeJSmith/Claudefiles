@@ -2,11 +2,12 @@
 # PreToolUse hook: nudge toward `ccrecall search` when a Bash command greps
 # across session transcripts instead of using ccrecall's own search.
 #
-# Detects: `grep -r`/`grep -R`/`grep --recursive`, any `rg` invocation (ripgrep
-# is recursive by default), or a `find ... *.jsonl` targeting
-# ~/.claude/projects/ (the transcript directory), as opposed to inspecting a
-# single known transcript file. Non-blocking — emits additionalContext, never
-# denies.
+# Detects: `grep -r`/`-R`/`--recursive`/`--dereference-recursive` in any flag
+# token after grep (not just the one immediately following it), any `rg`
+# invocation (ripgrep is recursive by default), or a `find ... *.jsonl`
+# targeting ~/.claude/projects/ (the transcript directory), as opposed to
+# inspecting a single known transcript file. Non-blocking — emits
+# additionalContext, never denies.
 #
 # Exclusions:
 #   - A session working inside the ccrecall repo itself (cwd contains
@@ -87,9 +88,13 @@ esac
 case "$COMMAND" in
   *find*.jsonl*) ;;
   *)
-    # grep[[:space:]]+-[a-zA-Z]*r matches -r anywhere in a bundled short-flag
-    # group (e.g. -rl, -lr, -Hnr), not just a standalone -r.
-    printf '%s' "$COMMAND" | grep -qE '(^|[;&|[:space:]])(rg([[:space:]]|$)|grep[[:space:]]+-[a-zA-Z]*r|grep[[:space:]]+--recursive)' || exit 0
+    # -[a-zA-Z]*[rR][a-zA-Z]* matches -r/-R anywhere in a bundled short-flag
+    # group (e.g. -rl, -Rl, -Hnr), case-insensitively (-r is --recursive,
+    # -R is --dereference-recursive — both count). The optional
+    # "([^;&|]*[[:space:]])?" lets that flag (or --recursive/
+    # --dereference-recursive) appear in any token after grep within the same
+    # command, not only the one immediately following it, e.g. `grep -n -r foo`.
+    printf '%s' "$COMMAND" | grep -qE '(^|[;&|[:space:]])(rg([[:space:]]|$)|grep[[:space:]]+([^;&|]*[[:space:]])?(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive|--dereference-recursive)([[:space:]]|$))' || exit 0
     ;;
 esac
 
