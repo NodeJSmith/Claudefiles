@@ -26,6 +26,21 @@ Checks:
     - no hardcoded '/home/<realname>/' path (tilde paths and the generic
       '/home/user/' placeholder are fine — only a real username is a
       portability bug)
+  Bash/sh scripts under scripts/hooks/ and bin/:
+    - no bare '~/.claude' or '$HOME/.claude' on a code line, outside a
+      '${CLAUDE_CONFIG_DIR:-...}' fallback expansion. Full-line and trailing
+      inline comments are exempt (the latter split on the first
+      whitespace-then-'#') — prose has to be able to show the pattern it's
+      warning against; a '#' inside a quoted string is an accepted miss.
+      See CLAUDE.md's "Path References to the Claude Config Directory" for
+      the full rule this enforces a subset of.
+
+      Known gap: does not catch a bare '.claude/projects'-style substring
+      with no '~'/'$HOME' prefix — reliably catching that would need real
+      parsing to correlate a literal against a sibling CLAUDE_CONFIG_DIR-
+      derived check elsewhere in the same statement, which isn't worth
+      building for this repo's scale. It catches the more common mistake
+      (writing the path out directly) and leaves the rest to code review.
 
 Usage:
   lint-agent-files [PATH]     # defaults to .
@@ -50,6 +65,16 @@ USE_WHEN_RE = re.compile(r"use when", re.IGNORECASE)
 # Requires a trailing slash and a lowercase username, so a bare `/home/jessica`
 # with no following path segment, or a capitalized username, is not caught.
 ABSOLUTE_USERNAME_PATH_RE = re.compile(r"/home/(?!user(?:/|$))[a-z][a-z0-9_-]+/")
+# The correctly-guarded form: ${CLAUDE_CONFIG_DIR:-~/.claude} or
+# ${CLAUDE_CONFIG_DIR:-$HOME/.claude}. Masked out of a line before the bare
+# check below runs, so the guarded form itself never trips the bare check.
+CLAUDE_CONFIG_DIR_FALLBACK_RE = re.compile(
+    r"\$\{CLAUDE_CONFIG_DIR:-(?:~|\$HOME)/\.claude\}"
+)
+# A bare, unguarded ~/.claude or $HOME/.claude reference.
+BARE_CLAUDE_CONFIG_PATH_RE = re.compile(r"(?:~|\$HOME)/\.claude\b")
+SHELL_SHEBANG_RE = re.compile(r"^#!.*\b(?:ba)?sh\b")
+SHELL_SCRIPT_DIRS = ("scripts/hooks", "bin")
 
 
 def is_excluded_path(path: Path) -> bool:
@@ -58,6 +83,56 @@ def is_excluded_path(path: Path) -> bool:
 
 def iter_markdown_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("*.md") if not is_excluded_path(path))
+
+
+def is_shell_script(path: Path) -> bool:
+    try:
+        with path.open() as f:
+            first_line = f.readline()
+    except OSError:
+        return False
+    return bool(SHELL_SHEBANG_RE.match(first_line))
+
+
+def resolve_target_dir(root: Path, subdir: str) -> Path:
+    """The directory to scan for `subdir` under `root`.
+
+    Normally `root / subdir`. But when root's own trailing path components
+    already overlap with a prefix of subdir's — true when the caller
+    invoked us directly on `subdir` or on one of its parents (e.g.
+    `lint-agent-files bin`, or `lint-agent-files scripts` for
+    subdir="scripts/hooks") — only the non-overlapping remainder of subdir
+    gets appended, so root/bin or root/scripts/scripts/hooks don't get
+    double-counted or scanned as a nonexistent path.
+    """
+    subdir_parts = Path(subdir).parts
+    for overlap_len in range(len(subdir_parts), 0, -1):
+        if root.parts[-overlap_len:] == subdir_parts[:overlap_len]:
+            remainder = subdir_parts[overlap_len:]
+            if remainder:
+                return root / Path(*remainder)
+            return root
+    return root / subdir
+
+
+def iter_shell_scripts(root: Path) -> list[Path]:
+    scripts: list[Path] = []
+    seen: set[Path] = set()
+    for subdir in SHELL_SCRIPT_DIRS:
+        directory = resolve_target_dir(root, subdir)
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.rglob("*")):
+            # Two subdirs can resolve to nested directories (e.g. root is
+            # itself named "bin" and also contains "scripts/hooks") — dedupe
+            # by path, not by directory, so a file under both isn't scanned
+            # twice.
+            if path in seen:
+                continue
+            if path.is_file() and not is_excluded_path(path) and is_shell_script(path):
+                seen.add(path)
+                scripts.append(path)
+    return scripts
 
 
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n|\Z)", re.DOTALL)
@@ -161,6 +236,37 @@ def check_hardcoded_paths(path: Path, root: Path) -> list[str]:
     return errors
 
 
+def check_hardcoded_config_dir(path: Path, root: Path) -> list[str]:
+    rel = path.relative_to(root)
+
+    try:
+        text = path.read_text()
+    except OSError as exc:
+        return [f"{rel}: cannot read file: {exc}"]
+
+    errors = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        if line.lstrip().startswith("#"):
+            continue
+        # Trailing inline comment stripped naively (first whitespace-then-#
+        # wins), same "not worth a real parser at this scale" trade-off as
+        # the full-line skip above — a '#' inside a quoted string is an
+        # accepted miss.
+        code_only = re.split(r"\s#", line, maxsplit=1)[0]
+        # Strip the correctly-guarded form first so it can't trip the bare
+        # search below.
+        masked = CLAUDE_CONFIG_DIR_FALLBACK_RE.sub("", code_only)
+        match = BARE_CLAUDE_CONFIG_PATH_RE.search(masked)
+        if match:
+            errors.append(
+                f"{rel}:{line_no}: hard-coded '{match.group(0)}' outside a"
+                " ${CLAUDE_CONFIG_DIR:-...} fallback — resolve through"
+                " CLAUDE_CONFIG_DIR instead (see CLAUDE.md 'Path References"
+                " to the Claude Config Directory')"
+            )
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate SKILL.md/agent frontmatter and catch hardcoded username paths.",
@@ -189,9 +295,7 @@ def main() -> int:
         skill_count += 1
         errors.extend(check_skill(path, root))
 
-    agents_dirs = [root / "agents"]
-    if root.name == "agents":
-        agents_dirs.append(root)
+    agents_dirs = [resolve_target_dir(root, "agents")]
 
     for agents_dir in agents_dirs:
         if not agents_dir.is_dir():
@@ -202,6 +306,9 @@ def main() -> int:
 
     for path in iter_markdown_files(root):
         errors.extend(check_hardcoded_paths(path, root))
+
+    for path in iter_shell_scripts(root):
+        errors.extend(check_hardcoded_config_dir(path, root))
 
     if errors:
         print("lint-agent-files: found issues:", file=sys.stderr)

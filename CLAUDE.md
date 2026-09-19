@@ -30,12 +30,15 @@ Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 
 Command substitution (`$(...)`), backticks, and pipes work normally in the Bash tool — use them freely within a single call. The one limit: shell state (env vars, variables, `cd`) does **not** persist across separate Bash tool calls, since each call is a fresh shell. When you need a value in a later command, either inline the substitution in one call (`git diff "$(git-branch-base)"...HEAD`) or write it to a file.
 
-## Path References in Skills
+## Path References to the Claude Config Directory
 
-When referencing installed skill, agent, or persona files from within a SKILL.md or agent file, always use `${CLAUDE_CONFIG_DIR:-~/.claude}` — never hardcode `~/.claude`. This ensures paths resolve correctly when `$CLAUDE_CONFIG_DIR` is set to a non-default location.
+Never hardcode `~/.claude` (or `$HOME/.claude`) anywhere — always resolve through `$CLAUDE_CONFIG_DIR`, which can point elsewhere. This applies to every place that location shows up, not just doc references:
 
-**Right:** `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`
-**Wrong:** `~/.claude/skills/mine-challenge/findings-protocol.md`
+- **In SKILL.md/agent Markdown**, when referencing installed skill, agent, or persona files: `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` — never `~/.claude/skills/mine-challenge/findings-protocol.md`.
+- **In shell scripts** (`scripts/hooks/`, `bin/`) that resolve or check their own path into the config dir: use `${CLAUDE_CONFIG_DIR:-$HOME/.claude}` — `$HOME`, not `~`, since tilde expansion isn't reliable inside quoted contexts. Match against the *resolved* value, not a literal `.claude/projects` substring.
+- **In a hook that pattern-matches a Bash command's *text*** (a different case from the one above — the hook isn't resolving its own path, it's recognizing that a command a user typed touches the config dir, e.g. detecting `grep -r ~/.claude/projects`): match the resolved path as above, and also match the literal env-var name `CLAUDE_CONFIG_DIR`, since the typed command may reference it unexpanded (`"$CLAUDE_CONFIG_DIR/projects"`) rather than a literal path.
+
+This has recurred more than once — first in skill doc references, then in a hook's own transcript-path detection (PR #582). `bin/lint-agent-files` now catches the common shape of the first case (a bare `~/.claude`/`$HOME/.claude` outside the `${CLAUDE_CONFIG_DIR:-...}` fallback) as a pre-commit lint; see its docstring for what it doesn't catch.
 
 ## Temp File Convention
 

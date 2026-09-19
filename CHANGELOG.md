@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-19
+
+### Added
+
+- New `PreToolUse` hook (`ccrecall-nudge.sh`) nudges toward `ccrecall search` when a Bash command recursively greps or `find`s across `~/.claude/projects/` session transcripts — non-blocking, with a `CLAUDE_SKIP_CCRECALL_HINT=1` escape hatch. (#582)
+
 ## 2026-09-18
 
 ### Changed

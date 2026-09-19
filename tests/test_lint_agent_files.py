@@ -267,3 +267,231 @@ def test_agents_dir_passed_directly_is_scanned(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "missing required 'description' field" in result.stderr
+
+
+def _write_shell_script(root: Path, subdir: str, filename: str, body: str) -> Path:
+    script_dir = root / subdir
+    script_dir.mkdir(parents=True, exist_ok=True)
+    path = script_dir / filename
+    path.write_text(body)
+    path.chmod(0o755)
+    return path
+
+
+def test_bare_claude_config_path_flagged(tmp_path: Path) -> None:
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "example.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    errors = module["check_hardcoded_config_dir"](path, tmp_path)
+
+    assert len(errors) == 1
+    assert "~/.claude" in errors[0]
+
+
+def test_bare_home_claude_config_path_flagged(tmp_path: Path) -> None:
+    path = _write_shell_script(
+        tmp_path,
+        "bin",
+        "example",
+        '#!/usr/bin/env bash\ncat "$HOME/.claude/settings.json"\n',
+    )
+
+    module = _load_script()
+    errors = module["check_hardcoded_config_dir"](path, tmp_path)
+
+    assert len(errors) == 1
+    assert "$HOME/.claude" in errors[0]
+
+
+def test_guarded_claude_config_dir_not_flagged(tmp_path: Path) -> None:
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "example.sh",
+        '#!/usr/bin/env bash\nconfig_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"\n'
+        'other="${CLAUDE_CONFIG_DIR:-~/.claude}"\n',
+    )
+
+    module = _load_script()
+    errors = module["check_hardcoded_config_dir"](path, tmp_path)
+
+    assert errors == []
+
+
+def test_comment_mentioning_bare_path_not_flagged(tmp_path: Path) -> None:
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "example.sh",
+        "#!/usr/bin/env bash\n"
+        "# e.g. a command like `grep foo ~/.claude/projects`\n"
+        "#   or one referencing $HOME/.claude/skills directly\n"
+        "exit 0\n",
+    )
+
+    module = _load_script()
+    errors = module["check_hardcoded_config_dir"](path, tmp_path)
+
+    assert errors == []
+
+
+def test_trailing_inline_comment_with_bare_path_not_flagged(tmp_path: Path) -> None:
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "example.sh",
+        "#!/usr/bin/env bash\n"
+        "do_something foo bar  # matches paths like ~/.claude/projects\n",
+    )
+
+    module = _load_script()
+    errors = module["check_hardcoded_config_dir"](path, tmp_path)
+
+    assert errors == []
+
+
+def test_non_shell_script_not_scanned(tmp_path: Path) -> None:
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "example.py",
+        '#!/usr/bin/env python3\npath = "~/.claude/projects"\n',
+    )
+
+    module = _load_script()
+    assert path not in module["iter_shell_scripts"](tmp_path)
+
+
+def test_cli_flags_bare_claude_config_path_in_hook_script(tmp_path: Path) -> None:
+    _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "hard-coded '~/.claude'" in result.stderr
+
+
+def test_bin_dir_passed_directly_is_scanned(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    _write_shell_script(
+        tmp_path,
+        "bin",
+        "broken",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](bin_dir)
+
+    assert scripts == [bin_dir / "broken"]
+
+
+def test_scripts_hooks_dir_passed_directly_is_scanned(tmp_path: Path) -> None:
+    hooks_dir = tmp_path / "scripts" / "hooks"
+    _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](hooks_dir)
+
+    assert scripts == [hooks_dir / "broken.sh"]
+
+
+def test_cli_flags_bare_path_when_bin_dir_passed_directly(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    _write_shell_script(
+        tmp_path,
+        "bin",
+        "broken",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(bin_dir)],
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "hard-coded '~/.claude'" in result.stderr
+
+
+def test_scripts_root_dir_passed_directly_scans_nested_hooks(tmp_path: Path) -> None:
+    # root ends in "scripts" (a prefix of the "scripts/hooks" subdir entry,
+    # not the whole thing) — resolve_target_dir must append only the
+    # remainder ("hooks"), not re-append "scripts/hooks" under it.
+    scripts_dir = tmp_path / "scripts"
+    path = _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](scripts_dir)
+
+    assert scripts == [path]
+
+
+def test_cli_flags_bare_path_when_scripts_root_dir_passed_directly(
+    tmp_path: Path,
+) -> None:
+    scripts_dir = tmp_path / "scripts"
+    _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(scripts_dir)],
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "hard-coded '~/.claude'" in result.stderr
+
+
+def test_nested_script_dir_not_scanned_twice(tmp_path: Path) -> None:
+    # root's own name coincidentally matches one SHELL_SCRIPT_DIRS entry
+    # ("bin") while also containing another nested inside it
+    # ("scripts/hooks") — the nested file must be found once, not twice.
+    root = tmp_path / "bin"
+    path = _write_shell_script(
+        root,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](root)
+
+    assert scripts == [path]
