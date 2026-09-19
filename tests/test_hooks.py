@@ -1771,6 +1771,13 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
         output = json.loads(result.stdout)
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
 
+    def test_find_absolute_path_jsonl_pipeline_nudges(self):
+        # find(1) invoked by full path is still a find/.jsonl pipeline
+        result = _run_ccrecall_nudge('/usr/bin/find ~/.claude/projects -name "*.jsonl"')
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
     def test_grep_uppercase_r_nudges(self):
         # -R (dereference-recursive) is a distinct GNU grep flag from -r
         result = _run_ccrecall_nudge("grep -R foo ~/.claude/projects/")
@@ -1826,6 +1833,28 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
             'rg foo "${CLAUDE_CONFIG_DIR}/projects"',
             extra_env={"CLAUDE_CONFIG_DIR": "/custom/claude"},
         )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_claude_config_dir_with_ere_metachar_nudges(self):
+        # The resolved path must be matched as a fixed string, not
+        # interpolated into the regex — a directory name containing an ERE
+        # metacharacter (e.g. an unmatched bracket) would otherwise make
+        # `grep -E` report an invalid pattern and silently lose the hint.
+        result = _run_ccrecall_nudge(
+            "rg foo /custom/a[b/projects",
+            extra_env={"CLAUDE_CONFIG_DIR": "/custom/a[b"},
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_directory_search_with_jsonl_in_quoted_pattern_nudges(self):
+        # ".jsonl" appearing inside the quoted rg search pattern (not a path
+        # operand) must not be misread as a single-file search — this is a
+        # directory search and should still nudge.
+        result = _run_ccrecall_nudge('rg "mentions .jsonl" ~/.claude/projects/')
         assert result.returncode == 0
         output = json.loads(result.stdout)
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
@@ -1886,6 +1915,16 @@ class TestCcrecallNudgeStaysSilent:
         # without a recursive flag
         result = _run_ccrecall_nudge(
             "rg foo ~/.claude/projects/my-project/session.jsonl"
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_single_file_search_with_find_in_quoted_pattern_silent(self):
+        # "find" appearing inside the quoted rg search pattern (not the
+        # find(1) command) must not be misread as a find/.jsonl pipeline —
+        # this targets one specific file and should stay silent.
+        result = _run_ccrecall_nudge(
+            'rg "find me" ~/.claude/projects/proj/session.jsonl'
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
