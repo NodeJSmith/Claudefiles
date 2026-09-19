@@ -29,17 +29,11 @@ git-branch-diff-stat               # → diff summary
 2. Use `git diff [base-branch]...HEAD` to see all code changes
 3. Read key modified files if needed for additional context
 
-## Step 4: Review-Question Staleness Check
-
-Run `check-review-questions` (no arguments — it defaults to the right base). If it produces output, include it verbatim in your final result message, prefixed with `STALE_REVIEW_QUESTIONS:` on its own line so the caller can detect it. The caller (SKILL.md) handles the interactive decision.
-
-If `check-review-questions` produces no output, skip silently — do not mention it in the result.
-
-## Step 5: Task File Archival
+## Step 4: Task File Archival
 
 Follow `rules/common/git-workflow.md` (Task File Cleanup): check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist and `cfl` is available, run `cfl archive --dry-run`. If the output has `"status": "would_archive"`, run `cfl archive`, then commit (`chore: archive completed tasks`) and push before creating the PR. If `cfl archive` exits non-zero, return `ERROR: cfl archive failed` with the error output.
 
-## Step 6: Draft PR Body
+## Step 5: Draft PR Body
 
 Draft a comprehensive PR:
 
@@ -87,7 +81,7 @@ Example shape:
 - If found, append `Closes #N` per issue.
 - Skip for Azure DevOps.
 
-## Step 7: Create PR (Draft)
+## Step 6: Create PR (Draft)
 
 1. Run `get-skill-tmpdir mine-pr` to create a temp directory
 2. Write the PR body to `<dir>/body.md`
@@ -101,22 +95,22 @@ Example shape:
      az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
      ```
 
-## Step 8: Write CHANGELOG Entry
+## Step 7: Write CHANGELOG Entry
 
 Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md`. The first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, skip this step.
 
 Once located:
 
-### 8a: Determine if the branch deserves a changelog entry
+### 7a: Determine if the branch deserves a changelog entry
 
 Analyze the full branch diff (`git diff origin/<base>...HEAD`) — not individual commits:
 - **Add an entry** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
 - **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
-- If the branch already has changelog entries (check `git diff origin/<base>...HEAD -- <changelog-path>`), keep them as-is and skip to step 8b.
+- If the branch already has changelog entries (check `git diff origin/<base>...HEAD -- <changelog-path>`), keep them as-is and skip to step 7b.
 
 If adding an entry, **match the existing changelog structure**: read the file to determine whether it uses `## [Unreleased]` sections or date-based sections (`## YYYY-MM-DD`). Add entries under the appropriate heading — either the existing `[Unreleased]` section or today's date section (creating it if needed). Keep them **high-level and terse** — one bullet per logical change, describing what changed for the user, not implementation details.
 
-### 8b: Annotate entries with PR number
+### 7b: Annotate entries with PR number
 
 1. Extract the PR number from the PR URL
 2. Use the platform-appropriate prefix:
@@ -127,12 +121,12 @@ If adding an entry, **match the existing changelog structure**: read the file to
 5. Commit: `docs: update changelog for PR #<NUMBER>` (or `!<NUMBER>` for ADO)
 6. Push
 
-## Step 9: Mark PR Ready
+## Step 8: Mark PR Ready
 
 - **GitHub**: `gh pr ready`
 - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
 
-## Step 10: Return Result
+## Step 9: Return Result
 
 Your final message must end with the PR URL on its own line. If you have notes (e.g., no CHANGELOG found), put them on lines before the URL. If you encountered an error at any step, return `ERROR: <description>` instead.
 
