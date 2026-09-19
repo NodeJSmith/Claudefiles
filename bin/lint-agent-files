@@ -94,14 +94,35 @@ def is_shell_script(path: Path) -> bool:
     return bool(SHELL_SHEBANG_RE.match(first_line))
 
 
+def resolve_target_dir(root: Path, subdir: str) -> Path:
+    """The directory to scan for `subdir` under `root`: normally
+    `root / subdir`, but root itself when root's own trailing path
+    components already equal subdir's — true when the caller invoked us
+    directly on it (e.g. `lint-agent-files bin`), where appending subdir
+    again would look for e.g. bin/bin and scan nothing.
+    """
+    subdir_parts = Path(subdir).parts
+    if root.parts[-len(subdir_parts) :] == subdir_parts:
+        return root
+    return root / subdir
+
+
 def iter_shell_scripts(root: Path) -> list[Path]:
-    scripts = []
+    scripts: list[Path] = []
+    seen: set[Path] = set()
     for subdir in SHELL_SCRIPT_DIRS:
-        directory = root / subdir
+        directory = resolve_target_dir(root, subdir)
         if not directory.is_dir():
             continue
         for path in sorted(directory.rglob("*")):
+            # Two subdirs can resolve to nested directories (e.g. root is
+            # itself named "bin" and also contains "scripts/hooks") — dedupe
+            # by path, not by directory, so a file under both isn't scanned
+            # twice.
+            if path in seen:
+                continue
             if path.is_file() and not is_excluded_path(path) and is_shell_script(path):
+                seen.add(path)
                 scripts.append(path)
     return scripts
 
@@ -266,9 +287,7 @@ def main() -> int:
         skill_count += 1
         errors.extend(check_skill(path, root))
 
-    agents_dirs = [root / "agents"]
-    if root.name == "agents":
-        agents_dirs.append(root)
+    agents_dirs = [resolve_target_dir(root, "agents")]
 
     for agents_dir in agents_dirs:
         if not agents_dir.is_dir():

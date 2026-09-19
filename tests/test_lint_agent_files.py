@@ -385,3 +385,72 @@ def test_cli_flags_bare_claude_config_path_in_hook_script(tmp_path: Path) -> Non
 
     assert result.returncode == 1
     assert "hard-coded '~/.claude'" in result.stderr
+
+
+def test_bin_dir_passed_directly_is_scanned(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    _write_shell_script(
+        tmp_path,
+        "bin",
+        "broken",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](bin_dir)
+
+    assert scripts == [bin_dir / "broken"]
+
+
+def test_scripts_hooks_dir_passed_directly_is_scanned(tmp_path: Path) -> None:
+    hooks_dir = tmp_path / "scripts" / "hooks"
+    _write_shell_script(
+        tmp_path,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](hooks_dir)
+
+    assert scripts == [hooks_dir / "broken.sh"]
+
+
+def test_cli_flags_bare_path_when_bin_dir_passed_directly(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    _write_shell_script(
+        tmp_path,
+        "bin",
+        "broken",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(bin_dir)],
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "hard-coded '~/.claude'" in result.stderr
+
+
+def test_nested_script_dir_not_scanned_twice(tmp_path: Path) -> None:
+    # root's own name coincidentally matches one SHELL_SCRIPT_DIRS entry
+    # ("bin") while also containing another nested inside it
+    # ("scripts/hooks") — the nested file must be found once, not twice.
+    root = tmp_path / "bin"
+    path = _write_shell_script(
+        root,
+        "scripts/hooks",
+        "broken.sh",
+        '#!/usr/bin/env bash\nfind ~/.claude/projects -name "*.jsonl"\n',
+    )
+
+    module = _load_script()
+    scripts = module["iter_shell_scripts"](root)
+
+    assert scripts == [path]
