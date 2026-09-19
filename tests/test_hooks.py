@@ -1837,6 +1837,16 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
         output = json.loads(result.stdout)
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
 
+    def test_claude_config_dir_fallback_expansion_form_nudges(self):
+        # This repo's own documented idiom (skills/mine-tool-gaps/SKILL.md):
+        # ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects, unexpanded, must match
+        result = _run_ccrecall_nudge(
+            'find ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects -name "*.jsonl"'
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
     def test_claude_config_dir_with_ere_metachar_nudges(self):
         # The resolved path must be matched as a fixed string, not
         # interpolated into the regex — a directory name containing an ERE

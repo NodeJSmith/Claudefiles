@@ -102,15 +102,22 @@ fi
 # otherwise break the pattern (grep reports an invalid regex and the hint is
 # silently lost) or match unintended text via an unescaped special char. The
 # literal env-var name forms stay regexes, since they need the
-# optional-brace pattern, and require the /projects suffix so an unrelated
+# optional-brace pattern — and require the /projects suffix so an unrelated
 # config-dir reference (e.g. "$CLAUDE_CONFIG_DIR/settings.json") doesn't
 # count. The gate below is "exit unless at least one of the three matches" —
 # De Morgan's turns that OR into the two negated-and-anded checks here (one
 # grep call for the two regex alternatives, one for the fixed string).
+#
+# The second alternative's optional group also covers bash's
+# ${VAR:-default}/:=/:+/:? fallback operators — the repo's own documented
+# idiom, e.g. skills/mine-tool-gaps/SKILL.md's
+# `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects`. A default value that
+# itself nests another ${...} expansion isn't covered — not a form this
+# repo uses, and not worth a hand-rolled regex for nesting.
 CLAUDE_PROJECTS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
 if ! printf '%s' "$COMMAND" | grep -qE \
   -e '\.claude/projects' \
-  -e '\$\{?CLAUDE_CONFIG_DIR\}?/projects' &&
+  -e '\$\{?CLAUDE_CONFIG_DIR(:[-=+?][^}]*)?\}?/projects' &&
   ! printf '%s' "$COMMAND" | grep -qF -- "$CLAUDE_PROJECTS_DIR"; then
   exit 0
 fi
