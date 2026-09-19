@@ -110,6 +110,8 @@ Read each changed file in full.
 
 ### Step 2: Load Architectural Context
 
+**Module CLAUDE.md files** — check for CLAUDE.md files in each directory containing changed files. If a CLAUDE.md contains review questions, answer each one by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. Also note any claims in these files that the current diff may have invalidated (see dimension 12 in Step 4).
+
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 
 1. Get the current branch name:
@@ -227,6 +229,12 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Common consumer locations to check: UI rendering (badges, icons, colors), action predicates (canStart, canStop, canReload), filters/sorting, sidebar/rollup aggregations, bulk commands, test factories and mock builders, API serialization
 - Also check: does every emitter/producer of the parent type have a code path that produces the new value when appropriate? A new status that can never be emitted is dead code.
 - This dimension fires **only** when the diff introduces a new variant — if no new enum member, literal, or status value was added, mark as N/A
+
+#### 12. CLAUDE.md staleness
+- The diff changes code that a nearby CLAUDE.md file describes — does the CLAUDE.md still accurately reflect the code after this change?
+- Check: do any review questions, contracts, or data-flow descriptions in the CLAUDE.md reference behavior this diff has altered?
+- A CLAUDE.md with a stale claim is worse than no CLAUDE.md — it will confidently mislead future reviewers. Flag stale entries at MEDIUM severity.
+- If no CLAUDE.md exists in the affected directories, mark as N/A.
 
 </checklist>
 

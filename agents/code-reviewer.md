@@ -65,7 +65,8 @@ When invoked:
    - `.py` files → apply code review sections + run static analysis
    - `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` → apply Skill & Markdown File Checks below
 2. Run static analysis for Python files if available
-3. Begin review
+3. Check for CLAUDE.md files in each directory containing changed files. If a CLAUDE.md contains review questions, answer each one by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs.
+4. Begin review
 
 <checklist>
 
