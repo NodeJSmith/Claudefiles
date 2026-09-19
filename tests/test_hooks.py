@@ -1719,14 +1719,16 @@ class TestContextWriterRateLimits:
 # ccrecall-nudge.sh tests
 # ---------------------------------------------------------------------------
 
+CCRECALL_NUDGE_DEFAULT_CWD = "/home/user/myapp"
 
-def _ccrecall_nudge_input(command: str, cwd: str = "/home/jessica/Claudefiles") -> str:
+
+def _ccrecall_nudge_input(command: str, cwd: str = CCRECALL_NUDGE_DEFAULT_CWD) -> str:
     return json.dumps({"cwd": cwd, "tool_input": {"command": command}})
 
 
 def _run_ccrecall_nudge(
     command: str,
-    cwd: str = "/home/jessica/Claudefiles",
+    cwd: str = CCRECALL_NUDGE_DEFAULT_CWD,
     extra_env: dict | None = None,
 ) -> subprocess.CompletedProcess:
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1825,7 +1827,7 @@ class TestCcrecallNudgeExclusions:
     def test_ccrecall_repo_cwd_excluded(self):
         result = _run_ccrecall_nudge(
             'grep -rl "foo" ~/.claude/projects/',
-            cwd="/home/jessica/source/claude-code-recall",
+            cwd="/home/user/source/claude-code-recall",
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
