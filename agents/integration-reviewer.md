@@ -61,6 +61,7 @@ After completing a review, create or update that same file — but only if the e
 | 9 | **Parallel drift** | HIGH | Two implementations of the same concept that can diverge independently |
 | 10 | **Abstraction inconsistency** | MEDIUM | Sibling files at different abstraction levels — some use shared utilities, others inline the same logic |
 | 11 | **Unhandled variant** | HIGH | New enum/union/status value added but not handled by all consumers of the parent type |
+| 12 | **Field propagation gap** | HIGH | A field is read, computed, or added to a model but not included in every output path or consumer that should carry it |
 
 ---
 
@@ -230,6 +231,12 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Also check: does every emitter/producer of the parent type have a code path that produces the new value when appropriate? A new status that can never be emitted is dead code.
 - This dimension fires **only** when the diff introduces a new variant — if no new enum member, literal, or status value was added, mark as N/A
 
+#### 12. Field propagation gap
+- For every field added to or changed on a model/response type in the diff, trace it through every output path and consumer. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal.
+- Check both directions: **downstream** (is the field included in every output format — JSON, human-readable, API response?) and **upstream** (does the data source backing this field include all entities it claims to represent, or only a subset?).
+- A field with a default value (`field: X = default`) that every constructor always passes explicitly weakens the contract — it tells consumers the field is optional when it's actually always present.
+- A data source that iterates only "tracked" or "active" items silently drops stopped/configured-but-never-started/unregistered entities from counts and lists, breaking downstream UI that relies on completeness.
+
 </checklist>
 
 ---
@@ -318,6 +325,7 @@ After all findings, print a summary table:
 | Parallel drift       | PASS / N issue(s)               |
 | Abstraction inconsistency | PASS / N issue(s)          |
 | Unhandled variant    | PASS / N issue(s) / N/A    |
+| Field propagation    | PASS / N issue(s)               |
 
 **Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 ```
