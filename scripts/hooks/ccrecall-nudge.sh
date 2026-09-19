@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# PreToolUse hook: nudge toward `ccrecall search` when a Bash command greps
+# across session transcripts instead of using ccrecall's own search.
+#
+# Detects: `grep -r`/`grep -R`/`grep --recursive`, any `rg` invocation (ripgrep
+# is recursive by default), or a `find ... *.jsonl` targeting
+# ~/.claude/projects/ (the transcript directory), as opposed to inspecting a
+# single known transcript file. Non-blocking — emits additionalContext, never
+# denies.
+#
+# Exclusions:
+#   - A session working inside the ccrecall repo itself (cwd contains
+#     "claude-code-recall") legitimately reads transcripts directly.
+#   - CLAUDE_SKIP_CCRECALL_HINT=1 set in the environment, or prefixed on the
+#     command (e.g. `CLAUDE_SKIP_CCRECALL_HINT=1 grep -rl foo ~/.claude/projects`).
+#
+# Known limitation, accepted: detection matches against the raw command, so
+# a quoted, non-executed string with a space/operator before the trigger word
+# (e.g. `echo "run grep -rl foo in ~/.claude/projects"`) can trigger a
+# spurious nudge — the leading `"` only blocks a match when it sits directly
+# against the word, as in `"grep ...`. Stripping quotes to avoid this was
+# tried and reverted — it also erases the quoted glob argument in the
+# legitimate `find ... -name "*.jsonl"` case this hook exists to catch, which
+# is worse. Non-blocking hint on a solo-dev repo: an occasional unwanted
+# nudge costs nothing to ignore.
+#
+# No set -euo pipefail — this hook is a sequence of guard clauses that each
+# exit 0 on failure.
+#
+# Two different strings feed the checks below, deliberately:
+#   - $UNQUOTED (quoted spans deleted entirely, not just unquoted — see its
+#     definition) — used only for the CLAUDE_SKIP_CCRECALL_HINT escape hatch,
+#     so a quoted mention of that string can't accidentally suppress the hook.
+#   - $COMMAND (raw, unmodified) — used for every other check, because the
+#     transcript-path and find/jsonl checks need to see text that legitimately
+#     lives inside quotes (see the accepted limitation above).
+#
+# Hook wiring (settings.json):
+#   "PreToolUse": [{
+#     "matcher": "Bash",
+#     "hooks": [{
+#       "type": "command",
+#       "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/ccrecall-nudge.sh",
+#       "timeout": 2000
+#     }]
+#   }]
+
+if ! command -v jq > /dev/null 2>&1; then
+  exit 0
+fi
+
+# Session-level escape hatch
+[ "${CLAUDE_SKIP_CCRECALL_HINT:-}" = "1" ] && exit 0
+
+INPUT="$(cat || true)"
+
+COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2> /dev/null)" || true
+[ -n "$COMMAND" ] || exit 0
+
+CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2> /dev/null)" || true
+
+# ccrecall's own dev session legitimately reads transcripts directly
+case "$CWD" in
+  *claude-code-recall*) exit 0 ;;
+esac
+
+# Per-command escape hatch: CLAUDE_SKIP_CCRECALL_HINT=1 prefixed on the command text.
+# Deletes each quoted span (quotes and contents together) rather than just
+# stripping the quote characters — "unquoted" describes the intent, not a
+# literal unquoting.
+UNQUOTED="$(printf '%s' "$COMMAND" | sed -e 's/"[^"]*"//g' -e "s/'[^']*'//g")"
+if printf '%s' "$UNQUOTED" | grep -qE '(^|[;&|] *)CLAUDE_SKIP_CCRECALL_HINT=1[[:space:]]'; then
+  exit 0
+fi
+
+# Must target the transcript directory, not a single known file. Matched
+# against the raw command, not $UNQUOTED — a find glob like -name "*.jsonl"
+# quotes its own argument on purpose, so stripping quotes here would erase
+# the very text this check looks for.
+case "$COMMAND" in
+  *.claude/projects*) ;;
+  *) exit 0 ;;
+esac
+
+# Recursive grep, any ripgrep invocation (recursive by default), or a jsonl
+# glob via find
+case "$COMMAND" in
+  *find*.jsonl*) ;;
+  *)
+    # grep[[:space:]]+-[a-zA-Z]*r matches -r anywhere in a bundled short-flag
+    # group (e.g. -rl, -lr, -Hnr), not just a standalone -r.
+    printf '%s' "$COMMAND" | grep -qE '(^|[;&|[:space:]])(rg([[:space:]]|$)|grep[[:space:]]+-[a-zA-Z]*r|grep[[:space:]]+--recursive)' || exit 0
+    ;;
+esac
+
+jq -cn '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"Searching across session transcripts — `ccrecall search \"<query>\"` may be faster for finding past sessions (keyword + semantic search over the same transcripts). Prefix the command with CLAUDE_SKIP_CCRECALL_HINT=1 to suppress this hint."}}'

@@ -191,6 +191,7 @@ Event-driven scripts that run before/after tool calls.
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md — escalating deferral with suppression option |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
+| `ccrecall-nudge.sh` | PreToolUse (Bash) | Nudge toward `ccrecall search` when a command greps recursively across `~/.claude/projects/` transcripts — non-blocking, `CLAUDE_SKIP_CCRECALL_HINT=1` to suppress |
 | `dispatch-stats.sh` | PostToolUse (Agent) | Write telemetry sidecar (tokens, compactions, JSONL path) keyed by `cfl_dispatch_id` extracted from the subagent prompt — auto-reaps files >1h old |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `project-docs-check.sh` | PostToolUse (Edit\|Write) | On the first edit to each distinct project this session (walking up from the touched file to the nearest manifest, or repo root), checks for a non-empty `docs/` — escalating deferral with suppression option, offers to run `/mine-document` if missing |

@@ -21,6 +21,7 @@ COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.s
 BASH_HISTORY_HOOK = REPO_ROOT / "scripts" / "hooks" / "bash-history-capture.py"
 DOCS_CHECK_HOOK = REPO_ROOT / "scripts" / "hooks" / "project-docs-check.sh"
 CONTEXT_WRITER_HOOK = REPO_ROOT / "scripts" / "hooks" / "claude-context-writer"
+CCRECALL_NUDGE_HOOK = REPO_ROOT / "scripts" / "hooks" / "ccrecall-nudge.sh"
 
 
 def run_hook(
@@ -1712,3 +1713,121 @@ class TestContextWriterRateLimits:
             finally:
                 if os.path.exists(context_meta_path):
                     os.remove(context_meta_path)
+
+
+# ---------------------------------------------------------------------------
+# ccrecall-nudge.sh tests
+# ---------------------------------------------------------------------------
+
+CCRECALL_NUDGE_DEFAULT_CWD = "/home/user/myapp"
+
+
+def _ccrecall_nudge_input(command: str, cwd: str = CCRECALL_NUDGE_DEFAULT_CWD) -> str:
+    return json.dumps({"cwd": cwd, "tool_input": {"command": command}})
+
+
+def _run_ccrecall_nudge(
+    command: str,
+    cwd: str = CCRECALL_NUDGE_DEFAULT_CWD,
+    extra_env: dict | None = None,
+) -> subprocess.CompletedProcess:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        return run_hook(
+            CCRECALL_NUDGE_HOOK,
+            _ccrecall_nudge_input(command, cwd),
+            tmpdir,
+            extra_env=extra_env,
+        )
+
+
+class TestCcrecallNudgeDetectsTranscriptSearch:
+    """Hook nudges toward `ccrecall search` for recursive searches across
+    ~/.claude/projects/ transcripts."""
+
+    def test_recursive_grep_nudges(self):
+        result = _run_ccrecall_nudge('grep -rl "auth bug" ~/.claude/projects/')
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_rg_files_with_matches_nudges(self):
+        result = _run_ccrecall_nudge('rg -l "auth bug" ~/.claude/projects/')
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_bare_rg_nudges(self):
+        # ripgrep is recursive by default — no -l needed to hit the transcript dir
+        result = _run_ccrecall_nudge('rg "auth bug" ~/.claude/projects')
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+    def test_find_jsonl_pipeline_nudges(self):
+        result = _run_ccrecall_nudge(
+            'find ~/.claude/projects -name "*.jsonl" | xargs grep -l foo'
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
+
+
+class TestCcrecallNudgeStaysSilent:
+    """Hook does not nudge for commands that don't match the transcript-search
+    pattern, or that legitimately inspect a single known file."""
+
+    def test_single_known_file_silent(self):
+        result = _run_ccrecall_nudge(
+            'grep -n "foo" ~/.claude/projects/-home-jessica-Claudefiles/abc123.jsonl'
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_non_transcript_grep_silent(self):
+        result = _run_ccrecall_nudge('grep -rl "foo" src/')
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_word_containing_rg_substring_silent(self):
+        # Word-boundary matching must not fire on "storage" merely containing "rg"
+        result = _run_ccrecall_nudge("du -sh ~/.claude/projects/storage")
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_quoted_text_flush_against_grep_silent(self):
+        # A quote sitting directly against the trigger word (no preceding
+        # space/operator) doesn't match the detection regex's word boundary.
+        # See the "Known limitation, accepted" comment in the hook itself for
+        # the case that *does* still produce a false positive.
+        result = _run_ccrecall_nudge(
+            'echo "grep -rl safe-in-quotes ~/.claude/projects"'
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+
+class TestCcrecallNudgeExclusions:
+    """Escape hatches and the ccrecall-repo cwd exclusion suppress the nudge."""
+
+    def test_session_env_var_suppresses(self):
+        result = _run_ccrecall_nudge(
+            'grep -rl "foo" ~/.claude/projects/',
+            extra_env={"CLAUDE_SKIP_CCRECALL_HINT": "1"},
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_per_command_prefix_suppresses(self):
+        result = _run_ccrecall_nudge(
+            'CLAUDE_SKIP_CCRECALL_HINT=1 grep -rl "foo" ~/.claude/projects/'
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_ccrecall_repo_cwd_excluded(self):
+        result = _run_ccrecall_nudge(
+            'grep -rl "foo" ~/.claude/projects/',
+            cwd="/home/user/source/claude-code-recall",
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""

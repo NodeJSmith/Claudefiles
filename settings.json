@@ -40,6 +40,11 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/sudo-poll.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 35000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/ccrecall-nudge.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 2000
           }
         ]
       },
