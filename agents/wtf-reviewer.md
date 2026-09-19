@@ -67,7 +67,7 @@ When invoked:
    git diff --name-only HEAD~1
    ```
 2. Read every changed file in full
-3. Check for CLAUDE.md files in each directory containing changed files. If a CLAUDE.md contains review questions, answer each one — if an answer reveals a readability or maintainability issue, report it.
+3. Check for `REVIEW.md` files in each directory containing changed files. If found, answer each review question — if an answer reveals a readability or maintainability issue, report it.
 4. Begin review
 
 ## Core Question

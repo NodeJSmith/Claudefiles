@@ -110,7 +110,7 @@ Read each changed file in full.
 
 ### Step 2: Load Architectural Context
 
-**Module CLAUDE.md files** — check for CLAUDE.md files in each directory containing changed files. If a CLAUDE.md contains review questions, answer each one by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. Also note any claims in these files that the current diff may have invalidated (see dimension 12 in Step 4).
+**Module REVIEW.md files** — check for `REVIEW.md` files in each directory containing changed files. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 

@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Detect CLAUDE.md review-question files whose referenced code was modified
-# by the current branch's diff.
+# Detect REVIEW.md files whose referenced code was modified by the current
+# branch's diff. REVIEW.md files contain review questions that reviewers
+# read explicitly — separate from CLAUDE.md to avoid auto-injection into
+# non-reviewer agents.
 #
 # Usage: check-review-questions [<base>]
 #   <base>  Comparison ref. Defaults to origin/<default-branch>.
 #
-# Output (stdout): one block per affected CLAUDE.md file listing which changed
-# files it references. Empty output = nothing to flag.
+# Output (stdout): one block per affected REVIEW.md file listing which
+# changed files it references. Empty output = nothing to flag.
 # Exit: always 0.
 
 set -euo pipefail
@@ -15,14 +17,14 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat << 'EOF'
 Usage: check-review-questions [<base>]
 
-Detect CLAUDE.md review-question files whose referenced code was modified
-by the current branch's diff.
+Detect REVIEW.md files whose referenced code was modified by the current
+branch's diff.
 
 Arguments:
   <base>    Comparison ref (default: origin/<default-branch>)
 
 Output:
-  Prints flagged CLAUDE.md files and the changed files they reference.
+  Prints flagged REVIEW.md files and the changed files they reference.
   Empty output means nothing to flag. Always exits 0.
 EOF
   exit 0
@@ -41,21 +43,16 @@ for f in "${changed[@]}"; do
   basename_to_paths["$bn"]+="$f"$'\n'
 done
 
-# Collect tracked CLAUDE.md files (skip repo-root CLAUDE.md — that's project
-# config, not a module review-question file).
-mapfile -t claude_files < <(
-  git ls-files -- '**/CLAUDE.md' 2> /dev/null |
-    grep -v '^CLAUDE\.md$' || true
+# Collect tracked REVIEW.md files.
+mapfile -t review_files < <(
+  git ls-files -- '**/REVIEW.md' 'REVIEW.md' 2> /dev/null || true
 )
-[[ ${#claude_files[@]} -eq 0 ]] && exit 0
+[[ ${#review_files[@]} -eq 0 ]] && exit 0
 
 found=false
-for claude_md in "${claude_files[@]}"; do
-  [[ -f "$claude_md" ]] || continue
-  content=$(< "$claude_md")
-
-  # Only check files that look like review-question docs.
-  grep -qiE 'review question|when reviewing' <<< "$content" || continue
+for review_md in "${review_files[@]}"; do
+  [[ -f "$review_md" ]] || continue
+  content=$(< "$review_md")
 
   # Extract file-like references from backtick-quoted spans. Strip backticks
   # and trailing parens (function calls like `build_manifest_info()`).
@@ -85,10 +82,10 @@ for claude_md in "${claude_files[@]}"; do
   done
 
   if [[ ${#matches[@]} -gt 0 ]]; then
-    $found || echo "CLAUDE.md review-question files affected by this branch:"
+    $found || echo "REVIEW.md files affected by this branch:"
     found=true
     echo ""
-    echo "$claude_md"
+    echo "$review_md"
     printf '%s\n' "${matches[@]}"
   fi
 done
