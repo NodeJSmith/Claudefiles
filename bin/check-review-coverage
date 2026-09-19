@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Detect directories touched by the current branch that have no REVIEW.md
+# coverage — no REVIEW.md in the directory itself or any ancestor up to the
+# repo root.
+#
+# Usage: check-review-coverage [<base>]
+#   <base>  Comparison ref. Defaults to origin/<default-branch>.
+#
+# Output (stdout): one line per uncovered directory (repo-relative).
+# Directories whose state file says "suppressed" or "deferred" (not yet due)
+# are excluded. Empty output = nothing to flag.
+# Exit: always 0.
+
+set -euo pipefail
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat << 'EOF'
+Usage: check-review-coverage [<base>]
+
+Detect directories touched by the current branch that have no REVIEW.md
+coverage. Respects per-directory defer/suppress state.
+
+Arguments:
+  <base>    Comparison ref (default: origin/<default-branch>)
+
+Output:
+  One line per uncovered directory. Empty = nothing to flag.
+  Always exits 0.
+EOF
+  exit 0
+fi
+
+command -v python3 > /dev/null 2>&1 || exit 0
+
+base="${1:-origin/$(git-default-branch)}"
+
+mapfile -t changed < <(git diff --name-only "$base"...HEAD 2> /dev/null || true)
+[[ ${#changed[@]} -eq 0 ]] && exit 0
+
+repo_root="$(git rev-parse --show-toplevel 2> /dev/null)" || exit 0
+
+# Resolve stable repo root for state file paths (survives worktree deletion).
+git_common_dir="$(git rev-parse --git-common-dir 2> /dev/null)"
+if [[ -n "$git_common_dir" ]]; then
+  case "$git_common_dir" in
+    /*) : ;;
+    *) git_common_dir="$repo_root/$git_common_dir" ;;
+  esac
+  main_repo_root="$(cd "$(dirname -- "$git_common_dir")" && pwd -P)" || main_repo_root="$repo_root"
+else
+  main_repo_root="$repo_root"
+fi
+
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+# For each directory, walk up to check if a REVIEW.md exists at any level.
+has_review_coverage() {
+  local dir="$1"
+  local current="$repo_root/$dir"
+  [[ "$dir" == "." ]] && current="$repo_root"
+  while :; do
+    [[ -f "$current/REVIEW.md" ]] && return 0
+    [[ "$current" == "$repo_root" || "$current" == "/" ]] && return 1
+    current="$(dirname -- "$current")"
+  done
+}
+
+# Check defer/suppress state for a directory.
+is_deferred_or_suppressed() {
+  local dir="$1"
+  local state_key="${main_repo_root}/${dir}"
+  local state_dir
+  state_dir="$config_dir/projects/$(printf '%s' "$state_key" | tr '/.' '--')"
+  local state_file="$state_dir/review-coverage.json"
+
+  [[ -f "$state_file" ]] || return 1
+
+  local status prompt_after
+  read -r status prompt_after < <(python3 -c "
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    print(d.get('status', ''), d.get('prompt_after', ''))
+except (OSError, json.JSONDecodeError):
+    print('', '')
+" "$state_file" 2> /dev/null)
+
+  case "$status" in
+    suppressed | resolved) return 0 ;;
+  esac
+
+  if [[ "$status" == "deferred" ]]; then
+    local today
+    today=$(date +%Y-%m-%d)
+    if [[ -n "$prompt_after" && "$today" < "$prompt_after" ]]; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+# Collect unique directories of changed source files, skipping non-code dirs.
+declare -A dirs
+for f in "${changed[@]}"; do
+  dir="$(dirname -- "$f")"
+  # Skip repo root, docs, design, and test directories — review questions
+  # target source modules, not supporting directories.
+  case "$dir" in
+    . | docs | docs/* | design | design/* | tests | tests/* | test | test/* | .github | .github/*) continue ;;
+  esac
+  dirs["$dir"]=1
+done
+
+# Collapse: if a parent directory is already in the set, drop children.
+declare -A collapsed
+for dir in "${!dirs[@]}"; do
+  parent="$(dirname -- "$dir")"
+  already_covered=false
+  while [[ "$parent" != "." ]]; do
+    if [[ -n "${dirs[$parent]:-}" ]]; then
+      already_covered=true
+      break
+    fi
+    parent="$(dirname -- "$parent")"
+  done
+  $already_covered || collapsed["$dir"]=1
+done
+
+# Report uncovered directories.
+for dir in $(printf '%s\n' "${!collapsed[@]}" | sort); do
+  has_review_coverage "$dir" && continue
+  is_deferred_or_suppressed "$dir" && continue
+  echo "$dir"
+done

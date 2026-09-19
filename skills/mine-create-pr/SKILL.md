@@ -27,6 +27,30 @@ AskUserQuestion:
 
 If `check-review-questions` produces no output, skip silently.
 
+## Step 1b: Review-Question Coverage Check
+
+Run `check-review-coverage` (no arguments). If it produces output, the branch touches source directories that have no `REVIEW.md` file. Present the list and ask:
+
+```
+AskUserQuestion:
+  question: "These source directories were touched but have no REVIEW.md review questions. Want to add them?"
+  header: "Review Q's"
+  multiSelect: false
+  options:
+    - label: "Add now"
+      description: "Generate REVIEW.md files for the listed directories"
+    - label: "Not now"
+      description: "Skip for now — ask again in a few days"
+    - label: "Never for these"
+      description: "Permanently suppress this prompt for these directories"
+```
+
+- **"Add now"**: For each listed directory, read the source files in it, identify the cross-cutting review concerns (data completeness, guard coverage, contract consistency, field propagation — the kinds of questions that catch bugs reviewers miss), and write a `REVIEW.md` with questions that force investigation rather than confirmation. Include cross-module pointers where the directory's code depends on or is consumed by other modules. Commit (`docs: add REVIEW.md review questions`) and push.
+- **"Not now"**: For each listed directory, write/update its state file with escalating deferral. Read the current tier from the state file (default 0), bump by 1 (cap at 3), and write to `$CLAUDE_CONFIG_DIR/projects/<key>/review-coverage.json`: `{"status": "deferred", "tier": <new_tier>, "prompt_after": "<today + [3,7,14,30][new_tier] days>"}`.
+- **"Never for these"**: For each listed directory, write `{"status": "suppressed"}` to its state file.
+
+If `check-review-coverage` produces no output, skip silently.
+
 ## Step 2: Create PR
 
 Launch one subagent (`subagent_type: standard-worker`):
