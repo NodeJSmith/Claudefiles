@@ -30,6 +30,9 @@ EOF
   exit 0
 fi
 
+repo_root="$(git rev-parse --show-toplevel 2> /dev/null)" || exit 0
+cd "$repo_root"
+
 base="${1:-origin/$(git-default-branch)}"
 
 if ! diff_output="$(git diff --name-only "$base"...HEAD 2>&1)"; then
@@ -59,27 +62,31 @@ for review_md in "${review_files[@]}"; do
   content=$(< "$review_md")
 
   # Extract file-like references from backtick-quoted spans. Strip backticks,
-  # trailing parens (function calls like `build_manifest_info()`), and
-  # line/anchor suffixes (like `foo.py:42`).
+  # trailing parens (function calls like `build_manifest_info()`),
+  # line-number suffixes (`foo.py:42`), and anchor suffixes (`foo.py#L42`).
   mapfile -t refs < <(
     grep -oE '`[^`]*\.(py|ts|tsx|js|jsx|rs|go|rb|java|yaml|yml|toml|json|sh|sql|css|html|md)[^`]*`' <<< "$content" |
-      sed 's/`//g; s/(.*//; s/:[0-9][0-9]*$//' |
+      sed 's/`//g; s/(.*//; s/#.*$//; s/:[0-9][0-9]*$//' |
       sort -u
   )
   [[ ${#refs[@]} -eq 0 ]] && continue
 
   matches=()
+  review_dir="$(dirname "$review_md")"
   for ref in "${refs[@]}"; do
-    ref_bn="$(basename "$ref")"
+    effective_ref="$ref"
+    if [[ "$ref" == ../* || "$ref" == ./* ]]; then
+      effective_ref="$(realpath -m --relative-to="$repo_root" "$repo_root/$review_dir/$ref" 2> /dev/null)" || effective_ref="$ref"
+    fi
+
+    ref_bn="$(basename "$effective_ref")"
     paths="${basename_to_paths[$ref_bn]:-}"
     [[ -z "$paths" ]] && continue
 
     while IFS= read -r p; do
       [[ -z "$p" ]] && continue
-      # If the reference includes a path fragment (not just a basename), verify
-      # the changed file's path ends with it.
-      if [[ "$ref" == */* ]]; then
-        [[ "$p" == *"$ref" ]] || continue
+      if [[ "$effective_ref" == */* ]]; then
+        [[ "$p" == *"$effective_ref" ]] || continue
       fi
       matches+=("  $p  (referenced as \`$ref\`)")
     done <<< "$paths"
