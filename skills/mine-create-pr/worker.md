@@ -35,7 +35,7 @@ Follow `rules/common/git-workflow.md` (Task File Cleanup): check for task files 
 
 ## Step 5: Draft PR Body
 
-Draft a comprehensive PR:
+Follow `rules/common/git-workflow.md` (PR Description Content). The body records the shipped state and its durable rationale, not the process that produced it. Terse, not exhaustive, but terse is not the same as vague.
 
 **Title:** < 70 characters, summarize the change.
 
@@ -45,7 +45,11 @@ Draft a comprehensive PR:
 3. If the convention is in use, the title MUST start with a type prefix — one of: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci` (see `rules/common/commit-conventions.md`). Squash-merge repos use the PR title as the changelog entry — a missing prefix breaks generation or silently omits it.
 4. If no signal confirms the convention, use a plain descriptive title without a prefix.
 
-**Body format:** Group changes by topic. For each logical area with multiple related changes, use an `### H3` header followed by bullet points. Order sections from most to least impactful. Bullets should explain *why* a change was made, not just *what* changed — include motivation, tradeoffs, or decisions worth preserving for future readers.
+**Body format:** Group changes by topic. For each logical area with multiple related changes, use an `### H3` header followed by bullet points. Order sections from most to least impactful.
+
+Each bullet answers *what* changed and *why*: the problem it solves, the tradeoff of the approach taken. Never the sequence of attempts that led there. Do not write "tried X, ended up doing Y because Z" or otherwise narrate the development session, even when it's the most memorable part of the work. If an earlier approach's rejection is durably useful to record (it would stop a future reader from re-trying it), state the tradeoff as a fact about the shipped design instead of an account of having tried it: "X isn't done here because it breaks Y."
+
+Skip mechanical or self-explanatory changes (renames, formatting, obvious refactors) that are incidental to a larger change, unless they need explaining. That skip doesn't apply when one of those same changes — or a dependency bump or typo fix — is the whole PR rather than a side effect of something bigger; applied literally there, it would leave the body empty. A standalone change like that still gets a terse one-line mention under Housekeeping below, not full narration. Not every file touched needs a bullet — a reviewer needs the load-bearing decisions, not an inventory of the diff.
 
 Exception: if the PR includes changes to `./design/` (ADRs, design docs, decision records), don't re-explain that reasoning in the PR body — reference the document (e.g., "see `design/adr-012-auth-approach.md`").
 
@@ -62,10 +66,10 @@ Example shape:
 
 ### Feature name or area
 - What changed and why this approach was chosen over alternatives
-- Any tradeoff or decision future readers should know about
+- Any tradeoff future readers need to know, stated as a fact about the design — not as a retelling of how it was found
 
 ### Another significant area
-- Change detail with motivation
+- Change detail with its rationale
 
 ### Housekeeping
 - Bump dependency X to v2
