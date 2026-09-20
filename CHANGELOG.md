@@ -13,7 +13,12 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - New `PreToolUse` hook (`ccrecall-nudge.sh`) nudges toward `ccrecall search` when a Bash command recursively greps or `find`s across `~/.claude/projects/` session transcripts — non-blocking, with a `CLAUDE_SKIP_CCRECALL_HINT=1` escape hatch. (#582)
+- `code-reviewer` findings now carry `trigger`/`falsifier`/`confidence` fields, with unverified pattern matches auto-downgraded to LOW severity, and consequence-anchored severity definitions replace subjective labels. (#583)
+- `REVIEW.md`, a per-module file of review questions read only by reviewer agents (not auto-injected like `CLAUDE.md`), plus `bin/check-review-questions` (staleness) and `bin/check-review-coverage` (missing coverage), both wired into `mine-create-pr`. (#583)
 
+### Changed
+
+- `integration-reviewer` gains a field-propagation dimension that traces fields through every output path and consumer, catching data silently dropped from responses. (#583)
 ## 2026-09-18
 
 ### Changed

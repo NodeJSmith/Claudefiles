@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Detect directories touched by the current branch that have no REVIEW.md
+# coverage — no REVIEW.md in the directory itself or any ancestor up to the
+# repo root.
+#
+# Usage: check-review-coverage [<base>]
+#   <base>  Comparison ref. Defaults to origin/<default-branch>.
+#
+# Output (stdout): one line per uncovered directory (repo-relative).
+# Directories whose state file says "suppressed" or "deferred" (not yet due)
+# are excluded. Empty output = nothing to flag.
+# Exit: always 0.
+#
+# shellcheck disable=SC2154  # repo_root, base, changed are set by sourcing .review-md-lib.sh
+
+set -euo pipefail
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat << 'EOF'
+Usage: check-review-coverage [<base>]
+
+Detect directories touched by the current branch that have no REVIEW.md
+coverage. Respects per-directory defer/suppress state.
+
+Arguments:
+  <base>    Comparison ref (default: origin/<default-branch>)
+
+Output:
+  One line per uncovered directory. Empty = nothing to flag.
+  Always exits 0.
+EOF
+  exit 0
+fi
+
+_review_md_label="check review coverage"
+_review_md_base="${1:-}"
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=.review-md-lib.sh
+source "$(dirname -- "$_self")/.review-md-lib.sh"
+
+# Resolve stable repo root for state file paths (survives worktree deletion).
+git_common_dir="$(git rev-parse --git-common-dir 2> /dev/null)"
+if [[ -n "$git_common_dir" ]]; then
+  case "$git_common_dir" in
+    /*) : ;;
+    *) git_common_dir="$repo_root/$git_common_dir" ;;
+  esac
+  main_repo_root="$(cd "$(dirname -- "$git_common_dir")" && pwd -P)" || main_repo_root="$repo_root"
+else
+  main_repo_root="$repo_root"
+fi
+
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+# For each directory, walk up to check if a REVIEW.md exists at any level.
+has_review_coverage() {
+  local dir="$1"
+  local current="$repo_root/$dir"
+  [[ "$dir" == "." ]] && current="$repo_root"
+  while :; do
+    [[ -f "$current/REVIEW.md" ]] && return 0
+    [[ "$current" == "$repo_root" || "$current" == "/" ]] && return 1
+    current="$(dirname -- "$current")"
+  done
+}
+
+# Check defer/suppress state for a directory via the shared read-side
+# implementation (scripts/hooks/lib/defer-suppress.sh) also used by
+# project-meta-prompt.sh and project-docs-check.sh — this used to be a
+# private reimplementation of the identical pattern; adopted the shared one
+# instead of letting two copies drift. "resolved" is inert for this call
+# path (has_review_coverage() above already short-circuits before this
+# function is ever reached once a REVIEW.md exists), but it's cheaper to
+# accept an unreachable branch from the shared lib than to fork it.
+#
+# The state key is hashed rather than character-substituted (tr '/.' '--',
+# used by the shared lib's other two callers for a repo-root-only key)
+# because this key appends an arbitrary directory suffix on top of the repo
+# root; project-docs-check.sh's own key does this too and accepts the same
+# collision risk as inherited debt (see its state_key comment) — this script
+# closes it instead.
+command -v python3 > /dev/null 2>&1 || exit 0
+
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=../scripts/hooks/lib/defer-suppress.sh
+source "$(dirname -- "$_self")/../scripts/hooks/lib/defer-suppress.sh"
+
+is_deferred_or_suppressed() {
+  local dir="$1"
+  local state_key="${main_repo_root}/${dir}"
+  local state_hash
+  state_hash="$(printf '%s' "$state_key" | sha256sum | cut -c1-16)"
+  local state_file="$config_dir/projects/$state_hash/review-coverage.json"
+  defer_suppress_should_skip "$state_file"
+}
+
+# Collect unique directories of changed source files, skipping non-code dirs.
+declare -A dirs
+for f in "${changed[@]}"; do
+  dir="$(dirname -- "$f")"
+  # Skip .github and deleted directories.
+  case "$dir" in
+    .github | .github/*) continue ;;
+  esac
+  case "/$dir/" in
+    */docs/* | */design/* | */tests/* | */test/*) continue ;;
+  esac
+  # Only track directories where at least one changed file is a recognized
+  # source file - skip documentation and config files (README.md,
+  # mise.toml, settings.json, etc.) at every depth, not just root.
+  case "$f" in
+    *.py | *.ts | *.tsx | *.js | *.jsx | *.rs | *.go | *.rb | *.java | *.sh | \
+      *.vue | *.svelte | *.astro | *.css | *.scss | *.html) : ;;
+    *) continue ;;
+  esac
+  [[ -d "$repo_root/$dir" ]] || continue
+  dirs["$dir"]=1
+done
+
+# Collapse: if a parent directory (including root, ".") is already in the
+# set, drop children. Root has no parent, so it's never collapsed away.
+declare -A collapsed
+for dir in "${!dirs[@]}"; do
+  if [[ "$dir" == "." ]]; then
+    collapsed["."]=1
+    continue
+  fi
+  parent="$(dirname -- "$dir")"
+  already_covered=false
+  while :; do
+    if [[ -n "${dirs[$parent]:-}" ]]; then
+      already_covered=true
+      break
+    fi
+    [[ "$parent" == "." ]] && break
+    parent="$(dirname -- "$parent")"
+  done
+  $already_covered || collapsed["$dir"]=1
+done
+
+# Report uncovered directories.
+while IFS= read -r dir; do
+  has_review_coverage "$dir" && continue
+  is_deferred_or_suppressed "$dir" && continue
+  echo "$dir"
+done < <(printf '%s\n' "${!collapsed[@]}" | sort)

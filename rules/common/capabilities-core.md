@@ -91,6 +91,9 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "am I behind main", "did I forget to pull", "is my branch stale", "behind default branch" | `git-branch-behind` |
 | "detect git platform", "github or ado" | `git-platform` |
 | "validate agent files", "check skill schema" | `lint-agent-files` |
+| "stale review questions", "REVIEW.md staleness", "review questions affected by this branch" | `check-review-questions` |
+| "missing review questions", "REVIEW.md coverage", "modules without review questions" | `check-review-coverage` |
+| "which REVIEW.md applies", "find applicable review questions for this diff" | `find-review-md` |
 | "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
 | "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
 | "did the opencode sync actually work", "are subagents running at the right effort", "check subagent variants", "did the variant resolve", "audit opencode variants" | `opencode-variant-audit` |

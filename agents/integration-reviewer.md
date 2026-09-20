@@ -61,6 +61,7 @@ After completing a review, create or update that same file — but only if the e
 | 9 | **Parallel drift** | HIGH | Two implementations of the same concept that can diverge independently |
 | 10 | **Abstraction inconsistency** | MEDIUM | Sibling files at different abstraction levels — some use shared utilities, others inline the same logic |
 | 11 | **Unhandled variant** | HIGH | New enum/union/status value added but not handled by all consumers of the parent type |
+| 12 | **Field propagation gap** | HIGH | A field is read, computed, or added to a model but not included in every output path or consumer that should carry it |
 
 ---
 
@@ -109,6 +110,8 @@ Read each changed file in full.
 ---
 
 ### Step 2: Load Architectural Context
+
+**Module REVIEW.md files** — find applicable `REVIEW.md` files. If Step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 
@@ -228,6 +231,13 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Also check: does every emitter/producer of the parent type have a code path that produces the new value when appropriate? A new status that can never be emitted is dead code.
 - This dimension fires **only** when the diff introduces a new variant — if no new enum member, literal, or status value was added, mark as N/A
 
+#### 12. Field propagation gap
+- Owns the **architecture-wide** half of field propagation — whether the field's source and every layer beyond the diff carry it, not whether individual changed-file consumers read it (that's `code-reviewer`'s "Field propagation (consumer side)" — don't duplicate it).
+- For every field added to or changed on a model/response type in the diff, trace it through every output path and consumer, including code outside the diff. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal.
+- Check both directions: **downstream** (is the field included in every output format — JSON, human-readable, API response — across the whole codebase, not just changed files?) and **upstream** (does the data source backing this field include all entities it claims to represent, or only a subset?).
+- A field with a default value (`field: X = default`) that every constructor always passes explicitly weakens the contract — it tells consumers the field is optional when it's actually always present.
+- A data source that iterates only "tracked" or "active" items silently drops stopped/configured-but-never-started/unregistered entities from counts and lists, breaking downstream UI that relies on completeness.
+
 </checklist>
 
 ---
@@ -295,6 +305,11 @@ Group findings by severity (CRITICAL first), then by file.
   Consumer: <function or component that switches on the type>
   Missing: no branch for <value> — <what happens instead (silent fallthrough, wrong default, crash)>
   Fix: add explicit handling for <value>
+
+[FIELD_PROPAGATION] path/to/file.py:<line>
+  Field: <name> added/changed on <model or response type>
+  Missing from: <output path or consumer that should carry it>
+  Fix: <how to propagate — add to serializer, include in response, forward to consumer>
 ```
 
 After all findings, print a summary table:
@@ -316,14 +331,15 @@ After all findings, print a summary table:
 | Parallel drift       | PASS / N issue(s)               |
 | Abstraction inconsistency | PASS / N issue(s)          |
 | Unhandled variant    | PASS / N issue(s) / N/A    |
+| Field propagation    | PASS / N issue(s)               |
 
 **Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 ```
 
-`N` = total count of all findings listed in the dimension table above, introduced by this change. `C`, `H`, `M`, `L` = per-severity counts. Do not count findings listed under `## Pre-existing Issues`. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
+`N` = total count of all findings listed in the dimension table above. `C`, `H`, `M`, `L` = per-severity counts. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
 
 **Verdict criteria:**
-- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, or UNHANDLED_VARIANT finding
+- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, UNHANDLED_VARIANT, or FIELD_PROPAGATION finding
 - **WARN**: INCONSISTENT, NAMING, COUPLED, ORPHANED, or ABSTRACTION_DRIFT findings
 - **PASS**: No findings across all dimensions
 
@@ -331,15 +347,9 @@ After all findings, print a summary table:
 
 ---
 
-### Step 6: Separate Pre-existing Issues
+### Step 6: Report All Issues Found
 
-If you notice issues in **unchanged** sibling files (not introduced by this diff), before labeling them pre-existing, confirm the file is actually unchanged since the default branch per the procedure in `rules/common/pre-existing-verification.md` (use `git-default-branch`, not `git-branch-base`, which resolves the closest branch rather than the default one) — not merely absent from the diff you were handed (which, on a `HEAD`- or upstream-scoped discovery cascade, may already sit several commits past the default branch). If confirmed, note it at the end under:
-
-```text
-## Pre-existing Issues (verified unchanged since the default branch)
-```
-
-If you have not verified it against the default branch, either skip the note (it's simply outside your review scope) or label it "outside this diff's scope, unverified against the default branch" — never "pre-existing" without the check. See `rules/common/pre-existing-verification.md`. Do not include verified pre-existing items in the verdict. Don't block a PR for debt confirmed to predate it.
+Report any issue you find in the code under review, regardless of whether this diff introduced it. This applies to any issue in a file you read in full during review, not only lines the diff touches. Do not dismiss findings as "pre-existing" or "out of scope." Note when it was introduced if you know, but do not use that as a reason to omit it.
 
 ---
 
