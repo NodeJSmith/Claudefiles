@@ -58,12 +58,12 @@ for review_md in "${review_files[@]}"; do
   [[ -f "$review_md" ]] || continue
   content=$(< "$review_md")
 
-  # Extract file-like references from backtick-quoted spans. Strip backticks
-  # and trailing parens (function calls like `build_manifest_info()`).
-  # Extension list covers common source/config types; extend as needed.
+  # Extract file-like references from backtick-quoted spans. Strip backticks,
+  # trailing parens (function calls like `build_manifest_info()`), and
+  # line/anchor suffixes (like `foo.py:42`).
   mapfile -t refs < <(
     grep -oE '`[^`]*\.(py|ts|tsx|js|jsx|rs|go|rb|java|yaml|yml|toml|json|sh|sql|css|html|md)[^`]*`' <<< "$content" |
-      sed 's/`//g; s/(.*//' |
+      sed 's/`//g; s/(.*//; s/:[0-9][0-9]*$//' |
       sort -u
   )
   [[ ${#refs[@]} -eq 0 ]] && continue
