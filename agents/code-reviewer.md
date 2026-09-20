@@ -65,7 +65,7 @@ When invoked:
    - `.py` files → apply code review sections + run static analysis
    - `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` → apply Skill & Markdown File Checks below
 2. Run static analysis for Python files if available
-3. Check for `REVIEW.md` files in each directory containing changed files. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
+3. Check for `REVIEW.md` files in each directory containing changed files and in each ancestor directory up to the repo root. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 4. Begin review
 
 <checklist>
@@ -213,7 +213,7 @@ End with an **Assessment**:
 **Reasoning:** [1-2 sentences — technical, not performative]
 ```
 
-`N` = total count of CRITICAL + HIGH + MEDIUM + LOW findings introduced by this change. `C`, `H`, `M`, `L` = per-severity counts. Do not include findings listed under "Pre-existing (verified unchanged since the default branch)". Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when there are no new findings.
+`N` = total count of CRITICAL + HIGH + MEDIUM + LOW findings reported. `C`, `H`, `M`, `L` = per-severity counts. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when there are no findings.
 
 ## Verdict Criteria
 

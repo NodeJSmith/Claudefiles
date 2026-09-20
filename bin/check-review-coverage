@@ -104,11 +104,11 @@ except (OSError, json.JSONDecodeError):
 declare -A dirs
 for f in "${changed[@]}"; do
   dir="$(dirname -- "$f")"
-  # Skip repo root, docs, design, and test directories — review questions
-  # target source modules, not supporting directories.
+  # Skip non-source directories and deleted directories.
   case "$dir" in
     . | docs | docs/* | design | design/* | tests | tests/* | test | test/* | .github | .github/*) continue ;;
   esac
+  [[ -d "$repo_root/$dir" ]] || continue
   dirs["$dir"]=1
 done
 
@@ -128,8 +128,8 @@ for dir in "${!dirs[@]}"; do
 done
 
 # Report uncovered directories.
-for dir in $(printf '%s\n' "${!collapsed[@]}" | sort); do
+while IFS= read -r dir; do
   has_review_coverage "$dir" && continue
   is_deferred_or_suppressed "$dir" && continue
   echo "$dir"
-done
+done < <(printf '%s\n' "${!collapsed[@]}" | sort)

@@ -111,7 +111,7 @@ Read each changed file in full.
 
 ### Step 2: Load Architectural Context
 
-**Module REVIEW.md files** — check for `REVIEW.md` files in each directory containing changed files. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
+**Module REVIEW.md files** — check for `REVIEW.md` files in each directory containing changed files and in each ancestor directory up to the repo root. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 
@@ -304,6 +304,11 @@ Group findings by severity (CRITICAL first), then by file.
   Consumer: <function or component that switches on the type>
   Missing: no branch for <value> — <what happens instead (silent fallthrough, wrong default, crash)>
   Fix: add explicit handling for <value>
+
+[FIELD_PROPAGATION] path/to/file.py:<line>
+  Field: <name> added/changed on <model or response type>
+  Missing from: <output path or consumer that should carry it>
+  Fix: <how to propagate — add to serializer, include in response, forward to consumer>
 ```
 
 After all findings, print a summary table:
@@ -333,7 +338,7 @@ After all findings, print a summary table:
 `N` = total count of all findings listed in the dimension table above. `C`, `H`, `M`, `L` = per-severity counts. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
 
 **Verdict criteria:**
-- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, or UNHANDLED_VARIANT finding
+- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, UNHANDLED_VARIANT, or FIELD_PROPAGATION finding
 - **WARN**: INCONSISTENT, NAMING, COUPLED, ORPHANED, or ABSTRACTION_DRIFT findings
 - **PASS**: No findings across all dimensions
 

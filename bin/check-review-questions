@@ -58,7 +58,7 @@ for review_md in "${review_files[@]}"; do
   # and trailing parens (function calls like `build_manifest_info()`).
   # Extension list covers common source/config types; extend as needed.
   mapfile -t refs < <(
-    grep -oE '`[^`]*\.(py|ts|tsx|js|jsx|rs|go|rb|java|yaml|yml|toml|json|sh|sql|css|html)[^`]*`' <<< "$content" |
+    grep -oE '`[^`]*\.(py|ts|tsx|js|jsx|rs|go|rb|java|yaml|yml|toml|json|sh|sql|css|html|md)[^`]*`' <<< "$content" |
       sed 's/`//g; s/(.*//' |
       sort -u
   )
