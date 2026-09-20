@@ -80,6 +80,20 @@ Do not add changelog entries during feature work or at commit time. Changelog en
 
 Adding entries mid-feature produces noisy, granular, often-wrong entries that accumulate across multiple commits and don't reflect what actually shipped.
 
+## PR Description Content
+
+A PR description is read by someone with zero session context: a reviewer today, a teammate in a year, the author themselves after forgetting the details. It records the shipped state and its durable rationale, not the development process that produced it.
+
+**Answer exactly two questions:** what changed (enough to understand the diff's intent without reading it) and why (the problem being solved, the reasoning for the chosen approach, tradeoffs or shortcomings that still hold). Nothing else earns a place in the body.
+
+**Never narrate the path that got there.** No "tried X, ended up doing Y because Z," no blow-by-blow of abandoned approaches, no account of what happened mid-session. This holds even when it's true and even when it felt like the interesting part while doing the work. If an abandoned approach's rejection is itself durably useful (it would stop someone from re-trying it, say), state that as a fact about the shipped design, not as a narrated attempt: "X isn't used here because it breaks Y," not "we first tried X but it broke Y so we switched to Z."
+
+**Keep bullets to load-bearing decisions.** Don't itemize every file touched or every mechanical change (renames, formatting, obvious refactors) — group by topic and skip what's self-explanatory from the diff. A PR body is a summary a reviewer can act on, not an inventory.
+
+**Terse is not the same as vague.** A description that omits the actual reasoning ("Fix bug," "various improvements," "Phase 1") is the mirror-image failure — cut the narration, never the rationale itself.
+
+This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule when drafting the body.
+
 ## Commit Attribution
 
 Attribution disabled globally via `$CLAUDE_CONFIG_DIR/settings.json`.
