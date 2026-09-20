@@ -49,7 +49,7 @@ Follow `rules/common/git-workflow.md` (PR Description Content). The body records
 
 Each bullet answers *what* changed and *why*: the problem it solves, the tradeoff of the approach taken. Never the sequence of attempts that led there. Do not write "tried X, ended up doing Y because Z" or otherwise narrate the development session, even when it's the most memorable part of the work. If an earlier approach's rejection is durably useful to record (it would stop a future reader from re-trying it), state the tradeoff as a fact about the shipped design instead of an account of having tried it: "X isn't done here because it breaks Y."
 
-Skip mechanical or self-explanatory changes (renames, formatting, obvious refactors) unless they need explaining. Not every file touched needs a bullet — a reviewer needs the load-bearing decisions, not an inventory of the diff.
+Skip mechanical or self-explanatory changes (renames, formatting, obvious refactors) that are incidental to a larger change, unless they need explaining. That skip doesn't apply when one of those same changes — or a dependency bump or typo fix — is the whole PR rather than a side effect of something bigger; applied literally there, it would leave the body empty. A standalone change like that still gets a terse one-line mention under Housekeeping below, not full narration. Not every file touched needs a bullet — a reviewer needs the load-bearing decisions, not an inventory of the diff.
 
 Exception: if the PR includes changes to `./design/` (ADRs, design docs, decision records), don't re-explain that reasoning in the PR body — reference the document (e.g., "see `design/adr-012-auth-approach.md`").
 
