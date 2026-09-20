@@ -171,7 +171,7 @@ You'll be drawn to suggest extracting functions, adding interfaces, or creating 
 ### Missing Context
 
 Watch for findings that reveal you didn't understand the full picture:
-- Suggesting changes to code the author didn't write or modify in this diff
+- Suggesting stylistic or preferential changes to code the author didn't write or modify in this diff, with no verified bug behind them. This exception doesn't cover real bugs — see "Report any bug you find" above.
 - Flagging patterns that are consistent with the rest of the codebase
 - Recommending approaches that conflict with constraints visible in CLAUDE.md or the conversation context — verify the constraint exists before using it to dismiss a finding
 
