@@ -75,7 +75,10 @@ for review_md in "${review_files[@]}"; do
   review_dir="$(dirname "$review_md")"
   for ref in "${refs[@]}"; do
     effective_ref="$ref"
-    if [[ "$ref" == ../* || "$ref" == ./* ]]; then
+    if [[ "$ref" == ../* || "$ref" == ./* || "$ref" != */* ]]; then
+      # Relative or bare reference - resolve relative to this REVIEW.md's
+      # own directory rather than matching any file with the same basename
+      # anywhere in the repo.
       effective_ref="$(realpath -m --relative-to="$repo_root" "$repo_root/$review_dir/$ref" 2> /dev/null)" || effective_ref="$ref"
     fi
 
@@ -87,6 +90,8 @@ for review_md in "${review_files[@]}"; do
       [[ -z "$p" ]] && continue
       if [[ "$effective_ref" == */* ]]; then
         [[ "$p" == *"$effective_ref" ]] || continue
+      else
+        [[ "$p" == "$effective_ref" ]] || continue
       fi
       matches+=("  $p  (referenced as \`$ref\`)")
     done <<< "$paths"
