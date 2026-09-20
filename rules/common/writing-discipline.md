@@ -6,7 +6,7 @@ tool: claude, antigravity
 
 The prose equivalent of `laziness-protocol.md`. LLMs default to completionist writing: including every finding, hedging every claim, expanding scope to cover adjacent topics. Counter it by treating the reader's time as the binding constraint, not coverage.
 
-This applies to any prose task: writeups, briefs, documentation, research summaries, messages drafted for the user. It does not apply to code or commit messages (those have their own conventions).
+This applies to any prose task: writeups, briefs, documentation, research summaries, PR descriptions, messages drafted for the user. It does not apply to code or commit messages (those have their own conventions). PR descriptions have an additional, more specific rule in `git-workflow.md` (PR Description Content) that this section's general cutting discipline feeds into.
 
 ## Rules
 
