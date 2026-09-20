@@ -108,27 +108,41 @@ except (OSError, json.JSONDecodeError):
 declare -A dirs
 for f in "${changed[@]}"; do
   dir="$(dirname -- "$f")"
-  # Skip non-source directories and deleted directories.
+  # Skip .github and deleted directories.
   case "$dir" in
-    . | .github | .github/*) continue ;;
+    .github | .github/*) continue ;;
   esac
   case "/$dir/" in
     */docs/* | */design/* | */tests/* | */test/*) continue ;;
   esac
+  # At repo root, only track recognized source files - skip documentation
+  # and config files (README.md, mise.toml, settings.json, etc.).
+  if [[ "$dir" == "." ]]; then
+    case "$f" in
+      *.py | *.ts | *.tsx | *.js | *.jsx | *.rs | *.go | *.rb | *.java | *.sh) : ;;
+      *) continue ;;
+    esac
+  fi
   [[ -d "$repo_root/$dir" ]] || continue
   dirs["$dir"]=1
 done
 
-# Collapse: if a parent directory is already in the set, drop children.
+# Collapse: if a parent directory (including root, ".") is already in the
+# set, drop children. Root has no parent, so it's never collapsed away.
 declare -A collapsed
 for dir in "${!dirs[@]}"; do
+  if [[ "$dir" == "." ]]; then
+    collapsed["."]=1
+    continue
+  fi
   parent="$(dirname -- "$dir")"
   already_covered=false
-  while [[ "$parent" != "." ]]; do
+  while :; do
     if [[ -n "${dirs[$parent]:-}" ]]; then
       already_covered=true
       break
     fi
+    [[ "$parent" == "." ]] && break
     parent="$(dirname -- "$parent")"
   done
   $already_covered || collapsed["$dir"]=1
