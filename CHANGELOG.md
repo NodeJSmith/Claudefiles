@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-20
+
+### Added
+
+- New `git-workflow.md` "PR Description Content" rule requires PR bodies to record the shipped state and its durable rationale, not the development process — no narrating abandoned approaches, no itemizing mechanical changes. `mine-create-pr/worker.md` Step 5 applies it directly. (#584)
+
 ## 2026-09-19
 
 ### Added
