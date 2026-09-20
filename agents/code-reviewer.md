@@ -65,7 +65,7 @@ When invoked:
    - `.py` files → apply code review sections + run static analysis
    - `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` → apply Skill & Markdown File Checks below
 2. Run static analysis for Python files if available
-3. Run `find-review-md` (no arguments). For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
+3. Find applicable `REVIEW.md` files. If step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 4. Begin review
 
 <checklist>

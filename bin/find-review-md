@@ -13,30 +13,37 @@
 # their own Step 1.
 #
 # Usage: find-review-md [<base>]
-#   <base>  Comparison ref. If given, overrides the cascade below with a
-#           three-dot diff against this ref.
+#        find-review-md --paths < file-list
+#   <base>    Comparison ref. If given, overrides the cascade below with a
+#             three-dot diff against this ref.
+#   --paths   Read repo-relative file paths from stdin (one per line)
+#             instead of discovering them — for a caller that already has
+#             an explicit, scoped file list (mine-review path mode, the
+#             orchestrate pipeline) and must not let this script's own
+#             fallback cascade substitute an unrelated diff.
 #
 # Output (stdout): one REVIEW.md path per line, repo-relative, deduped.
 # Empty output = no REVIEW.md applies to this diff.
 # Exit: always 0.
 #
-# Changed-file discovery cascade (no <base> given): uncommitted changes
-# (staged + unstaged + untracked) → @{upstream}...HEAD → the resolved
-# default branch, tried as both origin/<default-branch>...HEAD and
-# <default-branch>...HEAD (a local-only checkout has no origin/ prefix
-# to diff against) → HEAD~1.
+# Changed-file discovery cascade (no <base>/--paths given): uncommitted
+# changes (staged + unstaged + untracked) → @{upstream}...HEAD → the
+# resolved default branch, tried as both origin/<default-branch>...HEAD
+# and <default-branch>...HEAD (a local-only checkout has no origin/
+# prefix to diff against) → HEAD~1.
 
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat << 'EOF'
 Usage: find-review-md [<base>]
+       find-review-md --paths < file-list
 
 List REVIEW.md files applicable to the current branch's diff — walking up
 from each changed file's directory to the repo root.
 
-Changed-file discovery (no <base> given): uncommitted changes first
-(staged + unstaged + untracked), then @{upstream}...HEAD, then the
+Changed-file discovery (no <base>/--paths given): uncommitted changes
+first (staged + unstaged + untracked), then @{upstream}...HEAD, then the
 resolved default branch — tried as both origin/<default-branch>...HEAD
 and <default-branch>...HEAD — then HEAD~1. Same cascade the reviewer
 agents that call this script document in their own Step 1.
@@ -44,6 +51,10 @@ agents that call this script document in their own Step 1.
 Arguments:
   <base>    Comparison ref. Overrides the cascade with a three-dot diff
             against this ref instead.
+  --paths   Read repo-relative file paths from stdin (one per line)
+            instead of discovering them. Use this when the caller
+            already has an explicit, scoped file list — self-discovery
+            would ignore that scope and substitute its own diff.
 
 Output:
   One REVIEW.md path per line, repo-relative, deduped. Empty = none apply.
@@ -55,7 +66,13 @@ fi
 # `mapfile -t arr <<< "$s"` on an empty $s yields a one-element array
 # containing "" (a trailing-newline artifact of <<<), not a zero-length
 # array — so `${#changed[@]} -eq 0` alone doesn't catch "diff produced no
-# files." This helper checks both.
+# files." This helper checks both, and the `-z` half is load-bearing for
+# --paths too, not just the `<<<` git-diff branches: the documented caller
+# pattern `printf '%s\n' "${files[@]}"` still emits one empty line when
+# the array is empty (printf with a %s conversion and zero arguments runs
+# the format once against an empty string), so `mapfile -t changed` on
+# that input is a one-element array containing "", identical to the <<<
+# case in effect even though it arrives via a plain pipe.
 changed_is_empty() {
   [[ ${#changed[@]} -eq 0 || -z "${changed[0]}" ]]
 }
@@ -63,8 +80,14 @@ changed_is_empty() {
 repo_root="$(git rev-parse --show-toplevel 2> /dev/null)" || exit 0
 cd "$repo_root" || exit 0
 
-base="${1:-}"
-if [[ -n "$base" ]]; then
+if [[ "${1:-}" == "--paths" ]]; then
+  if [[ -t 0 ]]; then
+    echo "WARNING: --paths expects a file list on stdin; none was piped in" >&2
+    exit 0
+  fi
+  mapfile -t changed
+elif [[ -n "${1:-}" ]]; then
+  base="$1"
   if ! diff_output="$(git diff --name-only "$base"...HEAD 2> /dev/null)"; then
     echo "WARNING: git diff against $base failed; cannot find applicable REVIEW.md files" >&2
     exit 0

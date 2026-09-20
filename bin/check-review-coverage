@@ -109,7 +109,8 @@ for f in "${changed[@]}"; do
   # source file - skip documentation and config files (README.md,
   # mise.toml, settings.json, etc.) at every depth, not just root.
   case "$f" in
-    *.py | *.ts | *.tsx | *.js | *.jsx | *.rs | *.go | *.rb | *.java | *.sh) : ;;
+    *.py | *.ts | *.tsx | *.js | *.jsx | *.rs | *.go | *.rb | *.java | *.sh | \
+      *.vue | *.svelte | *.astro | *.css | *.scss | *.html) : ;;
     *) continue ;;
   esac
   [[ -d "$repo_root/$dir" ]] || continue

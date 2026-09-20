@@ -67,7 +67,7 @@ When invoked:
    git diff --name-only HEAD~1
    ```
 2. Read every changed file in full
-3. Run `find-review-md` (no arguments). For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a readability or maintainability issue, report it.
+3. Find applicable `REVIEW.md` files. If step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a readability or maintainability issue, report it.
 4. Begin review
 
 ## Core Question

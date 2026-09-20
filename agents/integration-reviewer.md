@@ -111,7 +111,7 @@ Read each changed file in full.
 
 ### Step 2: Load Architectural Context
 
-**Module REVIEW.md files** — run `find-review-md` (no arguments). For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
+**Module REVIEW.md files** — find applicable `REVIEW.md` files. If Step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 
