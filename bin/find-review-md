@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# List REVIEW.md files applicable to the current branch's diff: for every
+# directory containing a changed file, walk up to the repo root and print
+# any REVIEW.md found at or above that directory (deduped). Reviewer agents
+# shell out to this instead of freehand-reimplementing the ancestor walk.
+#
+# Callers (code-reviewer, integration-reviewer, wtf-reviewer) run this
+# pre-commit, against uncommitted changes — so unlike check-review-coverage
+# and check-review-questions (whose only caller runs post-commit), this
+# script discovers changed files itself rather than sourcing
+# .review-md-lib.sh's committed-diff-only resolution. It uses the same
+# uncommitted-first cascade the three reviewer agents already document in
+# their own Step 1.
+#
+# Usage: find-review-md [<base>]
+#   <base>  Comparison ref. If given, overrides the cascade below with a
+#           three-dot diff against this ref.
+#
+# Output (stdout): one REVIEW.md path per line, repo-relative, deduped.
+# Empty output = no REVIEW.md applies to this diff.
+# Exit: always 0.
+#
+# Changed-file discovery cascade (no <base> given): uncommitted changes
+# (staged + unstaged + untracked) → @{upstream}...HEAD → the resolved
+# default branch, tried as both origin/<default-branch>...HEAD and
+# <default-branch>...HEAD (a local-only checkout has no origin/ prefix
+# to diff against) → HEAD~1.
+
+set -euo pipefail
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat << 'EOF'
+Usage: find-review-md [<base>]
+
+List REVIEW.md files applicable to the current branch's diff — walking up
+from each changed file's directory to the repo root.
+
+Changed-file discovery (no <base> given): uncommitted changes first
+(staged + unstaged + untracked), then @{upstream}...HEAD, then the
+resolved default branch — tried as both origin/<default-branch>...HEAD
+and <default-branch>...HEAD — then HEAD~1. Same cascade the reviewer
+agents that call this script document in their own Step 1.
+
+Arguments:
+  <base>    Comparison ref. Overrides the cascade with a three-dot diff
+            against this ref instead.
+
+Output:
+  One REVIEW.md path per line, repo-relative, deduped. Empty = none apply.
+  Always exits 0.
+EOF
+  exit 0
+fi
+
+# `mapfile -t arr <<< "$s"` on an empty $s yields a one-element array
+# containing "" (a trailing-newline artifact of <<<), not a zero-length
+# array — so `${#changed[@]} -eq 0` alone doesn't catch "diff produced no
+# files." This helper checks both.
+changed_is_empty() {
+  [[ ${#changed[@]} -eq 0 || -z "${changed[0]}" ]]
+}
+
+repo_root="$(git rev-parse --show-toplevel 2> /dev/null)" || exit 0
+cd "$repo_root" || exit 0
+
+base="${1:-}"
+if [[ -n "$base" ]]; then
+  if ! diff_output="$(git diff --name-only "$base"...HEAD 2> /dev/null)"; then
+    echo "WARNING: git diff against $base failed; cannot find applicable REVIEW.md files" >&2
+    exit 0
+  fi
+  mapfile -t changed <<< "$diff_output"
+else
+  mapfile -t changed < <(
+    {
+      git diff --name-only HEAD 2> /dev/null
+      git ls-files --others --exclude-standard 2> /dev/null
+    } | sort -u
+  )
+  if changed_is_empty; then
+    diff_output="$(git diff --name-only "@{upstream}...HEAD" 2> /dev/null)" || diff_output=""
+    mapfile -t changed <<< "$diff_output"
+  fi
+  if changed_is_empty; then
+    default_branch="$(git-default-branch 2> /dev/null)" || default_branch=""
+    if [[ -n "$default_branch" ]]; then
+      diff_output="$(git diff --name-only "origin/$default_branch...HEAD" 2> /dev/null)" ||
+        diff_output="$(git diff --name-only "$default_branch...HEAD" 2> /dev/null)" || diff_output=""
+      mapfile -t changed <<< "$diff_output"
+    fi
+  fi
+  if changed_is_empty; then
+    diff_output="$(git diff --name-only HEAD~1 2> /dev/null)" || diff_output=""
+    mapfile -t changed <<< "$diff_output"
+  fi
+fi
+
+if changed_is_empty; then
+  exit 0
+fi
+
+declare -A seen
+for f in "${changed[@]}"; do
+  dir="$(dirname -- "$f")"
+  current="$repo_root/$dir"
+  [[ "$dir" == "." ]] && current="$repo_root"
+  while :; do
+    if [[ -f "$current/REVIEW.md" ]]; then
+      if [[ "$current" == "$repo_root" ]]; then
+        rel="REVIEW.md"
+      else
+        rel="${current#"$repo_root"/}/REVIEW.md"
+      fi
+      if [[ -z "${seen[$rel]:-}" ]]; then
+        seen["$rel"]=1
+        echo "$rel"
+      fi
+    fi
+    [[ "$current" == "$repo_root" || "$current" == "/" ]] && break
+    current="$(dirname -- "$current")"
+  done
+done

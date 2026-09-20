@@ -65,7 +65,7 @@ When invoked:
    - `.py` files → apply code review sections + run static analysis
    - `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` → apply Skill & Markdown File Checks below
 2. Run static analysis for Python files if available
-3. Check for `REVIEW.md` files in each directory containing changed files and in each ancestor directory up to the repo root. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
+3. Run `find-review-md` (no arguments). For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a bug, report it. These questions are project-authored and encode the cross-cutting concerns that produce the hardest-to-find bugs. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 4. Begin review
 
 <checklist>
@@ -84,7 +84,7 @@ How does the code behave when things go wrong?
 ### 2. Cross-Surface Contract Consistency
 
 Do the backend model, API routes, CLI, and frontend agree?
-- **Field propagation**: for every new field added to a model, grep it across all changed files and verify every consumer reads it, writes it, and includes it in output. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal.
+- **Field propagation (consumer side)**: for every new field added to a model, grep it across all changed files and verify every consumer reads it, writes it, and includes it in output. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal. Scoped to the diff's own changed files; `integration-reviewer` separately traces whether the field's *source* (upstream data, architecture-wide propagation beyond the diff) is complete — don't duplicate that half.
 - **Schema vs actual contract**: if a model has `field: X = default` but every constructor always passes the field explicitly, the default weakens the contract (makes "always present" look "optional").
 - **Stated invariants as claims to verify**: when a docstring says "this mirrors X" or "this field is always present," verify the claim against the code rather than treating the docstring as established fact.
 
@@ -144,7 +144,7 @@ The standard diagnostic tools above (ruff, pyright, bandit, etc.) have their own
 - **Don't mark nitpicks as CRITICAL** — severity inflation makes reviews useless. See Nitpick Gravity in Lead-Judgment Self-Check
 - **Don't review whitespace-only changes, renames, or auto-generated files** — skip silently
 - **Don't flag formatter-fixable issues** — if `ruff format`, `prettier`, or the project's formatter would auto-fix it, it's not a review finding. The executor runs lint/format before finishing; the Step 9 gate catches regressions. Review logic and correctness, not formatting.
-- **Report any bug you find, regardless of whether this diff introduced it.** A bug the diff touches, exposes, or makes reachable through new surfaces is a finding. Do not dismiss findings as "pre-existing" or "out of scope." If the code under review has a bug, report it — the question of when it was introduced belongs in the write-up, not in the decision to report.
+- **Report any bug you find, regardless of whether this diff introduced it.** This applies to any bug in a file you read in full during review, not only lines the diff touches. Do not dismiss findings as "pre-existing" or "out of scope." The question of when it was introduced belongs in the write-up, not in the decision to report.
 - **MEDIUM in test code** is lower priority than MEDIUM in production code
 - **Do not report** formatting, naming, import order, comment style, "consider extracting this into a helper," test coverage where behavior did not change, or library/idiom preferences
 

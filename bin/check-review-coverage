@@ -10,6 +10,8 @@
 # Directories whose state file says "suppressed" or "deferred" (not yet due)
 # are excluded. Empty output = nothing to flag.
 # Exit: always 0.
+#
+# shellcheck disable=SC2154  # repo_root, base, changed are set by sourcing .review-md-lib.sh
 
 set -euo pipefail
 
@@ -30,18 +32,11 @@ EOF
   exit 0
 fi
 
-command -v python3 > /dev/null 2>&1 || exit 0
-
-base="${1:-origin/$(git-default-branch)}"
-
-if ! diff_output="$(git diff --name-only "$base"...HEAD 2>&1)"; then
-  echo "WARNING: git diff against $base failed; cannot check review coverage" >&2
-  exit 0
-fi
-mapfile -t changed <<< "$diff_output"
-[[ ${#changed[@]} -eq 0 || -z "${changed[0]}" ]] && exit 0
-
-repo_root="$(git rev-parse --show-toplevel 2> /dev/null)" || exit 0
+_review_md_label="check review coverage"
+_review_md_base="${1:-}"
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=.review-md-lib.sh
+source "$(dirname -- "$_self")/.review-md-lib.sh"
 
 # Resolve stable repo root for state file paths (survives worktree deletion).
 git_common_dir="$(git rev-parse --git-common-dir 2> /dev/null)"
@@ -69,39 +64,34 @@ has_review_coverage() {
   done
 }
 
-# Check defer/suppress state for a directory.
+# Check defer/suppress state for a directory via the shared read-side
+# implementation (scripts/hooks/lib/defer-suppress.sh) also used by
+# project-meta-prompt.sh and project-docs-check.sh — this used to be a
+# private reimplementation of the identical pattern; adopted the shared one
+# instead of letting two copies drift. "resolved" is inert for this call
+# path (has_review_coverage() above already short-circuits before this
+# function is ever reached once a REVIEW.md exists), but it's cheaper to
+# accept an unreachable branch from the shared lib than to fork it.
+#
+# The state key is hashed rather than character-substituted (tr '/.' '--',
+# used by the shared lib's other two callers for a repo-root-only key)
+# because this key appends an arbitrary directory suffix on top of the repo
+# root; project-docs-check.sh's own key does this too and accepts the same
+# collision risk as inherited debt (see its state_key comment) — this script
+# closes it instead.
+command -v python3 > /dev/null 2>&1 || exit 0
+
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=../scripts/hooks/lib/defer-suppress.sh
+source "$(dirname -- "$_self")/../scripts/hooks/lib/defer-suppress.sh"
+
 is_deferred_or_suppressed() {
   local dir="$1"
   local state_key="${main_repo_root}/${dir}"
-  local state_dir
-  state_dir="$config_dir/projects/$(printf '%s' "$state_key" | tr '/.' '--')"
-  local state_file="$state_dir/review-coverage.json"
-
-  [[ -f "$state_file" ]] || return 1
-
-  local status prompt_after
-  read -r status prompt_after < <(python3 -c "
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-    print(d.get('status', ''), d.get('prompt_after', ''))
-except (OSError, json.JSONDecodeError):
-    print('', '')
-" "$state_file" 2> /dev/null)
-
-  case "$status" in
-    suppressed | resolved) return 0 ;;
-  esac
-
-  if [[ "$status" == "deferred" ]]; then
-    local today
-    today=$(date +%Y-%m-%d)
-    if [[ -n "$prompt_after" && "$today" < "$prompt_after" ]]; then
-      return 0
-    fi
-  fi
-
-  return 1
+  local state_hash
+  state_hash="$(printf '%s' "$state_key" | sha256sum | cut -c1-16)"
+  local state_file="$config_dir/projects/$state_hash/review-coverage.json"
+  defer_suppress_should_skip "$state_file"
 }
 
 # Collect unique directories of changed source files, skipping non-code dirs.
@@ -115,14 +105,13 @@ for f in "${changed[@]}"; do
   case "/$dir/" in
     */docs/* | */design/* | */tests/* | */test/*) continue ;;
   esac
-  # At repo root, only track recognized source files - skip documentation
-  # and config files (README.md, mise.toml, settings.json, etc.).
-  if [[ "$dir" == "." ]]; then
-    case "$f" in
-      *.py | *.ts | *.tsx | *.js | *.jsx | *.rs | *.go | *.rb | *.java | *.sh) : ;;
-      *) continue ;;
-    esac
-  fi
+  # Only track directories where at least one changed file is a recognized
+  # source file - skip documentation and config files (README.md,
+  # mise.toml, settings.json, etc.) at every depth, not just root.
+  case "$f" in
+    *.py | *.ts | *.tsx | *.js | *.jsx | *.rs | *.go | *.rb | *.java | *.sh) : ;;
+    *) continue ;;
+  esac
   [[ -d "$repo_root/$dir" ]] || continue
   dirs["$dir"]=1
 done

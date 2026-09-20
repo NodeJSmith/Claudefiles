@@ -67,7 +67,7 @@ When invoked:
    git diff --name-only HEAD~1
    ```
 2. Read every changed file in full
-3. Check for `REVIEW.md` files in each directory containing changed files and in each ancestor directory up to the repo root. If found, answer each review question — if an answer reveals a readability or maintainability issue, report it.
+3. Run `find-review-md` (no arguments). For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a readability or maintainability issue, report it.
 4. Begin review
 
 ## Core Question
@@ -125,12 +125,15 @@ End with:
 
 </output_format>
 
+## Report All Issues Found
+
+Report any readability issue you find in the code under review, regardless of whether this diff introduced it — do not dismiss findings as "pre-existing" or "out of scope".
+
 ## What NOT to Flag
 - Code that's clear but not your preferred style
 - Test files (unless the test is more complex than the code it tests)
 - Generated code, vendored files, or lock files
 - Working code that follows the project's established patterns even if you'd do it differently
-- Report any readability issue you find in the code under review, regardless of whether this diff introduced it — do not dismiss findings as "pre-existing" or "out of scope"
 - LLM-specific smell patterns — those belong to the `llm-checker` agent
 
 ## What This Agent Does NOT Do

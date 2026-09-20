@@ -111,7 +111,7 @@ Read each changed file in full.
 
 ### Step 2: Load Architectural Context
 
-**Module REVIEW.md files** — check for `REVIEW.md` files in each directory containing changed files and in each ancestor directory up to the repo root. If found, answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
+**Module REVIEW.md files** — run `find-review-md` (no arguments). For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 
@@ -232,8 +232,9 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - This dimension fires **only** when the diff introduces a new variant — if no new enum member, literal, or status value was added, mark as N/A
 
 #### 12. Field propagation gap
-- For every field added to or changed on a model/response type in the diff, trace it through every output path and consumer. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal.
-- Check both directions: **downstream** (is the field included in every output format — JSON, human-readable, API response?) and **upstream** (does the data source backing this field include all entities it claims to represent, or only a subset?).
+- Owns the **architecture-wide** half of field propagation — whether the field's source and every layer beyond the diff carry it, not whether individual changed-file consumers read it (that's `code-reviewer`'s "Field propagation (consumer side)" — don't duplicate it).
+- For every field added to or changed on a model/response type in the diff, trace it through every output path and consumer, including code outside the diff. Hand-built dict/JSON literals are where fields get silently dropped — the type checker can't catch a missing key in a dict literal.
+- Check both directions: **downstream** (is the field included in every output format — JSON, human-readable, API response — across the whole codebase, not just changed files?) and **upstream** (does the data source backing this field include all entities it claims to represent, or only a subset?).
 - A field with a default value (`field: X = default`) that every constructor always passes explicitly weakens the contract — it tells consumers the field is optional when it's actually always present.
 - A data source that iterates only "tracked" or "active" items silently drops stopped/configured-but-never-started/unregistered entities from counts and lists, breaking downstream UI that relies on completeness.
 
@@ -348,7 +349,7 @@ After all findings, print a summary table:
 
 ### Step 6: Report All Issues Found
 
-Report any issue you find in the code under review, regardless of whether this diff introduced it. A bug the diff touches, exposes, or makes reachable through new surfaces is a finding. Do not dismiss findings as "pre-existing" or "out of scope." If the code under review has a problem, report it — note when it was introduced if you know, but do not use that as a reason to omit it.
+Report any issue you find in the code under review, regardless of whether this diff introduced it. This applies to any issue in a file you read in full during review, not only lines the diff touches. Do not dismiss findings as "pre-existing" or "out of scope." Note when it was introduced if you know, but do not use that as a reason to omit it.
 
 ---
 

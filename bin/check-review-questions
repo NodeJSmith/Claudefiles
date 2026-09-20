@@ -10,6 +10,8 @@
 # Output (stdout): one block per affected REVIEW.md file listing which
 # changed files it references. Empty output = nothing to flag.
 # Exit: always 0.
+#
+# shellcheck disable=SC2154  # repo_root, base, changed are set by sourcing .review-md-lib.sh
 
 set -euo pipefail
 
@@ -30,23 +32,17 @@ EOF
   exit 0
 fi
 
-repo_root="$(git rev-parse --show-toplevel 2> /dev/null)" || exit 0
-cd "$repo_root"
-
-base="${1:-origin/$(git-default-branch)}"
-
-if ! diff_output="$(git diff --name-only "$base"...HEAD 2>&1)"; then
-  echo "WARNING: git diff against $base failed; cannot check review questions" >&2
-  exit 0
-fi
-mapfile -t changed <<< "$diff_output"
-[[ ${#changed[@]} -eq 0 || -z "${changed[0]}" ]] && exit 0
+_review_md_label="check review questions"
+_review_md_base="${1:-}"
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=.review-md-lib.sh
+source "$(dirname -- "$_self")/.review-md-lib.sh"
 
 # Build lookup of changed basenames → full paths (a basename can appear more
 # than once if files in different directories share a name).
 declare -A basename_to_paths
 for f in "${changed[@]}"; do
-  bn="$(basename "$f")"
+  bn="$(basename -- "$f")"
   basename_to_paths["$bn"]+="$f"$'\n'
 done
 
@@ -65,14 +61,14 @@ for review_md in "${review_files[@]}"; do
   # trailing parens (function calls like `build_manifest_info()`),
   # line-number suffixes (`foo.py:42`), and anchor suffixes (`foo.py#L42`).
   mapfile -t refs < <(
-    grep -oE '`[^`]*\.(py|ts|tsx|js|jsx|rs|go|rb|java|yaml|yml|toml|json|sh|sql|css|html|md)[^`]*`' <<< "$content" |
+    grep -oE '`[^`]*\.(py|ts|tsx|js|jsx|rs|go|rb|java|yaml|yml|toml|json|sh|sql|css|scss|html|vue|svelte|astro|md)[^`]*`' <<< "$content" |
       sed 's/`//g; s/(.*//; s/#.*$//; s/:[0-9][0-9]*$//' |
       sort -u
   )
   [[ ${#refs[@]} -eq 0 ]] && continue
 
   matches=()
-  review_dir="$(dirname "$review_md")"
+  review_dir="$(dirname -- "$review_md")"
   for ref in "${refs[@]}"; do
     effective_ref="$ref"
     if [[ "$ref" == ../* || "$ref" == ./* || "$ref" != */* ]]; then
@@ -82,17 +78,13 @@ for review_md in "${review_files[@]}"; do
       effective_ref="$(realpath -m --relative-to="$repo_root" "$repo_root/$review_dir/$ref" 2> /dev/null)" || effective_ref="$ref"
     fi
 
-    ref_bn="$(basename "$effective_ref")"
+    ref_bn="$(basename -- "$effective_ref")"
     paths="${basename_to_paths[$ref_bn]:-}"
     [[ -z "$paths" ]] && continue
 
     while IFS= read -r p; do
       [[ -z "$p" ]] && continue
-      if [[ "$effective_ref" == */* ]]; then
-        [[ "$p" == *"$effective_ref" ]] || continue
-      else
-        [[ "$p" == "$effective_ref" ]] || continue
-      fi
+      [[ "$p" == "$effective_ref" ]] || continue
       matches+=("  $p  (referenced as \`$ref\`)")
     done <<< "$paths"
   done
