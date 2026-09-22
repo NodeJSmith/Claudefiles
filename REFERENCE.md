@@ -180,6 +180,7 @@ Domain-specific guidance in `references/common/` loaded on demand by skills and 
 | `dependency-injection.md` | `engineering-backend-developer` agent |
 | `instruction-quality.md` | `mine-write-skill`, `engineering-technical-writer` agent |
 | `security.md` | `engineering-backend-developer` agent, meta-rule on API/auth work |
+| `review-questions.md` | `mine-create-pr` (Step 1b "Add now"), meta-rule when authoring `REVIEW.md` files |
 
 ## Hooks
 
