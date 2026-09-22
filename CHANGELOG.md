@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-22
+
+### Fixed
+
+- `gh-pr-threads --json` now includes `threadCounts: {total, resolved, unresolved}` alongside `.threads`, so a caller can tell "no findings ever" apart from "findings existed and were already resolved" — previously both cases returned an empty `.threads` array. (#587)
+
 ## 2026-09-20
 
 ### Added
