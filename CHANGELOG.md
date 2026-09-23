@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-23
+
+### Added
+
+- New `PostToolUse` hook (`redact-tool-output.py`) redacts secret/PII shapes (API keys, SSH keys, JWTs, connection strings, etc.) from `Read`/`Bash` tool output before it reaches the model or transcript, wired into `settings.json`. (#588)
+
 ## 2026-09-22
 
 ### Fixed

@@ -29,6 +29,12 @@
 #
 # Override: SKIP_SECRETS_CHECK=1 git commit -m "..."
 #   Use only when the match is a known false positive.
+#
+# A different interception point than scripts/hooks/redact-tool-output.py (a
+# Claude Code PostToolUse hook that redacts Read/Bash tool output before the
+# model sees it, not staged diffs) — but the two independently hardcode
+# overlapping vendor prefixes (GitHub, Stripe, Slack, AWS, etc.). Adding a
+# vendor format to one is worth checking the other for the same gap.
 
 set -euo pipefail
 
@@ -60,7 +66,8 @@ PATTERNS=(
   "Google API key	AIza[0-9A-Za-z_-]{35}"
   "Twilio API key	SK[0-9a-fA-F]{32}"
   "SendGrid API key	SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}"
-  "Mailgun API key	key-[0-9a-zA-Z]{32}"
+  "Mailgun API key	(^|[^a-zA-Z0-9_])key-[0-9a-zA-Z]{32}"
+  "Resend API key	(^|[^a-zA-Z0-9_])re_[a-zA-Z0-9_]{20,}"
   "npm token	npm_[a-zA-Z0-9]{36}"
   "PyPI token	pypi-[a-zA-Z0-9_-]{50,}"
   "Telegram bot token	[0-9]{8,10}:[a-zA-Z0-9_-]{35}"
