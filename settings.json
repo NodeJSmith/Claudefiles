@@ -116,6 +116,16 @@
         ]
       },
       {
+        "matcher": "Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/redact-tool-output.py\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

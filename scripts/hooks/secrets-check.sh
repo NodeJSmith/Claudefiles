@@ -29,6 +29,12 @@
 #
 # Override: SKIP_SECRETS_CHECK=1 git commit -m "..."
 #   Use only when the match is a known false positive.
+#
+# A different interception point than scripts/hooks/redact-tool-output.py (a
+# Claude Code PostToolUse hook that redacts Read/Bash tool output before the
+# model sees it, not staged diffs) — but the two independently hardcode
+# overlapping vendor prefixes (GitHub, Stripe, Slack, AWS, etc.). Adding a
+# vendor format to one is worth checking the other for the same gap.
 
 set -euo pipefail
 
