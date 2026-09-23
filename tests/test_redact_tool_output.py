@@ -164,6 +164,18 @@ class TestBashRedaction:
         assert "dXNlcjpzZWNyZXRwYXNzd29yZA==" not in out["stderr"]
         assert "[REDACTED:" in out["stderr"]
 
+    def test_conn_str_scan_stays_fast_on_long_scheme_free_text(self):
+        """Regression test: _CONN_STR's scheme-prefix quantifier was
+        unbounded, so a long run of scheme-charset text with no "://"
+        anywhere (a minified file, a base64 blob) made the regex do O(n^2)
+        backtracking — 50k chars took >5s, exceeding the hook's own 5000ms
+        timeout in settings.json and causing the whole redaction pass (not
+        just this one rule) to fail open on unrelated real secrets in the
+        same output."""
+        stdin = _bash_payload("a" * 50_000)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+
 
 class TestUnrecognizedShapeIsLeftAlone:
     def test_dict_response_without_file_or_stdout_key_passes_through_unchanged(self):
@@ -351,8 +363,15 @@ class TestQuotedAssignmentKeys:
 
 class TestPostToolUseFailure:
     """Regression test: redaction must apply to failed Bash calls too — a
-    `curl -v`, a failed login, or a CLI error can echo a credential in stdout
-    or stderr on a nonzero exit just as easily as on success."""
+    `curl -v`, a failed login, or a CLI error can echo a credential in the
+    failure message just as easily as in a success stdout/stderr.
+
+    PostToolUseFailure carries no `tool_response` — the failure detail is a
+    top-level `error` string instead (confirmed against this repo's own
+    fixture in tests/test_hooks.py's test_captures_failed_command, and the
+    Claude Code hooks reference). An earlier version of this test invented a
+    success-shaped `tool_response` for a failure event, which passed without
+    ever exercising the real payload shape."""
 
     def test_redacts_secret_from_failed_bash_call_and_echoes_event_name(self):
         stdin = json.dumps(
@@ -360,20 +379,35 @@ class TestPostToolUseFailure:
                 "hook_event_name": "PostToolUseFailure",
                 "tool_name": "Bash",
                 "tool_input": {"command": "curl -v https://example.com"},
-                "tool_response": {
-                    "stdout": "",
-                    "stderr": "> Authorization: Bearer ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz",
-                    "status": 1,
-                },
+                "error": (
+                    "curl: (6) Could not resolve host, Authorization: Bearer "
+                    "ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz"
+                ),
             }
         )
         result = run_hook(stdin)
         assert result.returncode == 0
         out = json.loads(result.stdout)
         assert out["hookSpecificOutput"]["hookEventName"] == "PostToolUseFailure"
-        stderr = out["hookSpecificOutput"]["updatedToolOutput"]["stderr"]
-        assert "ghp_AbCdEf" not in stderr
-        assert "[REDACTED:" in stderr
+        updated = out["hookSpecificOutput"]["updatedToolOutput"]
+        assert "ghp_AbCdEf" not in updated
+        assert "[REDACTED:" in updated
+
+    def test_leaves_ordinary_failure_message_untouched(self):
+        stdin = json.dumps(
+            {
+                "hook_event_name": "PostToolUseFailure",
+                "tool_name": "Bash",
+                "tool_input": {"command": "bad-command"},
+                "error": "command not found: bad-command",
+            }
+        )
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)
+        assert out["hookSpecificOutput"]["updatedToolOutput"] == (
+            "command not found: bad-command"
+        )
 
 
 class TestMalformedConfig:

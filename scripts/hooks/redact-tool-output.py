@@ -132,7 +132,10 @@ _SSH_KEY = re.compile(
 
 # Credentials in a URL, any scheme: postgresql://, amqp://, clickhouse://,
 # sftp://, ldap://. The user name stays; only the password is the secret.
-_CONN_STR = re.compile(r"([a-z][a-z0-9+.\-]*://[^\s/:@]+:)[^\s/@]+@")
+# Scheme is bounded to 20 chars (real schemes are well under that) so a long
+# run of scheme-charset text with no "://" anywhere — a minified file, a
+# base64 blob — can't force O(n^2) backtracking across every start position.
+_CONN_STR = re.compile(r"([a-z][a-z0-9+.\-]{0,20}://[^\s/:@]+:)[^\s/@]+@")
 
 _JWT = re.compile(
     r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"
@@ -532,7 +535,15 @@ def build_updated_response(data: dict, rules: tuple, allow: tuple) -> dict | str
     the combined text but only ever writes the result back into `stdout`, so a
     secret in `stderr` — a curl -v auth header, a failed-login password, a CLI
     error echoing a token — passed through completely unredacted.
+
+    PostToolUseFailure carries no `tool_response` at all — the failure detail
+    is a top-level `error` string instead (confirmed against this repo's own
+    fixture at tests/test_hooks.py's test_captures_failed_command, and the
+    Claude Code hooks reference). Redacting that string is what
+    `updatedToolOutput` rewrites for this event, same field name as PostToolUse.
     """
+    if data.get("hook_event_name") == "PostToolUseFailure":
+        return redact_regex(str(data.get("error", "")), rules, allow)
     resp = data.get("tool_response")
     if isinstance(resp, dict):
         # Read tool: {"type": "text", "file": {"content": "...", ...}}
