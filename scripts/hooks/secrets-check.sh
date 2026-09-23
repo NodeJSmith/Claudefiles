@@ -67,6 +67,7 @@ PATTERNS=(
   "Twilio API key	SK[0-9a-fA-F]{32}"
   "SendGrid API key	SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}"
   "Mailgun API key	key-[0-9a-zA-Z]{32}"
+  "Resend API key	re_[a-zA-Z0-9_]{20,}"
   "npm token	npm_[a-zA-Z0-9]{36}"
   "PyPI token	pypi-[a-zA-Z0-9_-]{50,}"
   "Telegram bot token	[0-9]{8,10}:[a-zA-Z0-9_-]{35}"

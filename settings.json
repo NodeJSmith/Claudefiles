@@ -144,6 +144,11 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/bash-history-capture.py\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/redact-tool-output.py\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
           }
         ]
       }

@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # Source: https://github.com/SilentAutomaton/redact-hook (MIT) — check here for upstream updates.
-"""PostToolUse hook: redact secrets and PII from tool output before Claude sees it.
+"""PostToolUse/PostToolUseFailure hook: redact secrets and PII from tool output
+before Claude sees it. Registered on both events (settings.json) because a
+failed Bash command's stdout/stderr — a `curl -v`, a failed login, a CLI error
+echoing a token — carries secrets just as often as a successful one's.
 
-Reads stdin JSON {tool_name, tool_input, tool_response}, writes
+Reads stdin JSON {tool_name, tool_input, tool_response, hook_event_name}, writes
 {"hookSpecificOutput": {...}} to stdout with the secret-bearing values replaced.
 
 Every rule has a name, and every replacement says which rule fired
@@ -44,6 +47,7 @@ except ImportError:  # config file needs Python 3.11
     tomllib = None
 
 _PREFIX = re.compile(
+    r"(?<![A-Za-z0-9_])"
     r"(dckr_pat_|tok_|sk-|ghp_|gho_|github_pat_|AKIA|hf_|xoxb-|xoxp-|Bearer\s+"
     r"|SG\."  # SendGrid
     r"|npm_"  # npm
@@ -53,14 +57,24 @@ _PREFIX = re.compile(
     r"|glpat-"  # GitLab Personal Access Token
     r"|gldt-"  # GitLab Deploy Token
     r"|xapp-"  # Slack app token
-    r"|key-"  # Mailgun
-    r"|re_"  # Resend
     r"|whsec_"  # Stripe webhook secret
     r"|pat_v\d+\."  # GitHub fine-grained PAT
     r")"
     r"([A-Za-z0-9_\-\.]{8,})",
     re.IGNORECASE,
 )
+
+# Mailgun API key: key- + a ~30-char lowercase-alnum token (e.g.
+# key-3ax6xnjp29jd6fds4gc373sgvjxteol). Kept out of the generic _PREFIX
+# alternation (and given its own value-shape check, not just a length/digit
+# check) because "key-" is a common substring of ordinary identifiers
+# (key-rotation-v2) that a boundary anchor alone can't rule out.
+_MAILGUN_KEY = re.compile(r"(?<![A-Za-z0-9_])(key-)([a-z0-9]{28,40})\b")
+
+# Resend API key: re_ + a long random token. "re_" is a common substring of
+# ordinary identifiers (future_annotations_enabled contains "re_" mid-word),
+# so this needs the same boundary anchor as Mailgun above.
+_RESEND_KEY = re.compile(r"(?<![A-Za-z0-9_])(re_)([A-Za-z0-9_]{20,})\b")
 
 # AmneziaWG fake init-packet blobs: I1 = <b 0x...hex...>
 _AWG_INIT = re.compile(r"<b\s+0x[a-fA-F0-9]{20,}>")
@@ -308,6 +322,18 @@ def _prefixed(match: re.Match) -> str:
     return match.group(1) + "[REDACTED:prefix]"
 
 
+def _vendor_prefixed(name: str) -> Callable[[re.Match], str]:
+    """For a vendor rule whose pattern already enforces a specific value
+    shape (fixed length, character set) via its own regex. Unlike _prefixed,
+    this always redacts on a match — there's no _random_enough gate to skip,
+    because the shape check already ruled out ordinary identifiers."""
+
+    def repl(match: re.Match) -> str:
+        return f"{match.group(1)}[REDACTED:{name}]"
+
+    return repl
+
+
 class Rule(NamedTuple):
     name: str
     pattern: re.Pattern
@@ -338,6 +364,8 @@ _RULES = (
     Rule("google_api_key", _GOOGLE_API_KEY, "[REDACTED:google_api_key]"),
     Rule("stripe", _STRIPE, "[REDACTED:stripe]"),
     Rule("digitalocean", _DIGITALOCEAN, "[REDACTED:digitalocean]"),
+    Rule("mailgun_key", _MAILGUN_KEY, _vendor_prefixed("mailgun_key")),
+    Rule("resend_key", _RESEND_KEY, _vendor_prefixed("resend_key")),
     Rule("telegram_bot", _TELEGRAM_BOT, "[REDACTED:telegram_bot]"),
     Rule("telegram_session", _TELEGRAM_SESSION, "\\1[REDACTED:telegram_session]"),
     Rule("telegram_api_hash", _TELEGRAM_API_HASH, "\\1[REDACTED:telegram_api_hash]"),
@@ -428,13 +456,32 @@ def load_config() -> dict:
         return {}
 
 
+def _ensure_list(value, key: str) -> list:
+    """A malformed config (e.g. `[rule]` table instead of `[[rule]]` array, or
+    a scalar `enable`) must fall back to empty, not crash the hook downstream
+    with an AttributeError/TypeError — same "broken config never takes the
+    hook down" contract as load_config()'s own error handling."""
+    if isinstance(value, list):
+        return value
+    if value is not None:
+        print(f"redact: config key {key!r} must be a list, ignoring", file=sys.stderr)
+    return []
+
+
 def active_rules(config: dict) -> tuple:
-    off = set(config.get("disable", [])) | _env_list("REDACT_DISABLE")
-    on = set(config.get("enable", [])) | _env_list("REDACT_ENABLE")
+    off = set(_ensure_list(config.get("disable"), "disable")) | _env_list(
+        "REDACT_DISABLE"
+    )
+    on = set(_ensure_list(config.get("enable"), "enable")) | _env_list("REDACT_ENABLE")
     if os.environ.get("REDACT_AGGRESSIVE"):
         on.add("entropy")
     rules = [r for r in _RULES if (r.on or r.name in on) and r.name not in off]
-    for spec in config.get("rule", []):
+    for spec in _ensure_list(config.get("rule"), "rule"):
+        if not isinstance(spec, dict):
+            print(
+                f"redact: skipping malformed [[rule]] entry: {spec!r}", file=sys.stderr
+            )
+            continue
         name = spec.get("name", "custom")
         if name in off:
             continue
@@ -449,7 +496,10 @@ def active_rules(config: dict) -> tuple:
 
 def allow_patterns(config: dict) -> tuple:
     out = []
-    for expr in config.get("allow", []):
+    for expr in _ensure_list(config.get("allow"), "allow"):
+        if not isinstance(expr, str):
+            print(f"redact: skipping malformed allow entry: {expr!r}", file=sys.stderr)
+            continue
         try:
             out.append(re.compile(expr))
         except re.error as exc:
@@ -480,9 +530,13 @@ def build_updated_response(data: dict, rules: tuple, allow: tuple) -> dict | str
             updated = copy.deepcopy(resp)
             content = redact_regex(str(resp["file"].get("content", "")), rules, allow)
             updated["file"]["content"] = content
-            lines = content.splitlines()
-            updated["file"]["numLines"] = len(lines)
-            updated["file"]["totalLines"] = len(lines)
+            # totalLines describes the whole source file (set by the Read tool,
+            # not by us) and must survive untouched, including for an
+            # offset/limit partial read — overwriting it with the returned
+            # chunk's line count falsely reports EOF. numLines describes only
+            # the returned chunk, so it's the one value redaction can change,
+            # and only when a multiline secret collapses into one placeholder.
+            updated["file"]["numLines"] = len(content.splitlines())
             return updated
         # Bash tool: {"stdout": "...", "stderr": "...", ...}
         if "stdout" in resp:
@@ -565,6 +619,11 @@ _MUST_CUT = [
     ("secret_word", "passphrase=correcthorsebattery"),
     ("assignment", "password=hunter2xyz"),
     ("prefix", "pushed with ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz"),
+    # No leading "KEY=" / "TOKEN=" assignment on purpose: that shape is
+    # already caught by env_secret earlier in rule order, which would mask
+    # whether mailgun_key/resend_key themselves actually fire.
+    ("mailgun_key", "rotating the mailgun key-3ax6xnjp29jd6fds4gc373sgvjxteol now"),
+    ("resend_key", "rotating the resend re_123456789012345678901234567890 now"),
     ("conn_str", "postgresql://app:s3cr3tpassw0rd@db.local/app"),
     (
         "jwt",
@@ -612,6 +671,11 @@ _MUST_KEEP = [
     "PUBLIC_KEY=ssh-ed25519",
     "htpasswd -c /etc/nginx/.htpasswd admin",
     'openssl passwd -6 "$PASS"',
+    # Regression: "key-"/"re_" appearing mid-identifier or as an
+    # ordinary, non-secret-shaped token must not be flagged.
+    "monkey-patching-library",
+    "future_annotations_enabled",
+    "key-rotation-v2",
 ]
 
 # Rules that are off by default: one sample each, checked with the rule on.
@@ -694,13 +758,18 @@ def main() -> None:
     if not isinstance(data, dict):
         return
 
+    # Registered for both PostToolUse and PostToolUseFailure (a failed Bash
+    # command's stdout/stderr carries secrets just as often as a successful
+    # one's) — echo back whichever event actually triggered us rather than
+    # hardcoding PostToolUse, since the response is discriminated by this field.
+    event_name = data.get("hook_event_name", "PostToolUse")
     resp = data.get("tool_response", "")
     if data.get("tool_name") in _SKIP_TOOLS:
         print(
             json.dumps(
                 {
                     "hookSpecificOutput": {
-                        "hookEventName": "PostToolUse",
+                        "hookEventName": event_name,
                         "updatedToolOutput": resp,
                     }
                 }
@@ -713,7 +782,7 @@ def main() -> None:
         json.dumps(
             {
                 "hookSpecificOutput": {
-                    "hookEventName": "PostToolUse",
+                    "hookEventName": event_name,
                     "updatedToolOutput": updated,
                 }
             }
