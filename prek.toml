@@ -28,7 +28,10 @@ hooks = [
   { id = "end-of-file-fixer", types_or = ["python", "toml", "yaml"], stages = ["pre-commit"] },
   { id = "mixed-line-ending", types_or = ["python", "toml", "yaml"], stages = ["pre-commit"] },
   { id = "check-merge-conflict", stages = ["pre-commit"] },
-  { id = "detect-private-key", stages = ["pre-commit"] },
+  # Excludes the redact hook's self-check fixture, which embeds an invented
+  # OpenSSH private-key marker on purpose to test the redaction rule that
+  # catches real ones — see scripts/hooks/redact-tool-output.py's _MUST_CUT.
+  { id = "detect-private-key", stages = ["pre-commit"], exclude = '^scripts/hooks/redact-tool-output\.py$' },
 ]
 
 # =============================================================================
