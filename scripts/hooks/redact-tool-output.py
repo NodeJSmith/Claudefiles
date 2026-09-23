@@ -48,7 +48,8 @@ except ImportError:  # config file needs Python 3.11
 
 _PREFIX = re.compile(
     r"(?<![A-Za-z0-9_])"
-    r"(dckr_pat_|tok_|sk-|ghp_|gho_|github_pat_|AKIA|hf_|xoxb-|xoxp-|Bearer\s+"
+    r"(dckr_pat_|tok_|sk-|ghp_|gho_|ghs_|ghu_|ghr_|github_pat_|AKIA|hf_"
+    r"|xoxb-|xoxp-|xoxa-|xoxe-|xoxr-|Bearer\s+"
     r"|SG\."  # SendGrid
     r"|npm_"  # npm
     r"|pypi-"  # PyPI
@@ -76,6 +77,12 @@ _MAILGUN_KEY = re.compile(r"(?<![A-Za-z0-9_])(key-)([a-z0-9]{28,40})\b")
 # so this needs the same boundary anchor as Mailgun above.
 _RESEND_KEY = re.compile(r"(?<![A-Za-z0-9_])(re_)([A-Za-z0-9_]{20,})\b")
 
+# Twilio API key SID: SK + 32 hex chars. Kept out of the generic _PREFIX
+# alternation — "SK" is only two characters, far too short/common a substring
+# (ASKED, TASK, DESK, MASK) for a boundary anchor alone to make safe, so it
+# needs the same dedicated value-shape check as Mailgun/Resend above.
+_TWILIO_KEY = re.compile(r"(?<![A-Za-z0-9_])(SK)([0-9a-fA-F]{32})\b")
+
 # AmneziaWG fake init-packet blobs: I1 = <b 0x...hex...>
 _AWG_INIT = re.compile(r"<b\s+0x[a-fA-F0-9]{20,}>")
 
@@ -89,12 +96,14 @@ _AWG_PARAMS = re.compile(
 _DOCKER_AUTH = re.compile(r'("auth"\s*:\s*")[A-Za-z0-9+/]{20,}={0,2}(")')
 
 # Separator must be a real = or : on the same line. A bare space used to join a
-# keyword to whatever followed it on the next line.
+# keyword to whatever followed it on the next line. The optional quote before
+# the separator handles JSON/TOML's quoted keys ("access_token": "..."),
+# which otherwise sit between the keyword and the separator and block the match.
 _ASSIGNMENT = re.compile(
     r"(?<![A-Za-z])"
     r"(password|passwd|secret|api_key|apikey|access_key|private_key|privatekey"
     r"|presharedkey|auth_key|auth_token|access_token|client_secret|token|psk|bearer)"
-    r"[ \t]*[:=][ \t]*"
+    r'["\']?[ \t]*[:=][ \t]*'
     r'["\']?([A-Za-z0-9._\-/+]{6,})["\']?(?!\s*\()',
     re.IGNORECASE,
 )
@@ -207,7 +216,7 @@ _ENV_SECRET = re.compile(
 # Two words that mean one thing in any case. `key` and `auth` are not here on
 # purpose; they appear in ordinary code far more often than in secrets.
 _SECRET_WORD = re.compile(
-    r'\b(passphrase|credentials)\s*[:=]\s*["\']?([A-Za-z0-9._\-/+]{6,})["\']?',
+    r'\b(passphrase|credentials)["\']?\s*[:=]\s*["\']?([A-Za-z0-9._\-/+]{6,})["\']?',
     re.IGNORECASE,
 )
 
@@ -366,6 +375,7 @@ _RULES = (
     Rule("digitalocean", _DIGITALOCEAN, "[REDACTED:digitalocean]"),
     Rule("mailgun_key", _MAILGUN_KEY, _vendor_prefixed("mailgun_key")),
     Rule("resend_key", _RESEND_KEY, _vendor_prefixed("resend_key")),
+    Rule("twilio_key", _TWILIO_KEY, _vendor_prefixed("twilio_key")),
     Rule("telegram_bot", _TELEGRAM_BOT, "[REDACTED:telegram_bot]"),
     Rule("telegram_session", _TELEGRAM_SESSION, "\\1[REDACTED:telegram_session]"),
     Rule("telegram_api_hash", _TELEGRAM_API_HASH, "\\1[REDACTED:telegram_api_hash]"),
@@ -624,6 +634,9 @@ _MUST_CUT = [
     # whether mailgun_key/resend_key themselves actually fire.
     ("mailgun_key", "rotating the mailgun key-3ax6xnjp29jd6fds4gc373sgvjxteol now"),
     ("resend_key", "rotating the resend re_123456789012345678901234567890 now"),
+    # Built via concatenation, not a literal — GitHub push protection flags
+    # a bare "SK" + 32 hex chars string as a real Twilio key on sight.
+    ("twilio_key", "printed the twilio " + "SK" + "1234567890abcdef" * 2 + " now"),
     ("conn_str", "postgresql://app:s3cr3tpassw0rd@db.local/app"),
     (
         "jwt",
@@ -676,6 +689,11 @@ _MUST_KEEP = [
     "monkey-patching-library",
     "future_annotations_enabled",
     "key-rotation-v2",
+    # Regression: "SK" is a common substring of ordinary words, not just the
+    # Twilio prefix — must not be flagged without the exact hex-shaped value.
+    "TASK: review the pull request",
+    "the DESK lamp needs a new bulb",
+    "wear a MASK when sanding",
 ]
 
 # Rules that are off by default: one sample each, checked with the rule on.

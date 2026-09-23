@@ -212,8 +212,9 @@ class TestMalformedInput:
 
 
 class TestPrefixBoundaryAnchoring:
-    """Regression tests: "key-" (Mailgun) and "re_" (Resend) are common
-    substrings of ordinary identifiers, not just secret prefixes."""
+    """Regression tests: short vendor prefixes ("key-"/Mailgun, "re_"/Resend,
+    "SK"/Twilio) are common substrings of ordinary identifiers, not just
+    secret prefixes."""
 
     def test_redacts_real_mailgun_key(self):
         # No leading "KEY=" assignment on purpose: that shape is caught by
@@ -257,6 +258,90 @@ class TestPrefixBoundaryAnchoring:
 
     def test_leaves_non_mailgun_shaped_key_dash_token_untouched(self):
         stdout = "bumped key-rotation-v2 in the changelog\n"
+        stdin = _bash_payload(stdout)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert out["stdout"] == stdout
+
+    def test_redacts_bare_twilio_key(self):
+        # Built via concatenation, not a literal — GitHub push protection
+        # flags a bare "SK" + 32 hex chars string as a real Twilio key.
+        fake_key = "SK" + "1234567890abcdef" * 2
+        stdin = _bash_payload(f"{fake_key} printed to stdout")
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert fake_key[2:] not in out["stdout"]
+        assert "[REDACTED:twilio_key]" in out["stdout"]
+
+    def test_leaves_ordinary_words_containing_sk_untouched(self):
+        stdout = "TASK: review the DESK lamp before we MASK the wall\n"
+        stdin = _bash_payload(stdout)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert out["stdout"] == stdout
+
+
+class TestVendorPrefixCoverage:
+    """Regression tests: these vendor formats were already known to
+    scripts/hooks/secrets-check.sh but simply missing from _PREFIX, so a
+    bare, unlabeled token of these shapes reached the model unredacted."""
+
+    def test_redacts_bare_github_server_token(self):
+        stdin = _bash_payload("ghs_AbCdEf0123456789ghijklmnopqrstuvwxyz printed")
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "AbCdEf0123456789ghijklmnopqrstuvwxyz" not in out["stdout"]
+        assert "[REDACTED:" in out["stdout"]
+
+    def test_redacts_bare_slack_refresh_token(self):
+        stdin = _bash_payload(
+            "xoxe-1-1234567890-1234567890123-abcdefghijklmnopqrstuvwxyz0123456789AB"
+        )
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "abcdefghijklmnopqrstuvwxyz0123456789AB" not in out["stdout"]
+        assert "[REDACTED:" in out["stdout"]
+
+
+class TestQuotedAssignmentKeys:
+    """Regression test: JSON/TOML's quoted keys ("access_token": "...") sit
+    between the keyword and the separator, which previously blocked the
+    assignment rule entirely — exactly the auth.json shape motivating this
+    hook."""
+
+    def test_redacts_quoted_json_access_token(self):
+        stdin = _bash_payload(
+            '{"access_token": "ya29.a0AfH6SMBnrandomlongvalue1234567890"}'
+        )
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "ya29.a0AfH6SMBnrandomlongvalue1234567890" not in out["stdout"]
+        assert "[REDACTED:assignment]" in out["stdout"]
+
+    def test_redacts_quoted_json_password(self):
+        stdin = _bash_payload('{"password": "correct-horse-battery-1234"}')
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "correct-horse-battery-1234" not in out["stdout"]
+        assert "[REDACTED:assignment]" in out["stdout"]
+
+    def test_redacts_quoted_json_credentials(self):
+        stdin = _bash_payload('{"credentials": "AbCdEf0123456789ghijklmn"}')
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "AbCdEf0123456789ghijklmn" not in out["stdout"]
+        assert "[REDACTED:secret_word]" in out["stdout"]
+
+    def test_leaves_quoted_placeholder_value_untouched(self):
+        stdout = "config = {'key': 'value', 'token': 'placeholder'}\n"
         stdin = _bash_payload(stdout)
         result = run_hook(stdin)
         assert result.returncode == 0
