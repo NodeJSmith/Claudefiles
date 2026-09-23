@@ -296,6 +296,64 @@ class TestPrefixBoundaryAnchoring:
         assert out["stdout"] == stdout
 
 
+class TestGenericPrefixDigitRequirement:
+    """Regression tests: tok_/hf_/sk-/Bearer are short/generic enough that an
+    ordinary identifier can satisfy _random_enough's length-or-digit bar
+    without a digit present (tok_get_current_token(), Bearer
+    AuthenticationMiddleware). Real token bodies almost always contain a
+    digit; these four prefixes require one on top of the length check."""
+
+    def test_leaves_tok_shaped_function_call_untouched(self):
+        stdout = "call tok_get_current_token() to refresh\n"
+        stdin = _bash_payload(stdout)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert out["stdout"] == stdout
+
+    def test_leaves_hf_shaped_function_call_untouched(self):
+        stdout = "call hf_initialize_configuration() first\n"
+        stdin = _bash_payload(stdout)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert out["stdout"] == stdout
+
+    def test_leaves_sk_shaped_identifier_untouched(self):
+        stdout = "the SK-learning-objective needs review\n"
+        stdin = _bash_payload(stdout)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert out["stdout"] == stdout
+
+    def test_leaves_bearer_shaped_identifier_untouched(self):
+        stdout = "app.use(Bearer AuthenticationMiddleware)\n"
+        stdin = _bash_payload(stdout)
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert out["stdout"] == stdout
+
+    def test_still_redacts_real_tok_prefixed_token(self):
+        stdin = _bash_payload("stripe token tok_1J2K3L4M5N6O7P8Q9R0S\n")
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "1J2K3L4M5N6O7P8Q9R0S" not in out["stdout"]
+        assert "[REDACTED:" in out["stdout"]
+
+    def test_still_redacts_real_bearer_token(self):
+        stdin = _bash_payload(
+            'curl -H "Authorization: Bearer AbCdEf0123456789ghijklmnop"\n'
+        )
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "AbCdEf0123456789ghijklmnop" not in out["stdout"]
+        assert "[REDACTED:" in out["stdout"]
+
+
 class TestVendorPrefixCoverage:
     """Regression tests: these vendor formats were already known to
     scripts/hooks/secrets-check.sh but simply missing from _PREFIX, so a
@@ -427,6 +485,28 @@ class TestMalformedConfig:
     def test_scalar_enable_falls_back_without_crashing(self, tmp_path):
         config_path = tmp_path / "redact.toml"
         config_path.write_text('enable = "entropy"\n')
+        stdin = _bash_payload("token=ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz")
+        result = run_hook(stdin, extra_env={"REDACT_CONFIG": str(config_path)})
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "ghp_AbCdEf" not in out["stdout"]
+        assert "[REDACTED:" in out["stdout"]
+
+    def test_non_string_rule_pattern_falls_back_without_crashing(self, tmp_path):
+        config_path = tmp_path / "redact.toml"
+        config_path.write_text('[[rule]]\nname = "custom"\npattern = 123\n')
+        stdin = _bash_payload("token=ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz")
+        result = run_hook(stdin, extra_env={"REDACT_CONFIG": str(config_path)})
+        assert result.returncode == 0
+        out = json.loads(result.stdout)["hookSpecificOutput"]["updatedToolOutput"]
+        assert "ghp_AbCdEf" not in out["stdout"]
+        assert "[REDACTED:" in out["stdout"]
+
+    def test_non_string_rule_replacement_falls_back_without_crashing(self, tmp_path):
+        config_path = tmp_path / "redact.toml"
+        config_path.write_text(
+            '[[rule]]\nname = "custom"\npattern = "x"\nreplacement = 123\n'
+        )
         stdin = _bash_payload("token=ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz")
         result = run_hook(stdin, extra_env={"REDACT_CONFIG": str(config_path)})
         assert result.returncode == 0

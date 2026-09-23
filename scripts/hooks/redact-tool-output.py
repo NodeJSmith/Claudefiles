@@ -65,6 +65,15 @@ _PREFIX = re.compile(
     re.IGNORECASE,
 )
 
+# These _PREFIX alternatives are short/generic enough that an ordinary
+# identifier can satisfy _random_enough's length-or-digit bar alone
+# (tok_get_current_token, hf_initialize_configuration, Bearer
+# AuthenticationMiddleware, SK-learning-objective). Real token bodies are
+# randomly generated from an alphanumeric alphabet and almost always contain
+# a digit; natural-language identifiers almost never do — so for these
+# specific prefixes, _prefixed() requires one.
+_GENERIC_PREFIXES_REQUIRE_DIGIT = frozenset({"tok_", "hf_", "sk-", "bearer"})
+
 # Mailgun API key: key- + a ~30-char lowercase-alnum token (e.g.
 # key-3ax6xnjp29jd6fds4gc373sgvjxteol). Kept out of the generic _PREFIX
 # alternation (and given its own value-shape check, not just a length/digit
@@ -329,7 +338,13 @@ def _keyed(name: str) -> Callable[[re.Match], str]:
 
 def _prefixed(match: re.Match) -> str:
     """Prefix-shaped rules: cut the value only when it looks random."""
-    if not _random_enough(match.group(2)):
+    value = match.group(2)
+    if not _random_enough(value):
+        return match.group(0)
+    prefix = match.group(1).strip().lower()
+    if prefix in _GENERIC_PREFIXES_REQUIRE_DIGIT and not any(
+        c.isdigit() for c in value
+    ):
         return match.group(0)
     return match.group(1) + "[REDACTED:prefix]"
 
@@ -500,10 +515,18 @@ def active_rules(config: dict) -> tuple:
             continue
         try:
             pattern = re.compile(spec["pattern"])
-        except (KeyError, re.error) as exc:
+        except (KeyError, re.error, TypeError) as exc:
             print(f"redact: skipping rule {name!r}: {exc}", file=sys.stderr)
             continue
-        rules.append(Rule(name, pattern, spec.get("replacement", f"[REDACTED:{name}]")))
+        replacement = spec.get("replacement", f"[REDACTED:{name}]")
+        if not isinstance(replacement, str):
+            print(
+                f"redact: skipping rule {name!r}: replacement must be a string, "
+                f"got {type(replacement).__name__}",
+                file=sys.stderr,
+            )
+            continue
+        rules.append(Rule(name, pattern, replacement))
     return tuple(rules)
 
 
@@ -705,6 +728,12 @@ _MUST_KEEP = [
     "TASK: review the pull request",
     "the DESK lamp needs a new bulb",
     "wear a MASK when sanding",
+    # Regression: tok_/hf_/sk-/Bearer are short/generic enough to match an
+    # ordinary identifier's length-or-digit bar without a digit present.
+    "call tok_get_current_token() to refresh",
+    "call hf_initialize_configuration() first",
+    "the SK-learning-objective needs review",
+    "app.use(Bearer AuthenticationMiddleware)",
 ]
 
 # Rules that are off by default: one sample each, checked with the rule on.
