@@ -6,9 +6,9 @@ user-invocable: true
 
 Analyze a feature and strategically add animations and micro-interactions that enhance understanding, provide feedback, and create delight.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: performance constraints.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first. Additionally gather: performance constraints.
 
 ---
 
@@ -31,7 +31,7 @@ Analyze where motion would improve the experience:
 
 If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your animation strategy. If the answer is unclear or deferred, proceed with subtle, opacity-only transitions as the safe default.
 
-**CRITICAL**: Respect `prefers-reduced-motion`. Always provide non-animated alternatives for users who need them.
+Respect `prefers-reduced-motion`. Always provide non-animated alternatives for users who need them.
 
 ## Plan Animation Strategy
 
@@ -42,7 +42,7 @@ Create a purposeful animation plan:
 - **Transition layer**: Which state changes need smoothing?
 - **Delight layer**: Where can we surprise and delight?
 
-**IMPORTANT**: One well-orchestrated experience beats scattered animations everywhere. Focus on high-impact moments.
+One well-orchestrated experience beats scattered animations everywhere. Focus on high-impact moments.
 
 ---
 

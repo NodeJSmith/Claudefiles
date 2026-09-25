@@ -152,7 +152,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
 - Triage rationale for why this critic was selected
 - Focus instruction if `--focus` was provided: "The user is specifically concerned about: <focus>. Weight your analysis toward this concern."
 - If re-challenge: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough, (2) whether fixes introduced new problems, (3) issues missed in the first round."
-- Project context if available: check the project's CLAUDE.md for frontmatter with `audience`, `developers`, and `data-sensitivity` fields. If present, include: "Project context: audience is <audience>, <developers> developer(s), data sensitivity is <data-sensitivity>. Calibrate your findings to this context — skip findings that would only matter for a different audience or scale." If absent, do not fabricate context — omit this line.
+- Project context if available: check the project's CLAUDE.md for frontmatter with `audience`, `developers`, and `data-sensitivity` fields. If present, include: "Project context: audience is <audience>, <developers> developer(s), data sensitivity is <data-sensitivity>. Calibrate severity to this context — report a finding that would only matter for a different audience or scale at MEDIUM, starting its Why it matters with `Audience assumption: <the audience or scale it assumes>.`, rather than omitting it." If absent, do not fabricate context — omit this line.
 - If target type is `design-doc` and the doc's `**Status:**` is `archived` or `abandoned`: "This design.md is frozen (Status: <status>) — it documents a past decision, not a live spec to keep synced with the code. Critique the decision as written, but do not flag drift from current code as a finding — that belongs in the doc's own `## Addendum` section, not this critique."
 - Output path: `<tmpdir>/<persona-slug>-report.md`
 - Critic rules:
@@ -188,11 +188,11 @@ The synthesis subagent receives:
    - `severity`: highest severity any critic assigned (must be CRITICAL / HIGH / MEDIUM / TENSION — reclassify non-contract values as MEDIUM)
    - `type`: type best describing the root cause
    - `design-level`: Yes wins when critics disagree
-   - `classification`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL. Otherwise User-directed. When ambiguous, default User-directed.
+   - `classification`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL AND no critic's Why it matters for it starts with `Audience assumption:` (those stay in front of the user, who may skip them). Otherwise User-directed. When ambiguous, default User-directed.
    - `visibility`: `presented` for every finding
    - `disposition`: `pending` for every finding
-4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `classification: User-directed` regardless of the classification field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
-5. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
+4. **CRITICAL guard**: classify every CRITICAL finding as `classification: User-directed`, whatever any critic proposed and however much they agreed — a fix to a broken core requirement needs the user's decision.
+5. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement, keeping any critic's `Audience assumption:` opening verbatim), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
 6. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
 7. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
 

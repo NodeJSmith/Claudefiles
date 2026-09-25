@@ -9,14 +9,6 @@ opencode-command: true
 
 Triage and resolve everything blocking a PR from merging: unresolved review comments, merge conflicts, and failing CI checks. Works on both GitHub and Azure DevOps — detects the platform automatically.
 
-## When to Activate
-
-- User asks to address, fix, or review PR comments
-- User asks to check for unresolved PR feedback
-- User asks to fix failing CI or merge conflicts on a PR
-- User says "address PR issues", "fix PR", "make this PR mergeable", or similar
-- User mentions Copilot comments on a PR
-
 ## Usage
 
 ```
@@ -53,9 +45,9 @@ ado-api pr show {PR} --json
 
 Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
 
-### Review threads & non-thread comments (MANDATORY — separate from metadata)
+### Review threads & non-thread comments (separate from metadata)
 
-**CRITICAL**: `gh pr view --json` does NOT return review threads (inline comments from reviewers or Copilot). You MUST run the fetching command below. Do not conclude "no review comments" based on PR metadata alone — that field doesn't exist in the metadata response.
+`gh pr view --json` does not return review threads (inline comments from reviewers or Copilot), so PR metadata alone can't tell you whether review comments exist. Run the fetching command below.
 
 **GitHub:**
 
@@ -102,8 +94,6 @@ Check and display as informational warnings (NOT blockers):
 Categorize all issues into three groups: **review comments**, **merge conflicts**, **CI failures**.
 
 ### Review comments
-
-**Prerequisite**: This section requires the `gh-pr-threads` / `ado-api pr threads` output from Phase 1. If you skipped that step, go back and run it now before triaging.
 
 **Exclude resolved threads:** GitHub `isResolved: true`, ADO `status != "active"`.
 

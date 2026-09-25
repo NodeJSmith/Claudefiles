@@ -10,7 +10,7 @@ For each checklist item, output: PASS, WARN (minor issue), or FAIL (blocking iss
 
 Did tasks stay within their assigned files? Are there unexpected side effects?
 
-Look for: files modified that weren't in any task's `files` field; changes that bleed across task boundaries (task 2 modifying something task 1 was supposed to own); side effects in unrelated modules.
+Look for: files modified that weren't in any task's `## Target Files` section; changes that bleed across task boundaries (task 2 modifying something task 1 was supposed to own); side effects in unrelated modules.
 
 ### 2. Duplication
 
@@ -60,11 +60,11 @@ When checking, distinguish between:
 - **Test-only consumer** (only used in test files, never in production code) → WARN
 - **Properly wired** (at least one production consumer) → PASS
 
-### 7. Test coverage (CRITICAL)
+### 7. Test coverage
 
-Does the test suite actually cover the implementation? This is a high-severity check — missing tests for new code should be treated as a CRITICAL finding.
+Does the test suite actually cover the implementation? Unit tests ship with the code they test, so missing tests for new code block the implementation.
 
-**FAIL-level findings (these MUST be FAIL, not WARN — they are blocking):**
+**FAIL-level findings (blocking — rate these FAIL, not WARN):**
 - New module (`.py`, `.ts`, `.js`, etc.) containing public functions or classes with no corresponding test file (excluding items exempt per the Test Co-location rule in `testing.md`: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic)
 - Test Strategy names specific tests that don't exist in the codebase
 - Core business logic paths with zero test coverage

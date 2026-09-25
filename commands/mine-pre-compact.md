@@ -54,11 +54,11 @@ Output ONLY the ready-to-paste `/compact` command. No preamble, no explanation, 
 Format:
 
 ```
-/compact Preserve for [NEXT PHASE]: [2-4 bullet points of critical context]. Decisions: [key decisions]. Files: [paths relevant to next phase]. Drop: exploration/research output, resolved errors, superseded drafts.
+/compact Preserve for [NEXT PHASE]: [critical context]. Decisions: [key decisions]. Files: [paths relevant to next phase]. Drop: exploration/research output, resolved errors, superseded drafts.
 ```
 
 Guidelines:
-- Keep it under 200 words
+- Keep only what the next phase needs — it's a paste-in command, not a report
 - Be specific about file paths and decisions, not vague
 - Name the next phase explicitly so compact knows the frame
 - Include any task list items that should survive

@@ -54,7 +54,7 @@ Gather comparison context from the current codebase:
 - What patterns, conventions, or prior decisions are relevant?
 - What constraints does the existing architecture impose?
 
-Keep this lightweight — aim for 2-3 file reads, up to 6 if conventions are split across multiple systems. If the codebase has no relevant code, return "No relevant local implementation found." The goal is a short summary (under 500 words) of the local state for the "How We Do It Today" section.
+Keep this lightweight — aim for 2-3 file reads, up to 6 if conventions are split across multiple systems. If the codebase has no relevant code, return "No relevant local implementation found." The goal is a short summary of the local state — just enough to fill the "How We Do It Today" section.
 
 This subagent returns its findings as its result message (no file output needed — the main skill reads the return value).
 
@@ -133,7 +133,7 @@ status: Draft
 
 ## How We Do It Today
 
-[Brief summary of the current local approach from Subagent A. "We don't have this yet" is a valid answer. Keep this short — 2-3 sentences max.]
+[Brief summary of the current local approach from Subagent A. "We don't have this yet" is a valid answer. Keep this short — it is comparison context, not the subject of the brief.]
 
 ## Patterns Found / Anti-Patterns / Emerging Trends
 

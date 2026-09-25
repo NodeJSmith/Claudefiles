@@ -43,7 +43,7 @@ When reviewing, challenging, or designing for a project:
 1. Check the project's CLAUDE.md for frontmatter. If present, calibrate advice to match.
 2. A `personal tool` with `solo` developer does not need: RBAC, rate limiting, horizontal scaling, comprehensive audit logging, multi-tenant isolation, or enterprise error handling patterns. It does need: correctness, clear code, and reasonable error messages.
 3. A `B2B SaaS` with `large team` and `regulated` data needs all of those things.
-4. Must-tier invariants (see `invariants.md`) always surface regardless of project context — calibration adjusts framing and priority, never suppression of Must-tier items. For Should/Consider-tier findings, skip those that would only matter for a different audience or scale.
+4. Must-tier invariants (see `invariants.md`) always surface regardless of project context — calibration adjusts framing and priority, never suppression of Must-tier items. For Should/Consider-tier findings that would only matter for a different audience or scale, lower their priority and name the audience assumption instead of omitting them — dropping them is a decision for whoever filters the findings downstream, not for the reviewer producing them.
 
 ## When It's Missing
 

@@ -20,14 +20,14 @@ Design skills produce generic output without project context. You MUST have conf
 
 Individual skills may require additional context — check the skill's preparation section for specifics.
 
-**CRITICAL**: You cannot infer this context by reading the codebase. Code tells you what was built, not who it's for or what it should feel like. Only the creator can provide this context.
+You cannot infer this context by reading the codebase. Code tells you what was built, not who it's for or what it should feel like. Only the creator can provide this context.
 
 **Gathering order:**
 1. **Check current instructions (instant)**: If your loaded instructions already contain a **Design Context** section, proceed immediately.
 2. **Check design/context.md (canonical)**: Read `design/context.md` from the project root. If it exists and contains the required prose sections (Users & Purpose, Brand Personality, Aesthetic Direction), proceed. The Design Tokens section may be empty — that's valid.
 3. **Check .impeccable.md (migration fallback)**: If `design/context.md` doesn't exist, check `.impeccable.md` in the project root. If found and it contains the required context, proceed.
 4. **Check design/direction.md (migration fallback)**: If neither of the above exist, check for `design/direction.md` (exact filename). If found, read it and extract audience, intent, and aesthetic direction from its sections.
-5. **Run /i-teach-impeccable (REQUIRED)**: If none of the above sources have context, you MUST run /i-teach-impeccable NOW before doing anything else. Do NOT skip this step. Do NOT attempt to infer context from the codebase instead.
+5. **Run /i-teach-impeccable**: If none of the above sources have context, run /i-teach-impeccable before any design work — the codebase can't supply this context (see above).
 
 **Hard gate**: If a context file exists (any of steps 2-4) but is missing required prose sections (Users & Purpose / Users, Brand Personality, Aesthetic Direction), redirect to /i-teach-impeccable with a message identifying what's missing. Do not proceed with incomplete context — a partial file is more dangerous than no file.
 
@@ -64,7 +64,7 @@ Commit to a BOLD aesthetic direction:
 - **Constraints**: Technical requirements (framework, performance, accessibility).
 - **Differentiation**: What makes this UNFORGETTABLE? What's the one thing someone will remember?
 
-**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work—the key is intentionality, not intensity.
+Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work—the key is intentionality, not intensity.
 
 Then implement working code that is:
 - Production-grade and functional
@@ -291,7 +291,7 @@ Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 
 → *Consult [anti-patterns reference](reference/anti-patterns.md) for the full AI Slop Test and all DON'T guidelines.*
 
-**Critical quality check**: If you showed this interface to someone and said "AI made this," would they believe you immediately? If yes, that's the problem. A distinctive interface should make someone ask "how was this made?" not "which AI made this?"
+**Quality check**: Before calling a design done, scan it for the defaults an unguided model falls back on — a cream or off-white page background, italic accent words inside an otherwise upright headline, numbered "01 / 02 / 03" section labels, monospace eyebrows and labels, pill-shaped buttons and chips — plus everything in `<absolute_bans>` and the anti-patterns reference. Each one present needs a reason drawn from this project's design context, or it goes. A distinctive interface should make someone ask "how was this made?" not "which AI made this?"
 
 ---
 
@@ -299,6 +299,4 @@ Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 
 Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details.
 
-Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. NEVER converge on common choices across generations.
-
-Remember: Claude is capable of extraordinary creative work. Don't hold back—show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same: let the theme, fonts, and aesthetic follow from this project's context rather than from what worked last time.

@@ -52,7 +52,7 @@ Empty states are onboarding moments: (1) Acknowledge briefly, (2) Explain the va
 | Loading | Reassuring: "Saving your work..." |
 | Destructive confirm | Serious, clear: "Delete this project? This can't be undone." |
 
-**Never use humor for errors.** Users are already frustrated. Be helpful, not cute.
+**No humor for serious errors.** Data loss, permission, and blocking errors need empathy — users are already frustrated. Humor fits only minor, recoverable errors (a 404) on a brand whose design context establishes a playful voice.
 
 ## Writing for Accessibility
 
@@ -106,4 +106,4 @@ Show format with placeholders, not instructions. For non-obvious fields, explain
 
 ---
 
-**Avoid**: Jargon without explanation. Blaming users ("You made an error" → "This field is required"). Vague errors ("Something went wrong"). Varying terminology for variety. Humor for errors.
+**Avoid**: Jargon without explanation. Blaming users ("You made an error" → "This field is required"). Vague errors ("Something went wrong"). Varying terminology for variety. Humor for serious errors.

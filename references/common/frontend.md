@@ -143,9 +143,9 @@ Prefer `getByRole`, `getByLabelText`, `getByText` over `getByTestId`. Test IDs a
 
 ## Workflow
 
-### Scope Before Coding (CRITICAL)
+### Scope Before Coding
 
-When asked to change **anything** on a UI page, before writing a single line of code:
+When asked to change anything on a UI page, before writing code:
 
 1. **Screenshot with Playwright** — if Playwright MCP tools are available and the app is running, take a live screenshot of the affected page(s)
 2. **Identify the full surface** — find *everything* on the page related to the request, not just the literal ask
@@ -169,9 +169,9 @@ Scoping to the literal request creates 3-4 follow-up prompts. One screenshot + s
 
 Take fresh screenshots to verify the change looks right before committing. Visual bugs only appear in screenshots — code review alone is not sufficient for UI work.
 
-### Screenshots Before Design Review (MANDATORY)
+### Screenshots Before Design Review
 
-Before running **any** frontend design review — UX audit, interface design critique, HCD review, anti-pattern scan — always get visual context first:
+Before running a frontend design review — UX audit, interface design critique, HCD review, anti-pattern scan — get visual context first:
 
 1. If Playwright MCP tools are available and a dev server is running, take fresh screenshots of all main pages — screenshots are used for immediate inline review and do not need to be saved to disk
 2. Read each screenshot alongside the code — visual review catches overflow, clipping, empty states, contrast failures, and density issues that are invisible in code alone

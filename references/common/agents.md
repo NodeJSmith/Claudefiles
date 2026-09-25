@@ -2,7 +2,7 @@
 
 ## Agent Routing
 
-When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`. Do NOT do the work inline — dispatch to the agent.
+When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`.
 
 <!-- PARALLEL: skills/mine-orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both. This table uses user-intent phrases ("readability review"); orchestrate uses WP-content signals ("contains UI components"). The wording differs because the routing trigger differs. -->
 <!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine-clean-code. wtf-reviewer is mandatory pre-commit (see git-workflow.md) and also dispatched by mine-review / mine-clean-code. nitpicker is dispatched only by skills (mine-clean-code). -->
@@ -42,7 +42,7 @@ Multiple `Agent` tool calls in a **single message** = parallel execution. Only s
 
 ### Subagent Types
 
-A dispatch names an agent — nothing else. There is no `general-purpose` or `Explore` type, and no separate `model:` tier clause at the call site: every agent's model, effort, and tools are declared once, in that agent's own frontmatter (`agents/*.md`), and a name that resolves on Claude Code resolves identically on OpenCode.
+A dispatch names an agent — nothing else. Don't dispatch the harness's built-in `general-purpose` or `Explore` types, and add no separate `model:` tier clause at the call site: every agent's model, effort, and tools are declared once, in that agent's own frontmatter (`agents/*.md`), and a name that resolves on Claude Code resolves identically on OpenCode.
 
 | Need | `subagent_type` |
 |------|----------------|
@@ -50,7 +50,7 @@ A dispatch names an agent — nothing else. There is no `general-purpose` or `Ex
 | A generic dispatch with no fixed methodology, low-complexity/high-volume | `light-worker` (haiku) |
 | A generic dispatch with no fixed methodology, everything else | `standard-worker` (sonnet) |
 
-Check the agent roster in `agents/` for a specialist whose role matches the work first. Only when none fits, pick the worker matching the tier the work needs — the caller supplies the full task methodology in its prompt either way. The read-only/write-capable split this table used to encode is also gone: `tools:` grants broad access fleet-wide, so "does it need to write files, run commands, or search the web" no longer selects anything.
+Check the agent roster in `agents/` for a specialist whose role matches the work first. Only when none fits, pick the worker matching the tier the work needs — the caller supplies the full task methodology in its prompt either way. `tools:` grants broad access fleet-wide, so whether the work writes files, runs commands, or searches the web doesn't affect the choice.
 
 ### Context & Output
 

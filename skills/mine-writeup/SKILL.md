@@ -101,7 +101,7 @@ Propose an outline using the structural template below. Not every section is man
 Everything the reader needs if they stop here. What you found, what it means, what you need from them. Lead with the answer, not the journey that got you there.
 
 **2. Situation** (drop for one-pagers or when the reader already has context)
-What the reader already knows. 2-3 sentences that establish shared ground without explaining things the audience already understands.
+What the reader already knows. Just enough to establish shared ground, without explaining things the audience already understands.
 
 **3. What we found** (mandatory when source material contains investigation results)
 Curated findings, only those that change a decision or the shape of the work. Each finding stated as: **[fact] → [so what for the project]**. Technical evidence referenced but not inlined.
@@ -120,7 +120,7 @@ What the user is recommending and why. State the approach, the key tradeoffs con
 Table format: what needs deciding, who can decide it, what it gates. Ordered by urgency. This is what the reader takes into the room.
 
 **6. Risks** (include when risks could change the timeline or kill the project)
-Only risks that could change the shape of the work. 3-5 items max. Each stated plainly: what could go wrong, why it matters, what to do about it.
+Only risks that could change the shape of the work — the few that matter, not an inventory. Each stated plainly: what could go wrong, why it matters, what to do about it.
 
 **7. Appendix pointer** (mandatory)
 One line pointing to the full source material for readers who want the evidence.
@@ -166,7 +166,7 @@ If a section only works at the 30-minute layer, it needs rewriting.
 - **Answer first, evidence second.** Every section leads with its conclusion. The reasoning follows for readers who want it.
 - **No jargon without earning it.** If a technical term is necessary, define it in plain language on first use. If it's not necessary, use the plain language instead.
 - **Concrete over abstract.** "The network path doesn't exist yet" beats "infrastructure prerequisites remain outstanding."
-- **Short paragraphs.** 2-4 sentences. A paragraph longer than 5 sentences probably contains two ideas.
+- **Short paragraphs.** One idea each. A paragraph doing two jobs gets split.
 - **Tables for parallel structure.** If the same shape repeats 3+ times, use a table.
 
 Re-read the writeup file from disk before every write. Preserve user edits. If the user wants a section rewritten, edit that section in place.

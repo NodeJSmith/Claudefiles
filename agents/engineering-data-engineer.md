@@ -165,7 +165,7 @@ src/{package}/gold/some_aggregation.py
 - No `from __future__ import annotations` — breaks Pydantic runtime inspection
 - No `Optional[X]` — use `X | None` union syntax
 - No lazy imports (imports inside functions) — all imports at module top
-- No `datetime.now()` without timezone
+- No stdlib `datetime`/`date`/`timedelta` in application logic — use `whenever`, converting at library boundaries
 - No `os.path.join` — use `pathlib.Path`
 - No `pip` — always `uv`
 <!-- Agent-specific rules below -->

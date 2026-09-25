@@ -290,7 +290,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
   - `**Findings:** <N>` — the total `## Finding N:` count (excluding Likely Invalid).
   - When Verdict is `FAIL`, list every CRITICAL or HIGH finding left with `disposition: skipped` (title + one-line why-it-matters each).
 
-  A bare `No unresolved CRITICAL/HIGH findings.` string (the prior format) can't distinguish "challenge found nothing" from "challenge found findings that were all resolved" — both produced identical text. The `Verdict`/`Findings` fields make that distinction explicit for Step 6 to report accurately. This pipeline's own Step 6 (Shipping gate) reads this file fresh rather than carrying the result in context — the same durable-artifact pattern Step 4's `clean-code-summary.md` and Step 5.5's `known-issues.md` already use.
+  The `Verdict`/`Findings` fields distinguish "challenge found nothing" from "challenge found findings that were all resolved" so Step 6 can report accurately. This pipeline's own Step 6 (Shipping gate) reads this file fresh rather than carrying the result in context — the same durable-artifact pattern Step 4's `clean-code-summary.md` and Step 5.5's `known-issues.md` already use.
 
 Step 4 does not begin until the challenge completes.
 

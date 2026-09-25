@@ -18,13 +18,13 @@ A threshold ("max 800 lines") covers the cases you anticipated. A diagnostic que
 
 Does each rule name the specific trap it guards against?
 
-"Don't do X" is weaker than "agents tend to do X because Y — counter it by Z." Naming the trap helps the agent recognize when it is falling into it. "Verify your work" is a rule. "Agents report what they intended, not always what happened — inspect the diff, not the summary" is a named failure mode that fires at the right moment.
+"Don't do X" is weaker than "X goes wrong because Y — counter it by Z." Naming the trap helps the agent recognize when it is falling into it. "Verify your work" is a rule. "Agents report what they intended, not always what happened — inspect the diff, not the summary" is a named failure mode that fires at the right moment.
 
 ### 3. AI-Specific Bias Acknowledgment
 
 Does the instruction call out what AI agents specifically get wrong in this domain?
 
-Generic engineering advice reads as background knowledge and gets skimmed. "Agents tend to X because generation is free — counter it by Y" gets attention because it names the specific tendency. Rules that acknowledge the agent's tendencies are more effective than rules that describe ideal behavior in the abstract.
+Generic engineering advice reads as background knowledge and gets skimmed. Naming the concrete failure and its cause ("generation is free, so an extra layer costs the writer nothing — counter it by Y") gets attention. State the mechanism and the desired behavior rather than asserting the reader's tendencies ("you tend to…"); current models over-apply trait claims.
 
 ### 4. A Generative Value
 

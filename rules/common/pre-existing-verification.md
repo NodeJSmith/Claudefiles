@@ -8,7 +8,7 @@ tool: claude, antigravity
 
 ## The Failure Mode
 
-A debugging session hit a test failure, `git stash push`'d its own uncommitted fix to get a clean before/after, reran the tests, and declared: "Confirmed — pre-existing on baseline too." That "baseline" was the stash — the state before that one edit, several commits into the same feature branch. The session used the same word again later to mean "at commit X, end of an earlier task" — still not the default branch. The bug was eventually traced to the session's *own* earlier commit from a few tool calls before. It only surfaced because the user asked directly, "was this on main or introduced in this branch?" — forcing an actual check that reversed the conclusion. The same pattern repeated later in the *same* session on a different failure set. Getting caught once didn't stop it from recurring — which is why this needs a check, not a reminder to be more careful.
+The typical shape: a test fails, you stash your uncommitted fix to get a clean before/after, the failure reproduces, and you report "pre-existing on baseline too." That baseline is the state before one edit, possibly several commits into a feature branch — the failure can still come from an earlier commit on the same branch, including your own. The same slip recurs within a session even after it has been caught once, which is why this rule is a check to run rather than a reminder to be careful.
 
 ## The Rule
 

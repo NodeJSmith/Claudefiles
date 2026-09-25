@@ -6,9 +6,9 @@ user-invocable: true
 
 Reduce visual intensity in designs that are too bold, aggressive, or overstimulating, creating a more refined and approachable aesthetic without losing effectiveness.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -32,7 +32,7 @@ Analyze what makes the design feel too intense:
 
 If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your refinement strategy. If the answer is unclear or deferred, proceed by reducing color count, not content.
 
-**CRITICAL**: "Quieter" doesn't mean boring or generic. It means refined, sophisticated, and easier on the eyes. Think luxury, not laziness.
+"Quieter" doesn't mean boring or generic. It means refined, sophisticated, and easier on the eyes. Think luxury, not laziness.
 
 ## Plan Refinement
 
@@ -43,7 +43,7 @@ Create a strategy to reduce intensity while maintaining impact:
 - **Simplification approach**: What can be removed entirely?
 - **Sophistication approach**: How can we signal quality through restraint?
 
-**IMPORTANT**: Great quiet design is harder than great bold design. Subtlety requires precision.
+Great quiet design is harder than great bold design. Subtlety requires precision.
 
 ---
 

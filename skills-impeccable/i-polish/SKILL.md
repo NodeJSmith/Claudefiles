@@ -4,9 +4,9 @@ description: 'Use when the user says: "polish this UI", "final pass", "pixel-per
 user-invocable: true
 ---
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: quality bar (MVP vs flagship).
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first. Additionally gather: quality bar (MVP vs flagship).
 
 ---
 
@@ -40,7 +40,7 @@ Understand the current state and goals:
    - Edge cases and error states
    - Loading and transition smoothness
 
-**CRITICAL**: Polish is the last step, not the first. Don't polish work that's not functionally complete.
+Polish is the last step, not the first. Don't polish work that's not functionally complete.
 
 ---
 
@@ -90,7 +90,7 @@ Work through these dimensions methodically. The standard checks (grid alignment,
 - **Forms**: Consistent validation timing (on blur vs on submit), logical tab order.
 - **Edge cases**: Loading, empty, error, and success states all present. Handles very long content and missing data gracefully.
 
-**IMPORTANT**: Polish is about details. Zoom in. Squint at it. Use it yourself. The little things add up.
+Polish is about details. Zoom in. Squint at it. Use it yourself. The little things add up.
 
 **NEVER**:
 - Polish before it's functionally complete
@@ -103,15 +103,7 @@ Work through these dimensions methodically. The standard checks (grid alignment,
 
 ## Final Verification
 
-Before marking as done:
-
-- **Use it yourself**: Actually interact with the feature
-- **Test on real devices**: Not just browser DevTools
-- **Ask someone else to review**: Fresh eyes catch things
-- **Compare to design**: Match intended design
-- **Check all states**: Don't just test happy path
-
-Remember: You have impeccable attention to detail and exquisite taste. Polish until it feels effortless, looks intentional, and works flawlessly. Sweat the details - they matter.
+Before marking as done, check every state you touched (not just the happy path) against the design system — in the browser when Playwright is available. List real-device testing in the summary as a follow-up for the user; you can't do it.
 
 ## Clean Up
 

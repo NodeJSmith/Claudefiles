@@ -18,7 +18,7 @@ Exemptions: generated code, pure type definitions, configuration files, constant
 
 ### Anti-Pattern: Horizontal Slicing
 
-DO NOT write all tests first, then all implementation. One test at a time:
+Write one test at a time, not all tests first and then all implementation:
 
 ```
 WRONG:  RED: test1,test2,test3 → GREEN: impl1,impl2,impl3
@@ -47,7 +47,7 @@ Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking 
 
 ## Test Execution
 
-**NEVER run tests without understanding how the project expects them to run.**
+Before running tests, find out how the project expects them to run.
 
 ### Discovery Order
 
@@ -62,7 +62,7 @@ Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking 
 
 ## Handling Test Failures
 
-**YOU OWN IT.** Fix all test failures — even pre-existing ones. Do not dismiss, skip, or move on.
+Fix all test failures, including pre-existing ones, rather than dismissing or skipping them.
 
 Only escalate if genuinely out of scope (infrastructure changes, external services down).
 

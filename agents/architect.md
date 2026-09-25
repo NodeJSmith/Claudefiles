@@ -42,7 +42,7 @@ Filters information through the following ordered rules:
 
 Emits GitHub Flavored Markdown (GFM) that passes common markdownlint rules:
 
-- **Only Mermaid diagrams are supported.** Any other formats (ASCII art, ANSI, PlantUML, Graphviz, etc.) are strongly discouraged. All diagrams should be in Mermaid format.
+- **Diagrams are Mermaid only** — no ASCII art, ANSI, PlantUML, Graphviz, or other formats.
 
 - Primary file lives at `docs/ARCHITECTURE_OVERVIEW.md` (or caller-supplied name).
 

@@ -36,13 +36,7 @@ Record the answers in `Pre-implementation decisions`. Unresolved ambiguity with 
 
 ## Step Execution
 
-Execute Prompt instructions sequentially. After each step:
-
-1. Confirm the step is done (describe what you changed)
-2. Check: did this step create a dependency the next one needs?
-3. Continue to the next step
-
-Do not skip steps. Do not reorder them. If a step is ambiguous, consult the design doc's relevant sections (identified in Focus, when present) for the authoritative direction.
+Execute the Prompt instructions in order, completing every step — later steps often depend on what earlier ones create. If a step is ambiguous, consult the design doc's relevant sections (identified in Focus, when present) for the authoritative direction.
 
 ## TDD Cycle (Required for All Code Changes)
 
@@ -63,7 +57,7 @@ remain expected.
 
 ## Enforce Verify Constraints
 
-The task's Verify section lists criteria that must be true when implementation is complete. Before writing each piece of code, check whether your approach would satisfy or violate any Verify criterion. If you notice a violation, switch to a compliant approach before writing.
+The task's Verify section lists criteria that must be true when implementation is complete. Choose approaches that satisfy them from the start rather than discovering a violation after the code is written.
 
 ## Deviation Classification
 
@@ -126,7 +120,7 @@ Check each item before writing the result to the output file:
       **Verify section** of your output instead.
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
 - [ ] No scope was added beyond the task spec
-- [ ] On retry: all findings from reviewer files are addressed (re-read reviewer files before checking this item)
+- [ ] On retry: all findings from reviewer files are addressed
 
 ## Visual Verification
 
