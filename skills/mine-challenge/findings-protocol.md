@@ -118,10 +118,12 @@ The synthesis subagent classifies each finding as `Auto-apply` or
 - Critics agree on the fix (no meaningful dissent)
 - Severity is not CRITICAL
 - Fix introduces no behavior change to the design's intent
+- No critic's Why it matters starts with `Audience assumption:`
 
 **User-directed** when ANY of the following hold:
 - Fix requires a judgment call between competing approaches
 - Severity is CRITICAL
+- A critic flagged it as out-of-audience (`Audience assumption:`), so the user can skip it
 - Fix touches multiple sections or has design-level implications
 - Critics disagreed on the resolution
 
