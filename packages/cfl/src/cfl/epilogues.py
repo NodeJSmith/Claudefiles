@@ -163,7 +163,8 @@ their answer was written into. Most questions need only a status — an answer
 with no destination has no disposition.
 
 Examples:
-  cfl question mine-define scope-mode --status asked --answer "Hold — make this bulletproof"
+  cfl question mine-define scope-mode --status asked --answer "Hold — make this bulletproof" \\
+      --recommended "Hold — make this bulletproof"
   cfl question mine-define edge-cases --status skipped
   cfl question mine-plan open-question --status asked --disposition deferred \\
       --answer "Defer to implementation"
@@ -192,7 +193,8 @@ overflow and likely-invalid.
 
 Examples:
   cfl finding record challenge 1 --title "Missing error handler" --severity HIGH \\
-      --visibility presented --disposition pending --gate-id 42
+      --visibility presented --disposition pending --gate-id 42 \\
+      --recommended "Option A: add try/except"
   cfl finding record challenge 1 --title X --severity HIGH --visibility presented
 """
 
@@ -212,4 +214,10 @@ FINDING_RESOLVE = f"""\
 Valid dispositions: {_TERMINAL_FINDING_DISPOSITIONS_LIST}
 
 Examples:
-  cfl finding resolve --gate-id 42 --finding-num 1 --disposition applied"""
+  cfl finding resolve --gate-id 42 --finding-num 1 --disposition applied \\
+      --chosen "Option A: add try/except"
+  cfl finding resolve --gate-id 42 --finding-num 1 --disposition skipped \\
+      --chosen "Skip — defer to later"
+  cfl finding resolve --gate-id 42 --finding-num 1 --disposition applied \\
+      --chosen "Other" --choice-reason "Used a different approach: ..."
+"""

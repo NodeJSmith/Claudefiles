@@ -59,6 +59,9 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
    | `**visibility:**` | `visibility` |
    | `**disposition:**` | `disposition` — **value overridden for `presented` entries, see below; do not copy literally** |
    | `**Why-it-matters:**` | `why_it_matters` |
+   | `**Recommendation:**` or `*(recommended)*` marker on Options | `recommended` |
+
+   `recommended` is the option label the agent marked as recommended. For User-directed findings (non-TENSION), extract the label from the `*(recommended)*` marker on the Options list (e.g., `**A** *(recommended)*: add try/except` → `"A: add try/except"`). For TENSION findings, omit — they present two competing sides, not a recommendation. For Auto-apply findings, omit — there is no user-facing recommendation. For `likely-invalid` entries, omit.
 
    `## Likely Invalid` entries (`### LI-N:`) use the same JSON keys with two differences: the `N` in `LI-N` maps to `finding_num` (its own sequence, independent of the main `## Finding N:` numbering — the two sequences can collide on the same integer, which is why `visibility` is part of the table's uniqueness constraint), and `**Original-severity:**` maps to `severity` (there is no separate `Original-severity` column). `Claimed`/`Actually`/`Why-invalid` have no corresponding columns and are not written, the same precedent as the protocol's `Evidence`/`Design-challenge` fields being deliberately excluded from the schema.
 
@@ -73,8 +76,11 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 6. For each finding resolved during step 2 (disposition is `applied`, `skipped`, or `filed`), emit (skip if cfl tracking inactive):
 
    ```bash
-   cfl finding resolve --gate-id <gate_id> --finding-num <N> --disposition <d>
+   cfl finding resolve --gate-id <gate_id> --finding-num <N> --disposition <d> \
+       --chosen "<selected option label>" [--choice-reason "<reason>"]
    ```
+
+   `--chosen` is the label the user selected in the AskUserQuestion prompt (e.g., `"A: add try/except"`, `"Side B: keep current approach"`, `"Skip — defer to later"`, `"File as issue"`, or the user's free text from "Other"). For Auto-apply findings (no user interaction), pass the `better-approach` text as `--chosen` — there's no recommendation to contrast against, but recording what was applied keeps the "what happened" data uniform across finding types. `--choice-reason` is the user's notes/annotation from AskUserQuestion if any were provided, or the "Other" free text when the user typed a custom response — omit when the user picked a listed option without annotation.
 
 7. Run `<post_resolution>` — the caller's site-specific handling.
 

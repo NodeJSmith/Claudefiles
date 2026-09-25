@@ -75,6 +75,7 @@ _VALID_TASK_STATUSES = sorted(
 )
 
 _FLAG = Parameter(negative=[])
+_RECOMMENDED_HELP = "Which option the agent recommended (label text)"
 
 # Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
 _GROUPED_COMMANDS = {
@@ -835,6 +836,10 @@ def cmd_question(
         str | None,
         Parameter(help="User's selected answer (option label or free text)"),
     ] = None,
+    recommended: Annotated[
+        str | None,
+        Parameter(help=_RECOMMENDED_HELP),
+    ] = None,
 ) -> None:
     """Record a discovery question as asked or skipped."""
     with db_connection() as conn:
@@ -847,6 +852,7 @@ def cmd_question(
             status=status,
             answer=answer,
             disposition=disposition,
+            recommended=recommended,
         )
 
 
@@ -951,6 +957,10 @@ def cmd_finding_record(
         str | None,
         Parameter(name=["--why-it-matters"], help="Why this finding matters"),
     ] = None,
+    recommended: Annotated[
+        str | None,
+        Parameter(help=_RECOMMENDED_HELP),
+    ] = None,
 ) -> None:
     """Record a single finding."""
     with db_connection() as conn:
@@ -975,6 +985,7 @@ def cmd_finding_record(
             classification=classification,
             disposition=disposition,
             why_it_matters=why_it_matters,
+            recommended=recommended,
         )
 
 
@@ -1037,10 +1048,28 @@ def cmd_finding_resolve(
             help=f"Resolution outcome ({', '.join(sorted(TERMINAL_FINDING_DISPOSITIONS))})"
         ),
     ],
+    chosen: Annotated[
+        str | None,
+        Parameter(help="Which option the user selected (label text)"),
+    ] = None,
+    choice_reason: Annotated[
+        str | None,
+        Parameter(
+            name=["--choice-reason"],
+            help="User's notes or free text explaining their choice",
+        ),
+    ] = None,
 ) -> None:
     """Move a presented, pending finding to a terminal disposition and stamp resolved_at."""
     with db_connection() as conn:
-        resolve_finding(conn, gate_id, finding_num, disposition)
+        resolve_finding(
+            conn,
+            gate_id,
+            finding_num,
+            disposition,
+            chosen=chosen,
+            choice_reason=choice_reason,
+        )
 
 
 # ---------------------------------------------------------------------------

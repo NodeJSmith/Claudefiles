@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 9
+SCHEMA_VERSION: int = 10
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -142,6 +142,17 @@ MIGRATIONS: dict[int, list[str]] = {
     9: [
         "ALTER TABLE runs ADD COLUMN pipeline_step TEXT",
         "ALTER TABLE runs ADD COLUMN reviewed_head TEXT",
+    ],
+    # Recommendation tracking: what was recommended, what was chosen, why.
+    # findings: recommended written at record time, chosen/choice_reason at
+    # resolve time. questions: recommended written at record time alongside
+    # answer. Keep these identical to the DDL in _SCHEMA_STATEMENTS — they
+    # are the same end state reached by two paths.
+    10: [
+        "ALTER TABLE findings ADD COLUMN recommended TEXT",
+        "ALTER TABLE findings ADD COLUMN chosen TEXT",
+        "ALTER TABLE findings ADD COLUMN choice_reason TEXT",
+        "ALTER TABLE questions ADD COLUMN recommended TEXT",
     ],
 }
 
@@ -289,7 +300,8 @@ _SCHEMA_STATEMENTS: list[str] = [
                 AND status = 'asked')),
         answer      TEXT,
         context_pct INTEGER,
-        created_at  TEXT NOT NULL
+        created_at  TEXT NOT NULL,
+        recommended TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_questions_run ON questions(run_id)",
@@ -317,6 +329,9 @@ _SCHEMA_STATEMENTS: list[str] = [
         context_pct    INTEGER,
         resolved_at    TEXT,
         created_at     TEXT NOT NULL,
+        recommended    TEXT,
+        chosen         TEXT,
+        choice_reason  TEXT,
         UNIQUE(gate_id, finding_num, visibility)
     )
     """,

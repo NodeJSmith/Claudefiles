@@ -8,8 +8,10 @@ This phase combines problem discovery (what to build) with architecture interrog
 
 After each fixed question below is asked or skipped, record it via `cfl question`. Skip all `cfl question` calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set).
 
-- **Asked:** `cfl question mine-define <topic> --status asked --answer "<selected option or summary>" --spec <spec_number>`
+- **Asked:** `cfl question mine-define <topic> --status asked --answer "<selected option or summary>" [--recommended "<option label>"] --spec <spec_number>`
 - **Skipped** (complexity tier, conditional skip, or already answered): `cfl question mine-define <topic> --status skipped --spec <spec_number>`
+
+Pass `--recommended` when the question presented structured options and the agent's framing included a recommended choice (e.g., `(Recommended)` in an option label, or an explicit "I'd suggest X" in the question text). Omit for open-ended questions where the agent proposed but didn't recommend a specific option.
 
 The `<topic>` for each question is noted in parentheses below (e.g., `(topic: problem)`).
 

@@ -67,6 +67,7 @@ def record_question(
     status: str,
     answer: str | None = None,
     disposition: str | None = None,
+    recommended: str | None = None,
 ) -> None:
     """Record a discovery question as asked or skipped.
 
@@ -114,9 +115,10 @@ def record_question(
 
     cursor = conn.execute(
         """INSERT INTO questions
-             (run_id, skill, topic, status, disposition, answer, context_pct, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (run_id, skill, topic, status, disposition, answer, context_pct),
+             (run_id, skill, topic, status, disposition, answer, recommended,
+              context_pct, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+        (run_id, skill, topic, status, disposition, answer, recommended, context_pct),
     )
     question_id = cursor.lastrowid
 
@@ -192,7 +194,7 @@ def list_questions(
 
     rows = conn.execute(
         "SELECT id, run_id, skill, topic, status, disposition, answer,"
-        " context_pct, created_at"
+        " recommended, context_pct, created_at"
         f" FROM questions{where} ORDER BY id DESC LIMIT ?",
         params,
     ).fetchall()

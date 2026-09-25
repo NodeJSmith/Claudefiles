@@ -51,6 +51,28 @@ LEGACY_QUESTIONS_TABLE_SQL = """CREATE TABLE questions (
     answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
 )"""
 
+LEGACY_QUESTIONS_V7_TABLE_SQL = """CREATE TABLE questions (
+    id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+    skill TEXT NOT NULL, topic TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+    disposition TEXT CHECK(disposition IS NULL OR (
+        disposition IN ('resolved', 'accepted', 'deferred') AND status = 'asked')),
+    answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
+)"""
+
+LEGACY_FINDINGS_V8_TABLE_SQL = """CREATE TABLE findings (
+    id INTEGER PRIMARY KEY, run_id INTEGER REFERENCES runs(id),
+    gate_id INTEGER REFERENCES gates(id), source TEXT NOT NULL,
+    finding_num INTEGER NOT NULL, title TEXT NOT NULL, target TEXT,
+    severity TEXT NOT NULL, finding_type TEXT,
+    design_level TEXT CHECK(design_level IS NULL OR design_level IN ('Yes', 'No')),
+    raised_by TEXT, classification TEXT,
+    visibility TEXT NOT NULL CHECK(visibility IN ('presented', 'overflow', 'likely-invalid')),
+    disposition TEXT CHECK(disposition IS NULL OR disposition IN ('pending', 'applied', 'skipped', 'filed')),
+    why_it_matters TEXT, context_pct INTEGER, resolved_at TEXT,
+    created_at TEXT NOT NULL, UNIQUE(gate_id, finding_num, visibility)
+)"""
+
 
 def create_legacy_schema(
     conn: sqlite3.Connection, schema_version: int, *table_ddls: str
