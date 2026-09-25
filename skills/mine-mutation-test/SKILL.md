@@ -239,7 +239,7 @@ None — all mutations killed.
 [One or two sentences: what the suite now covers, plus the main risk area mutation testing can't reach — e.g., integration behavior — and what would cover it.]
 ```
 
-If the working tree was stashed in Phase 0, restore it with `git stash apply <sha>` using the SHA recorded then, and drop that entry (find its current `stash@{n}` by its tag first).
+If the working tree was stashed in Phase 0, restore it with `git stash apply <sha>` using the SHA recorded then. Only if the apply finishes with no conflicts, drop that entry (find its current `stash@{n}` by its tag first). If it exits nonzero or reports conflicts, leave the entry in place and tell the user which files conflict and the stash SHA, so they can finish the restore themselves.
 
 ## What This Skill Does NOT Do
 
