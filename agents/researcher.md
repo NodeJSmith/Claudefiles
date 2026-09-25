@@ -78,7 +78,7 @@ Scale exploration based on the **Depth** field from the caller (default: `normal
 | `normal` | 3-4 | Full exploration. Combine subagents 1-3 into 2 if codebase is small (< 20 files). |
 | `deep` | 4 | All subagents at full depth. Always include web research. |
 
-Adapt subagent focus to the proposal — not every proposal needs all 4 subagent types.
+Adapt subagent focus to the proposal — not every proposal needs all 4 subagent types. Subagents are for independent, sizeable exploration tracks; when the relevant code is small enough to read directly, read it yourself instead of dispatching.
 
 #### Subagent 1: Architecture & Data Flow (`subagent_type: standard-worker`)
 

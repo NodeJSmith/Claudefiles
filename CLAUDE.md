@@ -38,7 +38,7 @@ Never hardcode `~/.claude` (or `$HOME/.claude`) anywhere — always resolve thro
 - **In shell scripts** (`scripts/hooks/`, `bin/`) that resolve or check their own path into the config dir: use `${CLAUDE_CONFIG_DIR:-$HOME/.claude}` — `$HOME`, not `~`, since tilde expansion isn't reliable inside quoted contexts. Match against the *resolved* value, not a literal `.claude/projects` substring.
 - **In a hook that pattern-matches a Bash command's *text*** (a different case from the one above — the hook isn't resolving its own path, it's recognizing that a command a user typed touches the config dir, e.g. detecting `grep -r ~/.claude/projects`): match the resolved path as above, and also match the literal env-var name `CLAUDE_CONFIG_DIR`, since the typed command may reference it unexpanded (`"$CLAUDE_CONFIG_DIR/projects"`) rather than a literal path.
 
-This has recurred more than once — first in skill doc references, then in a hook's own transcript-path detection (PR #582). `bin/lint-agent-files` now catches the common shape of the first case (a bare `~/.claude`/`$HOME/.claude` outside the `${CLAUDE_CONFIG_DIR:-...}` fallback) as a pre-commit lint; see its docstring for what it doesn't catch.
+`bin/lint-agent-files` catches the common shape of the first case (a bare `~/.claude`/`$HOME/.claude` outside the `${CLAUDE_CONFIG_DIR:-...}` fallback) as a pre-commit lint; see its docstring for what it doesn't catch.
 
 ## Temp File Convention
 
@@ -58,7 +58,7 @@ Edit `settings.json` in this repo — **never** write directly to `$CLAUDE_CONFI
 
 Hook scripts under `scripts/hooks/` that persist state keyed on "this project" (defer/suppress files, escalating-deferral timestamps, etc.) must key on the repo's **stable, main-clone identity** — not on whatever path the session happened to reach it through. A worktree's own path (e.g. `.claude/worktrees/<branch>`) is deleted once the worktree's task is done; a state file keyed on it is written once and never read again.
 
-This has recurred more than once (`project-meta-prompt.sh` needed this fix; `project-docs-check.sh` reintroduced a version of it later) because the naive approach — compare `git rev-parse --show-toplevel`'s output against a `pwd -P`'d directory, then string-strip a prefix — is fragile: the two can disagree textually on the same physical directory (symlinks, mount aliasing, or any other canonicalization mismatch between an uncanonicalized git output and a canonicalized shell path), and the failure mode is silent — it falls through to the worktree-local path instead of erroring.
+The naive approach — compare `git rev-parse --show-toplevel`'s output against a `pwd -P`'d directory, then string-strip a prefix — is fragile: the two can disagree textually on the same physical directory (symlinks, mount aliasing, or any other canonicalization mismatch between an uncanonicalized git output and a canonicalized shell path), and the failure mode is silent — it falls through to the worktree-local path instead of erroring.
 
 **Correct pattern** (see `project-meta-prompt.sh` and `project-docs-check.sh`):
 - Resolve the stable root via `git rev-parse --git-common-dir`, then `dirname` + `cd` + `pwd -P` on the result — this always resolves to the main clone's root, worktree or not.

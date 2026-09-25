@@ -30,14 +30,14 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Stash changes (Recommended)"
-      description: "Run git stash, proceed with mutation testing, then git stash pop when done"
+      description: "Stash changes under a unique tag, proceed with mutation testing, then restore them when done"
     - label: "Commit first"
       description: "Commit the current changes before starting"
     - label: "Proceed anyway"
       description: "Skip the safety net — I'll handle reverting manually if needed"
 ```
 
-If the user chose stash, run `git stash` and remember to `git stash pop` at the end.
+If the user chose stash, run `git stash push -u -m "mine-mutation-test-<timestamp>"`, then record that entry's SHA from `git stash list --format='%H %gs'`. The stash stack is shared with other worktrees and sessions, so never use a bare `git stash pop` — it can restore someone else's entry.
 
 ## Phase 1: Target Discovery
 
@@ -239,7 +239,7 @@ None — all mutations killed.
 [One or two sentences: what the suite now covers, plus the main risk area mutation testing can't reach — e.g., integration behavior — and what would cover it.]
 ```
 
-If the working tree was stashed in Phase 0, run `git stash pop` now.
+If the working tree was stashed in Phase 0, restore it with `git stash apply <sha>` using the SHA recorded then, and drop that entry (find its current `stash@{n}` by its tag first).
 
 ## What This Skill Does NOT Do
 

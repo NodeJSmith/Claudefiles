@@ -6,7 +6,7 @@ user-invocable: true
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.
 
-## MANDATORY PREPARATION
+## Preparation
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note in the report: "No design context found — anti-pattern checks are universal only; brand-specific judgments may not apply. Run `/i-teach-impeccable` to establish context."
 
@@ -24,7 +24,7 @@ Scan across these dimensions. The specific checks within each are standard — w
 4. **Responsive** — fixed widths, sub-44px touch targets, horizontal scroll, text-scaling breakage, missing breakpoints.
 5. **Anti-Patterns (CRITICAL)** — check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for AI slop tells and general design anti-patterns.
 
-**CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (polish, optimize, harden, etc.) to fix issues after audit.
+This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (polish, optimize, harden, etc.) to fix issues after audit.
 
 ## Generate Comprehensive Report
 
@@ -71,7 +71,7 @@ Group findings under four severity tiers:
 
 Then call out systemic patterns (the same defect across many components), positive findings worth keeping, and a priority-ordered fix plan that groups findings by the skill that fixes them (using the per-finding "Suggested command" routing).
 
-**IMPORTANT**: Be thorough but actionable. Too many low-priority issues creates noise. Focus on what actually matters.
+Report every issue you find, including Low-severity ones, each tagged with its severity. The severity tiers and the priority-ordered fix plan are where prioritization happens — not omission.
 
 **NEVER**:
 - Report issues without explaining impact (why does this matter?)
@@ -80,8 +80,6 @@ Then call out systemic patterns (the same defect across many components), positi
 - Provide generic recommendations (be specific and actionable)
 - Forget to prioritize (everything can't be critical)
 - Report false positives without verification
-
-Remember: You're a quality auditor with exceptional attention to detail. Document systematically, prioritize ruthlessly, and provide clear paths to improvement. A good audit makes fixing easy.
 
 ## Completion
 

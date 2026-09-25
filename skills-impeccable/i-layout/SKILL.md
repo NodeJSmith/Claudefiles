@@ -7,9 +7,9 @@ argument-hint: "[target]"
 
 Assess and improve layout and spacing that feels monotonous, crowded, or structurally weak — turning generic arrangements into intentional, rhythmic compositions.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -42,7 +42,7 @@ Analyze what's weak about the current spatial design:
    - Is the layout too sparse? (Excessive whitespace without purpose)
    - Does density match the content type? (Data-dense UIs need tighter spacing; marketing pages need more air)
 
-**CRITICAL**: Layout problems are often the root cause of interfaces feeling "off" even when colors and fonts are fine. Space is a design material — use it with intention.
+Layout problems are often the root cause of interfaces feeling "off" even when colors and fonts are fine. Space is a design material — use it with intention.
 
 ## Plan Layout Improvements
 

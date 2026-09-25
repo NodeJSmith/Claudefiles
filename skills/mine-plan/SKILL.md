@@ -172,13 +172,13 @@ cfl question mine-plan open-question --status asked --disposition <resolved|acce
     --answer "<selected option>" [--recommended "<recommended option label>"] --spec <spec_number>
 ```
 
-Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. `--recommended` carries the option the agent marked as recommended (the `(Recommended)` label), if any — omit when no option was explicitly recommended. (`skipped` means a question was never put to them, which no longer happens in this phase.)
+Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. `--recommended` carries the option the agent marked as recommended (the `(Recommended)` label), if any — omit when no option was explicitly recommended. (`skipped` means a question was never put to them; this phase always asks.)
 
 `--disposition` is the separate question of which file the answer went into, so it must name the edit you just made: `resolved` for a decision written into a design section, `accepted` for a risk written into Dependencies and Assumptions, `deferred` for an entry left marked in Open Questions for Phase 3. Record it in the same step as the edit rather than from memory afterward — the disposition is a claim about the doc, and the two disagreeing is worse than no record at all.
 
 If the user selected "Stop", omit `--disposition` — nothing was written anywhere — then record the answer and exit. The doc keeps its Open Questions section intact for them to revise.
 
-When every question has been handled, re-read `design.md` rather than assuming the edits landed. Open Questions should now contain nothing except entries marked `**Deferred to implementation**`, which Phase 3 clears. Then summarize before continuing to Phase 2:
+When every question has been handled, Open Questions should contain nothing except entries marked `**Deferred to implementation**`, which Phase 3 clears. Then summarize before continuing to Phase 2:
 > Handled all open questions: Q1 → resolved into Architecture, Q2 → accepted as a known risk in Dependencies and Assumptions, Q3 → deferred to whichever task touches the parser. One deferred entry remains in the doc until its task file exists. Proceeding to generate task files.
 
 ---
@@ -477,7 +477,7 @@ Every gate before this one has already inspected the previous contents, so a lat
 - **It added a Focus line** — re-read that one task's `## Focus` against the design doc and check the three things the gates check there: that it contradicts nothing in the requirements the task implements, that it adds no work outside the task's scope, and that if it references a visual artifact, the task's `## Verify` has a criterion covering it. Those are the checks the gates make on `Focus` text: `validator-prompt.md` does contradiction and visual-artifact coverage, `reviewer-prompt.md` adds scope containment. Only the first two are usually in play, but a deferred question about appearance is exactly the case that pulls `Verify` into scope — add the criterion rather than assuming `Verify` is untouched. If all three clear, proceed; nothing else in the suite has new input, since `implements` and `Target Files` are unchanged.
 - **The Focus re-check fails** — the deferred question does not belong on that task. Do not edit the line until it passes. Take it to the routes in Phase 3's unowned-question prompt: they were written for a question no task owns, but the outcome space is the same one you need here for a question owned by the wrong task — add a task for it, accept it as a risk, or stop and revise the design.
 
-This is the only enforcement point for the invariant, which is why it re-reads the file rather than trusting Phase 1 and Phase 3 did their jobs. Historically the section was never empty at approval precisely because resolutions lived in conversation and no step ever checked the doc.
+This is the only enforcement point for the invariant, which is why it re-reads the file rather than trusting Phase 1 and Phase 3 did their jobs.
 
 ### Approval options
 

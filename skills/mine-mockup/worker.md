@@ -165,7 +165,7 @@ These patterns are explicitly forbidden. Review every generated page against thi
 
 **Forbidden:** Emoji icons in section headers. Section headers that all use the same icon-in-rounded-box pattern.
 
-**Required:** Styled monospace labels with colored dot indicators, numbered badges, or asymmetric section dividers. If an icon is genuinely needed, use an inline SVG.
+**Required:** Section headers carry the page's own typographic voice — a colored dot indicator, an asymmetric divider, or a weight/size shift in the heading font. If an icon is genuinely needed, use an inline SVG.
 
 ### Layout & Hierarchy
 
@@ -179,4 +179,4 @@ These patterns are explicitly forbidden. Review every generated page against thi
 
 ### The Slop Test
 
-Before delivering: **Would a developer look at this and immediately think "AI generated this"?** Telltale signs: Inter/Roboto with purple gradient accents, `background-clip: text` gradients on every heading, emoji section headers, glowing cards, cyan-magenta-pink on dark, uniform card grid, three-dot code block chrome. If two or more are present, regenerate with a constrained aesthetic.
+Before delivering: **Would a developer look at this and immediately think "AI generated this"?** Telltale signs: Inter/Roboto with purple gradient accents, `background-clip: text` gradients on every heading, emoji section headers, glowing cards, cyan-magenta-pink on dark, uniform card grid, three-dot code block chrome, a cream/off-white page ground, italic accent words inside headlines, numbered "01 / 02 / 03" section labels, small-caps monospace eyebrow labels over every heading, pill-shaped buttons and tags. If two or more are present, regenerate with a constrained aesthetic.

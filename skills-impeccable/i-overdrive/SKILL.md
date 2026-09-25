@@ -5,11 +5,11 @@ user-invocable: true
 argument-hint: "[target]"
 ---
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
-**EXTRA IMPORTANT FOR THIS SKILL**: Context determines what "extraordinary" means. A particle system on a creative portfolio is impressive. The same particle system on a settings page is embarrassing. But a settings page with instant optimistic saves and animated state transitions? That's extraordinary too. Understand the project's personality and goals before deciding what's appropriate.
+For this skill in particular, context determines what "extraordinary" means. A particle system on a creative portfolio is impressive. The same particle system on a settings page is embarrassing. But a settings page with instant optimistic saves and animated state transitions? That's extraordinary too. Understand the project's personality and goals before deciding what's appropriate.
 
 ---
 
@@ -47,7 +47,7 @@ If "Stop here" → end the skill.
 
 ### Iterate with Browser Automation
 
-Technically ambitious effects almost never work on the first try. You MUST actively use browser automation tools to preview your work, visually verify the result, and iterate. Do not assume the effect looks right — check it. Expect multiple rounds of refinement. The gap between "technically works" and "looks extraordinary" is closed through visual iteration, not code alone.
+Technically ambitious effects rarely look right on the first try. Preview them with browser automation and iterate on what you see. The gap between "technically works" and "looks extraordinary" is closed through visual iteration, not code alone.
 
 ---
 

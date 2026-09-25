@@ -29,7 +29,7 @@ Read `$ISSUE_TRACKER`.
 
 ## Phase 3: Deep Dive (Subagent)
 
-For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: light-worker`) with this prompt:
+For **each** issue key in the arguments, use the **Agent** tool (`subagent_type: light-worker`) with this prompt:
 
 > Check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) to know which platform's tools to use, then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
 >

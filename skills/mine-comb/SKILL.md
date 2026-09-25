@@ -23,7 +23,7 @@ If the reference is a `design.md` with a terminal `**Status:**` (`archived` or `
 If the target is ambiguous (no path given, several candidates), ask the user which artifact and whether there's a reference — one focused `AskUserQuestion`, then proceed.
 
 **Pick the model:**
-- Default: dispatch the agent on its declared model (`sonnet`) — right for docs, briefs, plans, and implementation diffs. Sonnet 5 has a 1M context window, which handles large diffs without compaction risk.
+- Default: dispatch the agent on its declared model (`sonnet`) — right for docs, briefs, plans, and implementation diffs, including large ones.
 - For diffs so large that design + diff exceeds ~900k tokens, comb by file group and reconcile.
 
 ## Phase 2: Dispatch the comb

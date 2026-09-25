@@ -6,9 +6,9 @@ user-invocable: true
 
 Remove unnecessary complexity from designs, revealing the essential elements and creating clarity through ruthless simplification.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -32,7 +32,7 @@ Analyze what makes the design feel complex or cluttered:
 
 If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your simplification strategy. If the answer is unclear or deferred, proceed by removing redundancy while preserving all functionality.
 
-**CRITICAL**: Simplicity is not about removing features - it's about removing obstacles between users and their goals. Every element should justify its existence.
+Simplicity is not about removing features - it's about removing obstacles between users and their goals. Every element should justify its existence.
 
 ## Plan Simplification
 
@@ -43,7 +43,7 @@ Create a ruthless editing strategy:
 - **Progressive disclosure**: What can be hidden until needed?
 - **Consolidation opportunities**: What can be combined or integrated?
 
-**IMPORTANT**: Simplification is hard. It requires saying no to good ideas to make room for great execution. Be ruthless.
+Simplification is hard. It requires saying no to good ideas to make room for great execution. Be ruthless.
 
 ---
 

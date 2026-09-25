@@ -6,8 +6,6 @@ After all information gathering is complete (discovery, codebase reconnaissance,
 
 Surfacing uncertainty is only half the job. An unverified assumption handed to the user is still unverified; you have moved the work, not done it. Most of what lands on this list is settleable without the user, and settling it is your job. Draft, triage, investigate what you can, and spend the user's attention only on the calls that are actually theirs.
 
-The routing rules below were calibrated against 121 real items from 17 past runs of this step, then re-tested against the same corpus. Where a rule looks oddly specific, it is closing a failure that actually happened.
-
 ## Step 1: Draft the raw list
 
 Write these three buckets for yourself. This is working material; the user does not see it in this form.
@@ -20,7 +18,7 @@ Write these three buckets for yourself. This is working material; the user does 
 
 Four rules on what goes in:
 
-**No minimums. Do not pad.** An empty bucket is a valid answer and fewer items is better. Fixed quotas are what historically filled this list with filler: observations, restated conclusions, and checks already done. There is no target count; a ceiling was tried and never bound, because padding comes from the floor.
+**No minimums. Do not pad.** An empty bucket is a valid answer and fewer items is better. A quota fills this list with filler: observations, restated conclusions, and checks already done. There is no target count, minimum or maximum.
 
 **Every item pairs something with its consequence.** For the two uncertainty buckets, that is one unverified claim: `<claim that is either true or false>` — if it's wrong, `<what changes>`. For tradeoffs, the cost is not in doubt, so it is the cost and what it forecloses: `<cost the direction imposes>` — which means `<what gets harder or is given up>`. Either way the consequence half is not decoration; Step 2 cannot route the item without it. This is the single strongest predictor of a usable item.
 
@@ -32,7 +30,7 @@ Four rules on what goes in:
 
 Tradeoffs skip the gates below. Route that bucket per Step 4.
 
-**Before anything else: route the claim, not the editorializing.** Items routinely raise something real and wave it off in the same breath: "this is a timing edge case in Wallos, not in our code," "this is the accepted cost," "this is the intended fix." A dismissal you wrote yourself is not evidence and does not change where the item goes. Strip the clause, route what's left. This one rule prevents the worst observed failure in this step: an agent suppressing its own finding, including an auth-bypass property and a silent breaking change for external callers.
+**Before anything else: route the claim, not the editorializing.** Items routinely raise something real and wave it off in the same breath: "this is a timing edge case in Wallos, not in our code," "this is the accepted cost," "this is the intended fix." A dismissal you wrote yourself is not evidence and does not change where the item goes. Strip the clause, route what's left. Without this rule, an agent suppresses its own findings, including ones as serious as an auth-bypass property or a silent breaking change for external callers.
 
 Then run four gates in order. First match wins.
 
@@ -174,7 +172,7 @@ Recommend an option when you have a view, and put it first. If you genuinely do 
 
 ### Tradeoffs are one question, not one each
 
-A tradeoff is a cost only the user can accept, so per-item triage produces nothing; historically every tradeoff routed to the same cell. Sort by shape instead, then batch what's left.
+A tradeoff is a cost only the user can accept, so per-item triage produces nothing; every tradeoff routes to the same cell. Sort by shape instead, then batch what's left.
 
 **First, pull out the ones that aren't costs at all.** Three shapes hide in this bucket and none of them answer "is this unacceptable?":
 
@@ -184,7 +182,7 @@ A tradeoff is a cost only the user can accept, so per-item triage produces nothi
 
 **Then drop only what the user actually accepted.** Not what *you* decided was acceptable. The item must cite where they accepted it: a discovery answer, an earlier decision in this conversation. "(confirmed acceptable)" with a traceable source qualifies; "this is the accepted cost of staying simple" does not.
 
-This is deliberately strict. When self-dismissal was allowed to drop items, it suppressed an auth-bypass property and a silent breaking change for external callers, both dropped on the agent's own say-so, neither ever shown to the user. If you cannot point to where it was accepted, it goes in the question.
+This is deliberately strict. Self-dismissal drops real risks, such as an auth-bypass property or a silent breaking change for external callers, on the agent's own say-so, without the user ever seeing them. If you cannot point to where it was accepted, it goes in the question.
 
 Dropped here means dropped from the question, not from the design doc. Write each one into `## Dependencies and Assumptions` with the mitigation and where the user accepted it. A cost the user agreed to is a decision with an owner, and the citation you used to justify dropping it is exactly what that section is for.
 

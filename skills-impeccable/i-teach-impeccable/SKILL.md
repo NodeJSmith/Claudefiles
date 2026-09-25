@@ -124,7 +124,7 @@ Present concrete token decisions. Every value must be justified against intent a
 Present a summary covering:
 
 - **Color palette** — OKLCH values with semantic names. Light and dark mode. How colors connect to the domain's color world.
-- **Typography** — Specific fonts and why they fit this product. Scale (xs through 3xl). Weights and their purposes. Avoid generic defaults (Inter, Roboto, Arial, Open Sans, system fonts).
+- **Typography** — Specific fonts and why they fit this product. Scale (xs through 3xl). Weights and their purposes. Choose with the `<font_selection_procedure>` in i-frontend-design/SKILL.md; every font on its `<reflex_fonts_to_reject>` list is out, along with Inter, Roboto, Arial, Open Sans, and system fonts.
 - **Spacing** — Base unit and scale. How density connects to intent.
 - **Depth strategy** — One of: borders-only, subtle shadows, layered shadows, surface tints. Why this choice fits the feel.
 - **Border radius** — Scale (sm, md, lg). Where on the sharp-to-round spectrum and why.
@@ -218,10 +218,3 @@ AskUserQuestion:
 
 If mockup → invoke `/mine-mockup`.
 If CLAUDE.md → append or update a `## Design Context` section in CLAUDE.md with a summary of the prose sections (not the full token tables — those live in design/context.md).
-
-## Communication Style
-
-Be invisible. Don't announce modes or narrate process.
-
-**Never say:** "I'm now entering the exploration phase", "Let me check for existing files..."
-**Instead:** Jump into work. Present exploration, then direction, then confirm.

@@ -4,11 +4,11 @@ tool: claude, antigravity
 
 # Coding Style
 
-## Immutability (CRITICAL)
+## Immutability
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
-ALWAYS create new objects, NEVER mutate existing ones. Return new copies with changes, never modify in-place.
+Create new objects instead of mutating existing ones: return a copy with the change rather than modifying in place, so code holding a reference never sees it change underneath it.
 
 **PySpark exception**: PySpark DataFrame reassignment (`df = df.filter(...)`) is the project convention and does not violate this rule — DataFrames are lazy and immutable per transform, so reassigning `df` rebinds the name to a new immutable object.
 
@@ -24,7 +24,7 @@ ALWAYS create new objects, NEVER mutate existing ones. Return new copies with ch
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
-Do not prefix methods with `_` unless there is a concrete reason. Claude's instinct is to mark anything not called in the same method as `_private` — resist this.
+Do not prefix methods with `_` unless there is a concrete reason.
 
 `_` is appropriate when:
 - The method is genuinely unsafe to call outside its intended sequence (e.g., `_commit_transaction` that assumes locks are held)

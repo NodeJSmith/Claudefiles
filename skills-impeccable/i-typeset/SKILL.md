@@ -6,9 +6,9 @@ user-invocable: true
 
 Assess and improve typography that feels generic, inconsistent, or poorly structured — turning default-looking text into intentional, well-crafted type.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -41,7 +41,7 @@ Analyze what's weak or generic about the current type:
    - Are font weights used consistently? (Not bold in one section, semibold in another for the same role)
    - Is letter-spacing intentional or default everywhere?
 
-**CRITICAL**: The goal isn't to make text "fancier" — it's to make it clearer, more readable, and more intentional. Good typography is invisible; bad typography is distracting.
+The goal isn't to make text "fancier" — it's to make it clearer, more readable, and more intentional. Good typography is invisible; bad typography is distracting.
 
 ## Plan Typography Improvements
 
@@ -94,7 +94,7 @@ If "Stop here" → end the skill.
 ### Font Selection
 
 If fonts need replacing:
-- Choose fonts that reflect the brand personality
+- Choose fonts with the `<font_selection_procedure>` in i-frontend-design/SKILL.md — every font on its `<reflex_fonts_to_reject>` list is out, not only Inter/Roboto/Open Sans
 - Pair with genuine contrast (serif + sans, geometric + humanist) — or use a single family in multiple weights
 - Ensure web font loading doesn't cause layout shift (`font-display: swap`, metric-matched fallbacks)
 

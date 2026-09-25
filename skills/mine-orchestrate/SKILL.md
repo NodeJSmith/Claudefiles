@@ -115,15 +115,9 @@ AskUserQuestion:
 
 If the user starts the server, announce "Checking for dev server..." and re-probe (up to 3 attempts with a 5-second pause between). If found, confirm the URL. If still not found after 3 attempts, present the same two options again. If skipping, set `visual_mode` to `skipped_no_server` for the run — executors will skip all visual capture and report SKIPPED.
 
-### Vision capability check
-
-If a dev server was found (`visual_mode` is `enabled`), verify vision capability by reading one PNG file from a previous run or a test image. If the Read tool can interpret image contents, vision is available — keep `visual_mode` as `enabled`. If vision is unavailable (Read returns binary data or errors), set `visual_mode` to `skipped_no_vision`. This check runs once at Phase 0, not per-task.
-
-**Known limitation**: This check validates the orchestrator's vision capability. The visual reviewer subagent is launched at the sonnet tier (which has vision), so capability should match. If model routing changes, this check may provide false assurance — the fallback at Step 11 (missing/empty visual reviewer output → FAIL) handles subagent-side failures.
-
 ### Initialize orchestration run via cfl
 
-After Phase 0 completes (feature directory found, design doc and task files read, dev server check done, vision check done), record the base commit and initialize the run via `cfl`. Which command to call depends on what the resume-protocol found at the top of Phase 0:
+After Phase 0 completes (feature directory found, design doc and task files read, dev server check done), record the base commit and initialize the run via `cfl`. Which command to call depends on what the resume-protocol found at the top of Phase 0:
 
 **Timing: capture `base_commit` BEFORE any task execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
@@ -138,7 +132,7 @@ git rev-parse --short HEAD
 **If `advance_from_prior_phase` is set** (resume-protocol found a run in `define`, `plan`, or `sketch` phase and the user chose to advance to orchestrate):
 
 ```bash
-cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
+cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server>] [--dev-server-url <url>]
 ```
 
 This advances the existing run to orchestrate phase, discovers and loads task files into the DB (same task discovery `cfl run start` does today), refreshes `base_commit` to the current HEAD (so define/plan commits don't appear in the post-execution diff), and sets `tmpdir`/`visual_mode`/`dev_server_url`. Unlike `cfl run start`, this output does **not** echo back `tmpdir`, `base_commit`, `spec_id`, or `started_at` — it returns only `run_id`, `phase`, `from_phase`, `to_phase`, `task_count`, `tasks`. Use the `tmpdir` and `base_commit` values already obtained above (via `get-skill-tmpdir` and `git rev-parse`) rather than reading them back from this output.
@@ -146,7 +140,7 @@ This advances the existing run to orchestrate phase, discovers and loads task fi
 **If no run exists** (fresh start, no prior define/plan — resume-protocol returned `{"exists": false}`):
 
 ```bash
-cfl run start --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
+cfl run start --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server>] [--dev-server-url <url>]
 ```
 
 This is the existing behavior — creates a new run, discovers tasks, inserts task rows.

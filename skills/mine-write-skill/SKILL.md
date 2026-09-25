@@ -98,5 +98,5 @@ Report results. Fix any failures before presenting to the user.
 After the user approves the skill:
 
 1. Add a routing entry to the appropriate `rules/common/capabilities-*.md` file using the trigger phrases from Phase 1 (`capabilities-core.md` for mine-*, `capabilities-impeccable.md` for i-*, `capabilities-cli.md` for cli-*)
-2. Add a row to the Skills table in `README.md` (alphabetical order) and update the skill count in the section header
+2. Add a row to the matching skills table in `REFERENCE.md` (alphabetical order), and to `ONBOARDING.md` if a new adopter should know about the skill
 3. Remind the user to run `uv run install.py` to create the symlink

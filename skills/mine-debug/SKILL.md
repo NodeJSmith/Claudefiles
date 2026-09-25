@@ -6,7 +6,7 @@ user-invocable: true
 
 # Systematic Debugging
 
-**IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
+**No fixes without root-cause investigation first.**
 
 Do not attempt a fix until you have completed Phase 1 and can state a specific hypothesis. Skipping to a fix is not faster — it is slower, because you will generate attempts that do not converge on the root cause.
 
@@ -19,7 +19,7 @@ $ARGUMENTS — optional context about the failure. Can be:
 
 ---
 
-## Phase 1: Root Cause Investigation (MANDATORY — no fixes allowed)
+## Phase 1: Root Cause Investigation (no fixes yet)
 
 This phase ends only when you have a specific hypothesis. Do not skip ahead.
 
@@ -139,4 +139,4 @@ When you notice yourself using one of these rationalizations, treat it as a sign
 
 This methodology is self-contained in `SKILL.md`. If context compacts mid-debugging session, you can resume from this skill description.
 
-The error file persists across compaction as the record of what has been tried. When resuming after compaction, run `get-skill-tmpdir claude-errors` to retrieve the path, then read `<dir>/errors.md` to reconstruct what has already been attempted before starting a new Phase 1 investigation.
+The error file persists across compaction as the record of what has been tried. When resuming after compaction, glob `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-claude-errors-*/errors.md` (the directories `get-skill-tmpdir claude-errors` creates — rerunning it makes a new, empty one) and read the most recently modified match to reconstruct what has already been attempted before starting a new Phase 1 investigation.

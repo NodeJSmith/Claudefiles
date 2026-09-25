@@ -85,7 +85,7 @@ Impact Levels:
 
 The `→` format is mandatory — every finding must propose the specific structural move, not just name the problem.
 
-If no HIGH or MEDIUM simplification exists, use the clean-exit template:
+If no HIGH or MEDIUM simplification exists, still list any LOW findings in the table, then end with the clean-exit template:
 
 ```
 ### Assessment

@@ -6,9 +6,9 @@ user-invocable: true
 
 Identify and fix performance issues to create faster, smoother user experiences.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -29,7 +29,7 @@ Understand current performance and identify problems:
    - How bad is it? (Perceivable? Annoying? Blocking?)
    - Who's affected? (All users? Mobile only? Slow connections?)
 
-**CRITICAL**: Measure before and after. Premature optimization wastes time. Optimize what actually matters.
+Measure before and after. Premature optimization wastes time. Optimize what actually matters.
 
 ---
 
@@ -122,7 +122,7 @@ The standard techniques are familiar — apply the ones the trace points to:
 - Bundle size
 - Request count
 
-**IMPORTANT**: Measure on real devices with real network conditions. Desktop Chrome with fast connection isn't representative.
+Measure on real devices with real network conditions. Desktop Chrome with fast connection isn't representative.
 
 **NEVER**:
 - Optimize without measuring (premature optimization)

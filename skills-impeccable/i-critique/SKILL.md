@@ -4,7 +4,7 @@ description: 'Use when the user says: "critique this UI", "design critique", "re
 user-invocable: true
 ---
 
-## MANDATORY PREPARATION
+## Preparation
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note: "No design context found — critique uses universal design principles only. Run `/i-teach-impeccable` to establish brand context." Additionally gather: what the interface is trying to accomplish.
 
@@ -20,7 +20,7 @@ Evaluate the interface across these dimensions:
 
 ### 1. AI Slop Detection (CRITICAL)
 
-**This is the most important check.** Does this look like every other AI-generated interface from 2024-2025?
+**This is the most important check.** Does the interface use the defaults an unguided model reaches for? Name each specific one you find — a general "looks AI-made" verdict is not a finding.
 
 Review the design against all the anti-patterns in [`../i-frontend-design/reference/anti-patterns.md`](../i-frontend-design/reference/anti-patterns.md) — they are the fingerprints of AI-generated work.
 

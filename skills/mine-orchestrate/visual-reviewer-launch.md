@@ -16,8 +16,6 @@ Discover screenshots by Globbing the per-task temp directory:
 Glob: <dir>/<task_id>/*.png
 ```
 
-Vision capability was verified in Phase 0; do not re-check it per task.
-
 If no `.png` files are found, distinguish the cause:
 - `visual_mode` not `enabled` → SKIPPED (should not reach here — step short-circuits above)
 - Executor reported all scenarios as SKIPPED → Visual = SKIPPED with executor's reasons

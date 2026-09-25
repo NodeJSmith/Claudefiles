@@ -6,9 +6,9 @@ user-invocable: true
 
 Strengthen interfaces against edge cases, errors, internationalization issues, and real-world usage scenarios that break idealized designs.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -40,7 +40,7 @@ Identify weaknesses and edge cases:
    - Number formats (1,000 vs 1.000)
    - Currency symbols
 
-**CRITICAL**: Designs that only work with perfect data aren't production-ready. Harden against reality.
+Designs that only work with perfect data aren't production-ready. Harden against reality.
 
 ---
 
@@ -143,7 +143,7 @@ Standard practice applies — client-side validation with clear `maxlength`/`pat
 
 Test with extreme data (very long, very short, empty), different languages, offline, throttled-to-3G connections, screen readers, keyboard-only, and old browsers. Automated coverage is out of scope — use your project's testing conventions.
 
-**IMPORTANT**: Hardening is about expecting the unexpected. Real users will do things you never imagined.
+Hardening is about expecting the unexpected. Real users will do things you never imagined.
 
 **NEVER**:
 - Assume perfect input (validate everything)

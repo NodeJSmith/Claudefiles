@@ -39,7 +39,7 @@ Follow `rules/common/git-workflow.md` (PR Description Content). The body records
 
 **Title:** < 70 characters, summarize the change.
 
-**Conventional commit prefix** — check whether the target repo expects a type prefix on PR titles. Agents default to plain descriptive titles and will skip this unless explicitly checked.
+**Conventional commit prefix** — check whether the target repo expects a type prefix on PR titles.
 1. **Primary signal:** Check recent merged PRs (`gh pr list --state merged --limit 8 --json title` / `az repos pr list --status completed --top 8`). If ≥75% of returned PRs use a type prefix (minimum sample of 3), the convention is in use. If fewer than 3 merged PRs exist, skip to step 2.
 2. **Corroborating signals** (use when fewer than 3 merged PRs exist, or when 40–74% use prefixes): `release-please-config.json`, `.commitlintrc*`, `commitlint.config.*`, or commit-convention rules in the repo's `.claude/` directory. Any match confirms the convention is in use.
 3. If the convention is in use, the title MUST start with a type prefix — one of: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci` (see `rules/common/commit-conventions.md`). Squash-merge repos use the PR title as the changelog entry — a missing prefix breaks generation or silently omits it.

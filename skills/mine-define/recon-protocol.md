@@ -2,7 +2,7 @@
 
 **Skip this phase for trivial features.**
 
-Before asking the user questions, silently explore the codebase for context relevant to the request. Use Grep, Glob, and Read to find:
+Before asking the user questions, explore the codebase for context relevant to the request. Use Grep, Glob, and Read to find:
 - Existing modules, patterns, or prior art related to the feature
 - Conventions the codebase already follows for similar work
 - Integration points, data models, or APIs the feature would touch

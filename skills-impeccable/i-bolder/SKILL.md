@@ -6,9 +6,9 @@ user-invocable: true
 
 Increase visual impact and personality in designs that are too safe, generic, or visually underwhelming, creating more engaging and memorable experiences.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first.
 
 ---
 
@@ -32,9 +32,9 @@ Analyze what makes the design feel too safe or boring:
 
 If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your amplification strategy. If the answer is unclear or deferred, proceed by increasing contrast and weight only — no palette changes.
 
-**CRITICAL**: "Bolder" doesn't mean chaotic or garish. It means distinctive, memorable, and confident. Think intentional drama, not random chaos.
+"Bolder" doesn't mean chaotic or garish. It means distinctive, memorable, and confident. Think intentional drama, not random chaos.
 
-**WARNING - AI SLOP TRAP**: When making things "bolder," AI defaults to the same tired tricks. These are the OPPOSITE of bold—they're generic. Review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) before proceeding. Bold means distinctive, not "more effects."
+"Bolder" is where the unguided defaults creep back in: gradient text, purple-to-blue or neon-on-dark palettes, glassmorphism, glow borders, the hero-metric block, eyebrow pill chips. Those read as generic, not bold. Review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) before proceeding. Bold means distinctive, not "more effects."
 
 ## Plan Amplification
 
@@ -45,7 +45,7 @@ Create a strategy to increase impact while maintaining coherence:
 - **Risk budget**: How experimental can we be? Push boundaries within constraints.
 - **Hierarchy amplification**: Make big things BIGGER, small things smaller (increase contrast)
 
-**IMPORTANT**: Bold design must still be usable. Impact without function is just decoration.
+Bold design must still be usable. Impact without function is just decoration.
 
 ---
 
@@ -107,7 +107,7 @@ Push hard, but the "not X" anchors are where bold diverges from AI slop:
 
 Ensure amplification maintains usability and coherence:
 
-- **NOT AI slop**: Does this look like every other AI-generated "bold" design? If yes, start over.
+- **NOT AI slop**: Is any element one of the defaults named above or in the anti-patterns reference? Redo that element with a different structure.
 - **Still functional**: Can users accomplish tasks without distraction?
 - **Coherent**: Does everything feel intentional and unified?
 - **Memorable**: Will users remember this experience?

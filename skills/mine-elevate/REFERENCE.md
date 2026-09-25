@@ -19,7 +19,7 @@ Each candidate is one block. Fill only the generator fields — leave **Cost** a
 The **Prior art** line is **required on every Latent candidate**. For Friction and Maximalist candidates, include it only if there's a genuine source; otherwise omit the line entirely — do not fill it to satisfy the format.
 
 Shared rules for every generator:
-- **Minimal-variant-first.** The minimal move is the cheap version. The escalation is the optional gold-plate. Lead with cheap; never bundle the two as one candidate (that bundling is what made past candidates look like overkill).
+- **Minimal-variant-first.** The minimal move is the cheap version. The escalation is the optional gold-plate. Lead with cheap; never bundle the two as one candidate — bundled, the cheap move reads as overkill and gets dismissed with the gold-plate.
 - **Prior-art discipline.** Any "mature codebases do X" claim carries a real URL or `[no source found]` — never cite from memory; that's hallucinated authority. (Required on Latent; see above for the other lenses.)
 - **Distinct and landable.** Each candidate is one independently-shippable move. Don't pad the list; quality over count, no cap.
 - **Don't manufacture.** If your lens turns up little for this subsystem, return few or none and say so plainly. A thin honest list beats a padded one.

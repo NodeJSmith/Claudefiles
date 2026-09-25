@@ -6,9 +6,9 @@ user-invocable: true
 
 Strategically introduce color to designs that are too monochromatic, gray, or lacking in visual warmth and personality.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: existing brand colors.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first. Additionally gather: existing brand colors.
 
 ---
 
@@ -32,7 +32,7 @@ Analyze the current state and identify opportunities:
 
 If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your color strategy. If the answer is unclear or deferred, proceed using the existing palette with no changes without explicit confirmation.
 
-**CRITICAL**: More color ≠ better. Strategic color beats rainbow vomit every time. Every color should have a purpose.
+More color ≠ better. Strategic color beats rainbow vomit every time. Every color should have a purpose.
 
 ## Plan Color Strategy
 
@@ -43,7 +43,7 @@ Create a purposeful color introduction plan:
 - **Accent colors**: Which colors provide contrast and highlights? (30% and 10%)
 - **Application strategy**: Where does each color appear and why?
 
-**IMPORTANT**: Color should enhance hierarchy and meaning, not create chaos. Less is more when it matters more.
+Color should enhance hierarchy and meaning, not create chaos. Less is more when it matters more.
 
 ---
 

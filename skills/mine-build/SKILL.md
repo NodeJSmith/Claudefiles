@@ -125,7 +125,7 @@ Read: <key files identified by Glob/Grep>
 
 Implement the change. Follow the coding style and patterns in `rules/common/coding-style.md`.
 
-Launch a `code-reviewer` subagent to review the implementation.
+Launch a `code-reviewer` subagent to review the implementation. When the Token compliance rule above applies, include it in the reviewer's prompt — the reviewer never sees this file.
 
 Present the code-reviewer's findings to the user (CRITICAL, HIGH, MEDIUM findings highlighted).
 

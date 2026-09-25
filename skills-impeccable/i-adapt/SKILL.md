@@ -6,9 +6,9 @@ user-invocable: true
 
 Adapt existing designs to work effectively across different contexts - different screen sizes, devices, platforms, or use cases.
 
-## MANDATORY PREPARATION
+## Preparation
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: target platforms/devices and usage contexts.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, run /i-teach-impeccable first. Additionally gather: target platforms/devices and usage contexts.
 
 ---
 
@@ -34,7 +34,7 @@ Understand what needs adaptation and why:
    - What won't work? (Hover states on touch, tiny touch targets)
    - What's inappropriate? (Desktop patterns on mobile, mobile patterns on desktop)
 
-**CRITICAL**: Adaptation is not just scaling - it's rethinking the experience for the new context.
+Adaptation is not just scaling - it's rethinking the experience for the new context.
 
 ## Plan Adaptation Strategy
 
@@ -206,7 +206,7 @@ Choose appropriate breakpoints:
 - Persistent side navigation on desktop
 - Breadcrumbs on smaller screens for context
 
-**IMPORTANT**: Test on real devices, not just browser DevTools. Device emulation is helpful but not perfect.
+Test on real devices, not just browser DevTools. Device emulation is helpful but not perfect.
 
 **NEVER**:
 - Hide core functionality on mobile (if it matters, make it work)
@@ -229,7 +229,7 @@ Test thoroughly across contexts:
 - **Edge cases**: Very small screens (320px), very large screens (4K)
 - **Slow connections**: Test on throttled network
 
-Remember: You're a cross-platform design expert. Make experiences that feel native to each context while maintaining brand and functionality consistency. Adapt intentionally, test thoroughly.
+Make experiences that feel native to each context while keeping brand and functionality consistent.
 
 ## Completion
 

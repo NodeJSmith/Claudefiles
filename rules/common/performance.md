@@ -4,9 +4,11 @@ tool: claude  # harness-only: model selection and the agent-model registry are C
 
 # Model Selection
 
-**Haiku 4.5** — Lightweight/worker agents, frequent invocation, 3x cost savings
-**Sonnet 5** — Main development work, orchestration, complex coding
-**Opus 4.8** — Deep reasoning, architecture decisions, research
+**Haiku** — Lightweight/worker agents, frequent invocation, the cheapest tier
+**Sonnet** — Main development work, orchestration, complex coding
+**Opus** — Deep reasoning, architecture decisions, research
+
+The `haiku`/`sonnet`/`opus` aliases resolve to the current generation of each tier (`opus` tracks the top-level session's Opus), so this file names tiers, not versions.
 
 A PreToolUse hook (`subagent-model-default.sh`) enforces model defaults on Agent dispatches. Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`, empty) have no model frontmatter and inherit the parent model — typically Opus. The hook injects `model: sonnet` for these types when no model is specified. When the hook fires, it injects an `additionalContext` message — relay that to the user so they know the override happened. Overrides are logged to `~/.local/share/claudefiles/model-overrides.jsonl`.
 
@@ -22,7 +24,7 @@ The parent session runs at `high` (set in `settings.machine.json`).
 
 **Gap:** Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`) have no frontmatter, so they inherit the parent session's effort level (`high`). The Agent tool schema has no `effort` parameter, so the model-default hook cannot inject it. These types already get downgraded to Sonnet by the hook, which limits the cost impact.
 
-## Context Window (CRITICAL)
+## Context Window
 
 A PreToolUse hook (`context-tier.sh`, part of the personal Dotfiles setup) injects context usage tiers when they change and re-injects periodically (every 25 tool calls) to keep guidance fresh. Follow the guidance in those messages. When no tier message is present, do not invent context pressure — any unprompted claim about context usage ("building up," "getting low," suggesting compaction) is a fabrication.
 

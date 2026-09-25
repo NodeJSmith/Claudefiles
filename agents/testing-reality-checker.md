@@ -117,7 +117,7 @@ grep -r "claimed-feature-keyword" . --include="*.ts" --include="*.tsx" --include
 1. [specific fix with evidence of problem]
 2. [specific fix with evidence of problem]
 
-**Revision Cycles Expected**: [realistic estimate — usually 1–2 for a solid first pass]
+**Revision Cycles Expected**: [estimate based on the Required Before Production list]
 ```
 
 </output_format>
