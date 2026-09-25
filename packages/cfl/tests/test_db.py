@@ -8,8 +8,10 @@ import pytest
 
 from cfl.db import SCHEMA_VERSION, db_connection, setup_db
 from tests.helpers import (
+    LEGACY_FINDINGS_V8_TABLE_SQL,
     LEGACY_GATES_TABLE_SQL,
     LEGACY_QUESTIONS_TABLE_SQL,
+    LEGACY_QUESTIONS_V7_TABLE_SQL,
     LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
     LEGACY_SPECS_TABLE_SQL,
     LEGACY_TASKS_TABLE_SQL,
@@ -99,7 +101,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 9
+    assert SCHEMA_VERSION == 10
 
 
 # ---------------------------------------------------------------------------
@@ -445,6 +447,10 @@ def test_migration_v9_adds_pipeline_step_and_reviewed_head_columns(tmp_db_path):
         8,
         LEGACY_SPECS_TABLE_SQL,
         LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+        LEGACY_TASKS_TABLE_SQL,
+        LEGACY_GATES_TABLE_SQL,
+        LEGACY_QUESTIONS_V7_TABLE_SQL,
+        LEGACY_FINDINGS_V8_TABLE_SQL,
     )
     conn.execute(
         "INSERT INTO specs(id, number, slug, repo_url, created_at)"
@@ -504,6 +510,10 @@ def test_fresh_vs_migrated_runs_schema_convergence(tmp_db_path, tmp_path):
         8,
         LEGACY_SPECS_TABLE_SQL,
         LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+        LEGACY_TASKS_TABLE_SQL,
+        LEGACY_GATES_TABLE_SQL,
+        LEGACY_QUESTIONS_V7_TABLE_SQL,
+        LEGACY_FINDINGS_V8_TABLE_SQL,
     )
     conn.close()
 

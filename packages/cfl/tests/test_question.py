@@ -90,6 +90,51 @@ def test_record_question_multiple_per_run(db_conn, capsys):
 
 
 # ---------------------------------------------------------------------------
+# record_question — recommended column
+# ---------------------------------------------------------------------------
+
+
+def test_record_question_stores_recommended(db_conn, capsys):
+    """record_question persists the recommended option text."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(
+        db_conn,
+        run_id,
+        "mine-define",
+        "scope-mode",
+        status="asked",
+        answer="Hold — make this bulletproof",
+        recommended="Hold — make this bulletproof",
+    )
+
+    row = db_conn.execute(
+        "SELECT recommended FROM questions WHERE run_id=? AND topic='scope-mode'",
+        (run_id,),
+    ).fetchone()
+    assert row["recommended"] == "Hold — make this bulletproof"
+
+
+def test_record_question_recommended_defaults_to_none(db_conn, capsys):
+    """record_question leaves recommended NULL when omitted."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(
+        db_conn,
+        run_id,
+        "mine-define",
+        "success",
+        status="asked",
+        answer="something",
+    )
+
+    row = db_conn.execute(
+        "SELECT recommended FROM questions WHERE run_id=?", (run_id,)
+    ).fetchone()
+    assert row["recommended"] is None
+
+
+# ---------------------------------------------------------------------------
 # Vocabulary validation — warn but still write
 # ---------------------------------------------------------------------------
 
@@ -310,6 +355,29 @@ def test_list_questions_returns_all(db_conn, capsys):
 
     out = json.loads(capsys.readouterr().out)
     assert out["count"] == 2
+
+
+def test_list_questions_includes_recommended(db_conn, capsys):
+    """list_questions returns the recommended column."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(
+        db_conn,
+        run_id,
+        "mine-define",
+        "scope-mode",
+        status="asked",
+        answer="Reduce — strip to essentials",
+        recommended="Hold — make this bulletproof",
+    )
+    _ = capsys.readouterr()
+
+    list_questions(db_conn)
+
+    out = json.loads(capsys.readouterr().out)
+    q = out["questions"][0]
+    assert q["recommended"] == "Hold — make this bulletproof"
+    assert q["answer"] == "Reduce — strip to essentials"
 
 
 def test_list_questions_filter_by_skill(db_conn, capsys):

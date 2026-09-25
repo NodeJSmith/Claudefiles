@@ -68,8 +68,8 @@ MAIN_FINDING_REQUIRED_FIELDS: tuple[str, ...] = (
 _INSERT_FINDING_SQL = """INSERT INTO findings
          (run_id, gate_id, source, finding_num, title, target, severity,
           finding_type, design_level, raised_by, classification, visibility,
-          disposition, why_it_matters, context_pct, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"""
+          disposition, why_it_matters, recommended, context_pct, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"""
 
 
 def default_finding_disposition(
@@ -166,6 +166,7 @@ def record_finding(
     classification: str | None = None,
     disposition: str | None = None,
     why_it_matters: str | None = None,
+    recommended: str | None = None,
 ) -> None:
     """Record a single finding.
 
@@ -204,6 +205,7 @@ def record_finding(
             visibility,
             disposition,
             why_it_matters,
+            recommended,
             context_pct,
         ),
     )
@@ -316,6 +318,7 @@ def record_finding_batch(
                     finding.get("visibility"),
                     disposition,
                     finding.get("why_it_matters"),
+                    finding.get("recommended"),
                     context_pct,
                 ),
             )
@@ -379,7 +382,8 @@ def list_findings(
     rows = conn.execute(
         "SELECT id, run_id, gate_id, source, finding_num, title, target, severity,"
         " finding_type, design_level, raised_by, classification, visibility,"
-        " disposition, why_it_matters, context_pct, resolved_at, created_at"
+        " disposition, why_it_matters, recommended, chosen, choice_reason,"
+        " context_pct, resolved_at, created_at"
         f" FROM findings{where} ORDER BY id DESC LIMIT ?",
         params,
     ).fetchall()
@@ -401,9 +405,12 @@ def resolve_finding(
     gate_id: int,
     finding_num: int,
     disposition: str,
+    *,
+    chosen: str | None = None,
+    choice_reason: str | None = None,
 ) -> int:
     """Move a presented, pending finding to a terminal disposition and stamp
-    resolved_at.
+    resolved_at, plus the user's chosen option and reason.
 
     Exits 2 for a non-terminal disposition (including "pending" — a finding
     starts pending; there is no resolution outcome that means "still
@@ -423,10 +430,12 @@ def resolve_finding(
         )
 
     cursor = conn.execute(
-        """UPDATE findings SET disposition = ?, resolved_at = datetime('now')
+        """UPDATE findings
+              SET disposition = ?, chosen = ?, choice_reason = ?,
+                  resolved_at = datetime('now')
            WHERE gate_id = ? AND finding_num = ? AND visibility = 'presented'
              AND disposition = 'pending'""",
-        (disposition, gate_id, finding_num),
+        (disposition, chosen, choice_reason, gate_id, finding_num),
     )
     updated = cursor.rowcount
 
@@ -445,6 +454,8 @@ def resolve_finding(
             "gate_id": gate_id,
             "finding_num": finding_num,
             "disposition": disposition,
+            "chosen": chosen,
+            "choice_reason": choice_reason,
             "resolved_at": resolved_at,
         }
     )

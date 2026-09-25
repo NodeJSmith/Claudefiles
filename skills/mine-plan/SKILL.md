@@ -169,10 +169,10 @@ If the honest choice is to accept the uncertainty rather than resolve it, say so
 
 ```bash
 cfl question mine-plan open-question --status asked --disposition <resolved|accepted|deferred> \
-    --answer "<selected option>" --spec <spec_number>
+    --answer "<selected option>" [--recommended "<recommended option label>"] --spec <spec_number>
 ```
 
-Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. (`skipped` means a question was never put to them, which no longer happens in this phase.)
+Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. `--recommended` carries the option the agent marked as recommended (the `(Recommended)` label), if any — omit when no option was explicitly recommended. (`skipped` means a question was never put to them, which no longer happens in this phase.)
 
 `--disposition` is the separate question of which file the answer went into, so it must name the edit you just made: `resolved` for a decision written into a design section, `accepted` for a risk written into Dependencies and Assumptions, `deferred` for an entry left marked in Open Questions for Phase 3. Record it in the same step as the edit rather than from memory afterward — the disposition is a claim about the doc, and the two disagreeing is worse than no record at all.
 
@@ -227,7 +227,8 @@ Phase 1 already recorded this question as `deferred`, which was true then. Where
 
 ```bash
 cfl question mine-plan open-question --status asked --disposition <accepted|deferred> \
-    --answer "Unowned in Phase 3 — <selected option>" --spec <spec_number>
+    --answer "Unowned in Phase 3 — <selected option>" \
+    [--recommended "<recommended option label>"] --spec <spec_number>
 ```
 
 Use `deferred` again if a new task took it, `accepted` if it became a known risk, and omit `--disposition` on exit. Both rows stand — the table records decisions as they were made, not a current state per question.

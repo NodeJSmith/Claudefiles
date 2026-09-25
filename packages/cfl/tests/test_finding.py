@@ -185,6 +185,56 @@ def test_record_finding_overflow_disposition_stays_null_when_omitted(db_conn, ca
 
 
 # ---------------------------------------------------------------------------
+# record_finding — recommended column
+# ---------------------------------------------------------------------------
+
+
+def test_record_finding_stores_recommended(db_conn, capsys):
+    """record_finding persists the recommended option text."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+        recommended="A: add try/except",
+    )
+
+    row = db_conn.execute(
+        "SELECT recommended FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert row["recommended"] == "A: add try/except"
+
+
+def test_record_finding_recommended_defaults_to_none(db_conn, capsys):
+    """record_finding leaves recommended NULL when omitted."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_finding(
+        db_conn,
+        run_id,
+        None,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+    )
+
+    row = db_conn.execute(
+        "SELECT recommended FROM findings WHERE title='Missing timeout'"
+    ).fetchone()
+    assert row["recommended"] is None
+
+
+# ---------------------------------------------------------------------------
 # Open-vocabulary validation — severity warns but still writes
 # ---------------------------------------------------------------------------
 
@@ -344,6 +394,43 @@ def test_list_findings_returns_recorded_rows(db_conn, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out["count"] == 1
     assert out["findings"][0]["title"] == "Missing timeout"
+
+
+def test_list_findings_includes_recommendation_columns(db_conn, capsys):
+    """list_findings returns recommended, chosen, and choice_reason."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+        recommended="A: add try/except",
+    )
+    _ = capsys.readouterr()
+
+    resolve_finding(
+        db_conn,
+        gate_id,
+        1,
+        "applied",
+        chosen="B: circuit breaker",
+        choice_reason="Better fit",
+    )
+    _ = capsys.readouterr()
+
+    list_findings(db_conn)
+
+    out = json.loads(capsys.readouterr().out)
+    finding = out["findings"][0]
+    assert finding["recommended"] == "A: add try/except"
+    assert finding["chosen"] == "B: circuit breaker"
+    assert finding["choice_reason"] == "Better fit"
 
 
 def test_list_findings_filter_by_source(db_conn, capsys):
@@ -597,6 +684,74 @@ def test_resolve_finding_rejects_pending_disposition(db_conn, capsys):
     assert err["code"] == "invalid_disposition"
 
 
+def test_resolve_finding_stamps_chosen_and_choice_reason(db_conn, capsys):
+    """resolve_finding writes chosen and choice_reason alongside disposition."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+        disposition="pending",
+        recommended="A: add try/except",
+    )
+    _ = capsys.readouterr()
+
+    updated = resolve_finding(
+        db_conn,
+        gate_id,
+        1,
+        "applied",
+        chosen="B: use circuit breaker",
+        choice_reason="Better fit for our retry strategy",
+    )
+
+    assert updated == 1
+    row = db_conn.execute(
+        "SELECT recommended, chosen, choice_reason FROM findings"
+        " WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert row["recommended"] == "A: add try/except"
+    assert row["chosen"] == "B: use circuit breaker"
+    assert row["choice_reason"] == "Better fit for our retry strategy"
+
+    emitted = json.loads(capsys.readouterr().out)
+    assert emitted["chosen"] == "B: use circuit breaker"
+
+
+def test_resolve_finding_chosen_none_when_omitted(db_conn, capsys):
+    """resolve_finding leaves chosen/choice_reason NULL when not passed."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+        disposition="pending",
+    )
+    _ = capsys.readouterr()
+
+    resolve_finding(db_conn, gate_id, 1, "applied")
+
+    row = db_conn.execute(
+        "SELECT chosen, choice_reason FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert row["chosen"] is None
+    assert row["choice_reason"] is None
+
+
 def test_resolve_finding_does_not_overwrite_already_resolved(db_conn, capsys):
     """A retry (or a stray re-resolve) does not overwrite an already-set
     disposition or clobber the first resolved_at."""
@@ -699,6 +854,63 @@ def test_record_finding_batch_writes_all_rows_in_one_transaction(
     assert out["batch_size"] == 3
     assert out["gate_id"] == gate_id
     assert out["source"] == "challenge"
+
+
+def test_record_finding_batch_stores_recommended(db_conn, capsys, tmp_path):
+    """record_finding_batch persists the recommended key from JSON objects."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
+
+    findings_file = tmp_path / "findings.json"
+    findings_file.write_text(
+        json.dumps(
+            [
+                {
+                    "finding_num": 1,
+                    "title": "Missing timeout",
+                    "severity": "HIGH",
+                    "visibility": "presented",
+                    "disposition": "pending",
+                    "finding_type": "Gap",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Unbounded external call.",
+                    "recommended": "A: add try/except",
+                },
+                {
+                    "finding_num": 2,
+                    "title": "Naming nit",
+                    "severity": "TENSION",
+                    "visibility": "presented",
+                    "disposition": "pending",
+                    "finding_type": "Fragility",
+                    "design_level": "Yes",
+                    "classification": "User-directed",
+                    "raised_by": "systems-architect",
+                    "why_it_matters": "Inconsistent terminology.",
+                },
+            ]
+        )
+    )
+
+    record_finding_batch(
+        db_conn, gate_id, str(findings_file), source="challenge", run_id=run_id
+    )
+
+    row1 = db_conn.execute(
+        "SELECT recommended FROM findings"
+        " WHERE gate_id=? AND finding_num=1 AND visibility='presented'",
+        (gate_id,),
+    ).fetchone()
+    assert row1["recommended"] == "A: add try/except"
+
+    row2 = db_conn.execute(
+        "SELECT recommended FROM findings"
+        " WHERE gate_id=? AND finding_num=2 AND visibility='presented'",
+        (gate_id,),
+    ).fetchone()
+    assert row2["recommended"] is None
 
 
 def test_record_finding_batch_presented_disposition_defaults_to_pending(
