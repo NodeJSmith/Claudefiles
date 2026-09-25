@@ -524,8 +524,13 @@ After the user's choice above. Skip all `cfl` calls below if cfl tracking is ina
 Record the question (topic: `plan-approval`):
 
 ```bash
-cfl question mine-plan plan-approval --status asked --answer "<selected option>" --spec <spec_number>
+cfl question mine-plan plan-approval --status asked --answer "<selected option>" \
+    [--recommended "Approve with suggestions (Recommended)"] --spec <spec_number>
 ```
+
+Pass `--recommended` only when suggestions existed (the "Approve with suggestions
+(Recommended)" option was actually presented) — omit it for the no-suggestions
+template, which has no recommended option.
 
 Record the gate:
 
