@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `cfl` findings and questions now record what was recommended alongside what was actually chosen (`recommended`/`chosen`/`choice_reason` columns, schema migration 10), so recorded data can answer whether users followed recommendations. Wired through `finding.py`/`question.py`, `cli.py`, and `challenge-gate.md`/`interview-protocol.md`/`mine-plan/SKILL.md`. (#590)
 
+### Changed
+
+- Second model-fit pass across rules, references, skills, and agents, targeting Opus 5.5/Sonnet 5/Haiku 4.5 (first pass: `design/critiques/2026-06-10-model-fit-audit/`) — reviewer prompts now report every finding with severity instead of filtering before reporting, frontend anti-patterns name specific current-model defaults instead of a vague "AI-generated" check, caps pressure and self-verification rituals current models don't need are removed, and several stale references are fixed (`mine-debug` resume path, `mine-implementation-review` target-files field, engineering agents' datetime rule, `mine-write-skill`'s doc pointer, `mine-mutation-test`'s stash handling). (#591)
+
 ## 2026-09-23
 
 ### Added
