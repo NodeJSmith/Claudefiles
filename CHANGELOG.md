@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-25
+
+### Added
+
+- `cfl` findings and questions now record what was recommended alongside what was actually chosen (`recommended`/`chosen`/`choice_reason` columns, schema migration 10), so recorded data can answer whether users followed recommendations. Wired through `finding.py`/`question.py`, `cli.py`, and `challenge-gate.md`/`interview-protocol.md`/`mine-plan/SKILL.md`. (#590)
+
 ## 2026-09-23
 
 ### Added
