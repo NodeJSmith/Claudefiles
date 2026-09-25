@@ -31,7 +31,7 @@ Call `TaskList` to get current tasks.
 
 ### Errors (Read)
 
-Look for error files in `/tmp/claude-claude-errors-*/errors.md` (glob for directories created by `get-skill-tmpdir claude-errors`). Read the most recently modified match. If no match exists or the file is empty, skip.
+Look for error files in `/tmp/claude-claude-errors-*/errors.md` (glob for directories created by `get-skill-tmpdir claude-errors`). Read the most recently modified match whose leading `Repo:` line names the current repo (`git rev-parse --show-toplevel`); files for other repos belong to other debugging runs. If no match exists or the file is empty, skip.
 
 <!-- Error files are produced by /mine-debug — the skill owns the error-tracking contract and writes to this path at each fix attempt. -->
 

@@ -35,6 +35,8 @@ This phase ends only when you have a specific hypothesis. Do not skip ahead.
 
 5. **Create or update the error file** — run `get-skill-tmpdir claude-errors`, then write to `<dir>/errors.md`. This file persists across context compaction and is passed to the researcher subagent if escalation is needed.
 
+   Start the file with a `Repo: <output of git rev-parse --show-toplevel>` line so a resumed session can tell its own file from another run's.
+
    Initial entry format (uses the same `Tried/Result/Next` schema as subsequent attempts for `mine-status` compatibility):
    ```markdown
    ### [short description] — Attempt 0
@@ -139,4 +141,4 @@ When you notice yourself using one of these rationalizations, treat it as a sign
 
 This methodology is self-contained in `SKILL.md`. If context compacts mid-debugging session, you can resume from this skill description.
 
-The error file persists across compaction as the record of what has been tried. When resuming after compaction, glob `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-claude-errors-*/errors.md` (the directories `get-skill-tmpdir claude-errors` creates — rerunning it makes a new, empty one) and read the most recently modified match to reconstruct what has already been attempted before starting a new Phase 1 investigation.
+The error file persists across compaction as the record of what has been tried. When resuming after compaction, use the error file's path from the conversation summary if it survived. Otherwise glob `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-claude-errors-*/errors.md` (the directories `get-skill-tmpdir claude-errors` creates — rerunning it makes a new, empty one) and pick the most recently modified match whose `Repo:` line names the current repo; other matches belong to other debugging runs. If none match, start a fresh error file. Read the chosen file to reconstruct what has already been attempted before starting a new Phase 1 investigation.
