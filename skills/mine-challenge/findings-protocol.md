@@ -175,15 +175,27 @@ AskUserQuestion:
   question: "[Context: N%] Finding N/{total}: <title> (<severity>)"
   header: "<raised-by>"
   options:
-    - label: "<Option A text> (Recommended)"
+    - label: "A: <Option A text>"
       description: "<why-it-matters>"
-    - label: "<Option B text>"
+    - label: "B: <Option B text>"
       description: ""
     - label: "Skip — defer to later"
       description: "Record this finding without acting on it"
     - label: "File as issue"
       description: "Create an issue for this finding"
 ```
+
+Each option's `label` must be the letter and text exactly as they appear in the
+finding's `**Options:**` list (`A: <first option>`, `B: <second option>`, ...) —
+this is the same canonical string `challenge-gate.md` extracts into the
+`recommended` field. Prepend `(Recommended) ` to the `description` of whichever
+option (A or B) carries the `*(recommended)*` marker in that source list — never
+the label — so the label the user selects (passed to `--chosen` in step 6)
+matches `recommended` exactly when the user follows the recommendation. Getting
+this wrong (baking the cue into the label, or hardcoding it onto one option
+regardless of which one the finding actually recommends) silently breaks the
+"did the user follow the recommendation" comparison between `chosen` and
+`recommended`.
 
 Apply chosen option via Edit tool. Set `disposition: applied` for options,
 `disposition: skipped` for Skip, or `disposition: filed` + create an issue in
