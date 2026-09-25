@@ -396,7 +396,7 @@ def test_list_findings_returns_recorded_rows(db_conn, capsys):
     assert out["findings"][0]["title"] == "Missing timeout"
 
 
-def test_list_findings_includes_recommendation_columns(db_conn, capsys):
+def test_list_findings_includes_recommended_and_chosen(db_conn, capsys):
     """list_findings returns recommended, chosen, and choice_reason."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
     gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")

@@ -492,6 +492,77 @@ def test_migration_v9_adds_pipeline_step_and_reviewed_head_columns(tmp_db_path):
     conn.close()
 
 
+def test_migration_v10_adds_recommendation_columns(tmp_db_path):
+    """Migration v10 adds recommendation tracking columns to findings and questions.
+
+    findings gains recommended, chosen, choice_reason.
+    questions gains recommended.
+    All nullable, no default — existing rows survive with columns NULL.
+    """
+    conn = sqlite3.connect(tmp_db_path, isolation_level=None)
+    create_legacy_schema(
+        conn,
+        9,
+        LEGACY_SPECS_TABLE_SQL,
+        LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+        LEGACY_TASKS_TABLE_SQL,
+        LEGACY_GATES_TABLE_SQL,
+        LEGACY_QUESTIONS_V7_TABLE_SQL,
+        LEGACY_FINDINGS_V8_TABLE_SQL,
+        "ALTER TABLE runs ADD COLUMN pipeline_step TEXT",
+        "ALTER TABLE runs ADD COLUMN reviewed_head TEXT",
+    )
+    conn.execute(
+        "INSERT INTO specs(id, number, slug, repo_url, created_at)"
+        " VALUES(1, 1, 'feat', 'https://github.com/test/repo.git', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO runs(id, spec_id, base_commit, started_at)"
+        " VALUES(1, 1, 'abc123', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO findings(id, run_id, source, finding_num, title, severity,"
+        " visibility, created_at)"
+        " VALUES(1, 1, 'challenge', 1, 'test', 'HIGH', 'presented', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO questions(id, run_id, skill, topic, status, created_at)"
+        " VALUES(1, 1, 'mine-define', 'scope-mode', 'asked', datetime('now'))"
+    )
+    conn.close()
+
+    conn = setup_db(tmp_db_path)
+
+    version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+    finding_cols = {
+        row[1] for row in conn.execute("PRAGMA table_info(findings)").fetchall()
+    }
+    assert "recommended" in finding_cols
+    assert "chosen" in finding_cols
+    assert "choice_reason" in finding_cols
+
+    question_cols = {
+        row[1] for row in conn.execute("PRAGMA table_info(questions)").fetchall()
+    }
+    assert "recommended" in question_cols
+
+    finding_row = conn.execute(
+        "SELECT recommended, chosen, choice_reason FROM findings WHERE id=1"
+    ).fetchone()
+    assert finding_row["recommended"] is None
+    assert finding_row["chosen"] is None
+    assert finding_row["choice_reason"] is None
+
+    question_row = conn.execute(
+        "SELECT recommended FROM questions WHERE id=1"
+    ).fetchone()
+    assert question_row["recommended"] is None
+
+    conn.close()
+
+
 def test_fresh_vs_migrated_runs_schema_convergence(tmp_db_path, tmp_path):
     """A freshly created database and a database migrated v8->v9 produce
     identical `runs` schemas.

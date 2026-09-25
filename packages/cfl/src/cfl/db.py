@@ -146,7 +146,8 @@ MIGRATIONS: dict[int, list[str]] = {
     # Recommendation tracking: what was recommended, what was chosen, why.
     # findings: recommended written at record time, chosen/choice_reason at
     # resolve time. questions: recommended written at record time alongside
-    # answer. Keep these identical to the DDL in _SCHEMA_STATEMENTS.
+    # answer. Keep these identical to the DDL in _SCHEMA_STATEMENTS — they
+    # are the same end state reached by two paths.
     10: [
         "ALTER TABLE findings ADD COLUMN recommended TEXT",
         "ALTER TABLE findings ADD COLUMN chosen TEXT",

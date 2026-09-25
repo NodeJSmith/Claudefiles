@@ -75,6 +75,7 @@ _VALID_TASK_STATUSES = sorted(
 )
 
 _FLAG = Parameter(negative=[])
+_RECOMMENDED_HELP = "Which option the agent recommended (label text)"
 
 # Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
 _GROUPED_COMMANDS = {
@@ -837,7 +838,7 @@ def cmd_question(
     ] = None,
     recommended: Annotated[
         str | None,
-        Parameter(help="Which option the agent recommended"),
+        Parameter(help=_RECOMMENDED_HELP),
     ] = None,
 ) -> None:
     """Record a discovery question as asked or skipped."""
@@ -958,7 +959,7 @@ def cmd_finding_record(
     ] = None,
     recommended: Annotated[
         str | None,
-        Parameter(help="Which option the agent recommended"),
+        Parameter(help=_RECOMMENDED_HELP),
     ] = None,
 ) -> None:
     """Record a single finding."""
@@ -1049,7 +1050,7 @@ def cmd_finding_resolve(
     ],
     chosen: Annotated[
         str | None,
-        Parameter(help="Option the user selected (label text)"),
+        Parameter(help="Which option the user selected (label text)"),
     ] = None,
     choice_reason: Annotated[
         str | None,
