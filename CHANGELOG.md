@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-26
+
+### Fixed
+
+- Reviewer agent memory (`code-reviewer`, `integration-reviewer`, `wtf-reviewer`) now persists to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/<encoded-main-root>/agent-memory/<agent>/MEMORY.md` instead of `<main-clone>/.claude/agent-memory/`, whose writes were silently blocked (and fell back to a worktree-local copy) by the worktree isolation guard when reviewing from a worktree. Resolution is centralized in `bin/resolve-agent-memory-path`, invoked as a single bare command to avoid a separate Bash-tool refusal on inlined multi-step `git` resolution — see `rules/common/worktrees.md` Safety Rule 4. (#593)
+
 ## 2026-09-25
 
 ### Added
