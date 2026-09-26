@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Resolve (and create) a reviewer agent's persistent memory directory.
+# Prints the MEMORY.md path to stdout.
+#
+# Usage:
+#   resolve-agent-memory-path <agent-name>
+#
+# The printed path is keyed to the stable main-clone repo root (shared by
+# every worktree of that repo), not to whichever worktree the caller is in —
+# this logic must run as a single bare command, not inlined in a caller's own
+# Bash tool call; see rules/common/worktrees.md Safety Rule 4.
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: resolve-agent-memory-path <agent-name>
+
+Resolve (and create) the persistent memory directory for a reviewer agent,
+keyed to the stable main-clone repo root rather than the current worktree.
+Prints the MEMORY.md path to stdout.
+
+Examples:
+  resolve-agent-memory-path code-reviewer
+  resolve-agent-memory-path integration-reviewer
+EOF
+  exit 0
+}
+
+set -euo pipefail
+
+agent_name="${1:?usage: resolve-agent-memory-path <agent-name>}"
+
+common_dir=$(git rev-parse --git-common-dir 2> /dev/null || true)
+if [[ -n "$common_dir" ]]; then
+  repo_root=$(cd "$(dirname "$common_dir")" && pwd -P)
+else
+  repo_root=$(pwd -P)
+fi
+
+# Replicates Claude Code's own project-directory encoding: '/' and '.' -> '-'.
+encoded_root=$(printf '%s' "$repo_root" | sed 's/[/.]/-/g')
+memory_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/${encoded_root}/agent-memory/${agent_name}"
+mkdir -p "$memory_dir"
+printf '%s/MEMORY.md\n' "$memory_dir"
