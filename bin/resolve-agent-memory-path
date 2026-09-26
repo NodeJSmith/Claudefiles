@@ -5,19 +5,10 @@
 # Usage:
 #   resolve-agent-memory-path <agent-name>
 #
-# Reviewer agents (code-reviewer, integration-reviewer, wtf-reviewer) persist
-# project-specific notes across sessions. That memory must live outside the
-# repo tree: Claude Code's worktree isolation guard blocks Write/Edit to the
-# main-clone checkout from a worktree session, and — independently — the Bash
-# tool can refuse multi-step `git` resolution outright from a worktree
-# session, which blocks the resolution logic itself from running inline in an
-# agent's own prompt (see rules/common/worktrees.md Safety Rule 4 for the
-# confirmed trigger conditions). Keeping that logic in this script sidesteps
-# both: the agent's own Bash tool call becomes a single bare invocation with
-# no `git` text and no substitution of its own.
-#
 # The printed path is keyed to the stable main-clone repo root (shared by
-# every worktree of that repo), not to whichever worktree the caller is in.
+# every worktree of that repo), not to whichever worktree the caller is in —
+# this logic must run as a single bare command, not inlined in a caller's own
+# Bash tool call; see rules/common/worktrees.md Safety Rule 4.
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
 Usage: resolve-agent-memory-path <agent-name>
@@ -37,12 +28,8 @@ set -euo pipefail
 
 agent_name="${1:?usage: resolve-agent-memory-path <agent-name>}"
 
-# Named "common_dir", not "git_common_dir" — purely a naming choice, not a
-# functional requirement, since this script isn't itself a worktree-guarded
-# Bash tool call. Kept git-free in the name anyway to avoid the reader
-# wondering whether it matters (see worktrees.md Safety Rule 4).
 common_dir=$(git rev-parse --git-common-dir 2> /dev/null || true)
-if [ -n "$common_dir" ]; then
+if [[ -n "$common_dir" ]]; then
   repo_root=$(cd "$(dirname "$common_dir")" && pwd -P)
 else
   repo_root=$(pwd -P)
