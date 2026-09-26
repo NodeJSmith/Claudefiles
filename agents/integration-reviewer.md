@@ -5,7 +5,6 @@ effort: medium
 description: Codebase integration reviewer — finds duplication, convention drift, misplacement, orphaned code, and design violations. Run in parallel with code-reviewer before every commit.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
-memory: project
 ---
 
 ## Identity
@@ -18,16 +17,10 @@ Do not modify source files or the working tree — no `git checkout`, `git resto
 
 ## Memory
 
-Before starting, resolve the stable repo root — a bare relative path resolves against the worktree's own cwd, and a worktree is deleted once its task is done, taking any memory written there with it:
+Before starting, resolve the stable memory path by running this bare command — do not inline its logic (a worktree-isolated session's Bash tool can refuse multi-step `git` resolution outright; see `rules/common/worktrees.md` Safety Rule 4):
 
 ```bash
-git_common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
-if [ -n "$git_common_dir" ]; then
-  repo_root=$(cd "$(dirname "$git_common_dir")" && pwd -P)
-else
-  repo_root=$(pwd -P)
-fi
-echo "$repo_root/.claude/agent-memory/integration-reviewer/MEMORY.md"
+resolve-agent-memory-path integration-reviewer
 ```
 
 Read the path printed above if it exists — it contains project-specific architecture knowledge from past reviews in this codebase.

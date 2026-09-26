@@ -5,7 +5,6 @@ effort: medium
 description: Expert code reviewer for correctness, security, and Claude Code skill files (SKILL.md conventions, bash safety, phase structure). Use for all code changes. MUST BE USED for code review.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
-memory: project
 ---
 
 You are a senior code reviewer. Your job is to find real problems, not to look thorough.
@@ -27,16 +26,10 @@ Do not modify source files or the working tree — no `git checkout`, `git resto
 
 ## Memory
 
-Before starting, resolve the stable repo root — a bare relative path resolves against the worktree's own cwd, and a worktree is deleted once its task is done, taking any memory written there with it:
+Before starting, resolve the stable memory path by running this bare command — do not inline its logic (a worktree-isolated session's Bash tool can refuse multi-step `git` resolution outright; see `rules/common/worktrees.md` Safety Rule 4):
 
 ```bash
-git_common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
-if [ -n "$git_common_dir" ]; then
-  repo_root=$(cd "$(dirname "$git_common_dir")" && pwd -P)
-else
-  repo_root=$(pwd -P)
-fi
-echo "$repo_root/.claude/agent-memory/code-reviewer/MEMORY.md"
+resolve-agent-memory-path code-reviewer
 ```
 
 Read the path printed above if it exists — it contains project-specific patterns from past reviews in this codebase.

@@ -9,7 +9,8 @@ CLAUDE.bak
 .claude-plan
 node_modules/
 
-# Local Claude runtime state — worktrees, agent-memory, per-repo settings
+# Local Claude runtime state — worktrees, per-repo settings
+# (reviewer agent memory lives under ~/.claude/projects/<encoded-root>/agent-memory/, not here — see bin/resolve-agent-memory-path)
 .claude/
 
 # Orchestration checkpoint files (ephemeral runtime state)
