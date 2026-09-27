@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-27
+
+### Added
+
+- `mine-challenge` synthesis now checks whether distinct findings converge on one mechanism and, when they do, adds a convergence finding asking whether the mechanism should be re-evaluated (including whether it's needed at all) instead of patching each finding individually. Auto-apply no longer fires for fixes that add state or a guard/reset/heuristic guessing at another component's state. Synthesis procedure extracted to `skills/mine-challenge/synthesis-procedure.md` and passed to the subagent by path; new `deep-worker` agent (opus) runs synthesis in place of `standard-worker`. (#597)
+
 ## 2026-09-26
 
 ### Fixed
