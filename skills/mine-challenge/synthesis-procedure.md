@@ -1,0 +1,30 @@
+# Synthesis Procedure
+
+The synthesis subagent reads this file and follows it exactly. The dispatching prompt supplies the critic report paths, triage rationale, `target_summary`, target type, output path, and validation warnings; everything about *how* to synthesize lives here, so it reaches the subagent verbatim instead of through the orchestrator's summary of it.
+
+1. **Read all critic reports in full** — do not glob; read each named file explicitly.
+2. **Group by problem area** — cluster findings addressing the same concern. Keep similar-but-distinct issues separate.
+3. **Assign tags per finding:**
+   - `severity`: highest severity any critic assigned (must be CRITICAL / HIGH / MEDIUM / TENSION — reclassify non-contract values as MEDIUM)
+   - `type`: type best describing the root cause
+   - `design-level`: Yes wins when critics disagree
+   - `classification`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL AND no critic's Why it matters for it starts with `Audience assumption:` (those stay in front of the user, who may skip them) AND the fix adds no state and no guard, reset, or heuristic by which one component guesses at another's state (a fix like that can become the next root cause, so the user sees it). Otherwise User-directed. When ambiguous, default User-directed.
+   - `visibility`: `presented` for every finding
+   - `disposition`: `pending` for every finding
+4. **CRITICAL guard**: classify every CRITICAL finding as `classification: User-directed`, whatever any critic proposed and however much they agreed — a fix to a broken core requirement needs the user's decision.
+5. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement, keeping any critic's `Audience assumption:` opening verbatim), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
+6. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
+7. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
+8. **Convergence check**: step 2 groups findings that describe the *same* concern. This step looks one level up — at distinct findings that all land on the *same mechanism* (one component, piece of state, protocol, or loop) from different angles. Each such finding proposes its own local fix; together they can mean the mechanism itself is the problem, and patching each one hardens a model that should be reconsidered. Use your judgment: there is no minimum count, and findings that merely touch the same file are not a convergence. Distinct findings from different critics landing on one mechanism is the strongest signal. A finding belongs to the convergence when its problem is in the mechanism *or* its proposed fix adds a rule, guard, or reset to the mechanism — a finding that patches the mechanism is evidence about it even when its symptom shows up elsewhere.
+
+   For each convergence you identify, add a **convergence finding** to the main list:
+   - Title: `Findings converge on <mechanism>`
+   - `severity`: highest severity among the converging findings. `type`: `Structural`. `design-level`: `Yes`. `classification`: `User-directed`. `raised-by`: `Synthesis`.
+   - `**Converges:**` field listing the converging finding numbers, formatted as `**Converges:** Findings 3, 5, 7`.
+   - `why-it-matters`: name the mechanism and what the converging findings have in common. Frame it as a question for the user: whether this points to a structural or architectural problem with the mechanism that should be re-evaluated, rather than addressed finding by finding. Re-evaluation is open-ended — it includes whether the mechanism is needed at all, not only how to specify it more completely.
+   - Options: **A** — re-evaluate `<mechanism>` before addressing the converging findings individually; **B** — keep `<mechanism>` and address the converging findings individually. Option A may list the open questions the re-evaluation must answer, but must not answer them — no proposed design, scope, owner, or rule. Answering them here pre-empts the re-evaluation with a patch.
+   - The remaining fields follow steps 5–6 like any User-directed finding: `evidence` (the key citations from the converging findings), `design-challenge`, and a `**Recommendation:**` with the `*(recommended)*` marker on whichever option the evidence supports.
+
+   Place convergence findings first in the main list, then renumber so every finding (and every `**Converges:**` reference) stays contiguous and correct. Leave the converging findings themselves in the list unchanged — they are resolved individually if the user picks B. Before writing, confirm every `**Converges:**` number matches an existing `## Finding N:` heading: a stale number makes the resolution flow skip the wrong finding.
+
+**Write the findings file** to the output path using the `Format-version: 4` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
