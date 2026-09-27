@@ -16,10 +16,32 @@ stdout), 2 = an input file is missing or not valid JSON.
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 MECHANISM_PREVIEW_CHARS = 60  # enough to tell convergences apart in a problem line
+
+# GitHub surfaces whose items are keyed by url and may bundle embedded findings.
+COMMENT_SURFACES = ("reviewComments", "issueComments")
+
+VALID_STATUSES = {"open", "resolved"}
+VALID_DISPOSITIONS = {"actionable", "already-addressed", "not-actionable", "duplicate"}
+
+# Markers a review body or conversation comment uses to say it bundles several
+# embedded findings: CodeRabbit's collapsed sections carry an explicit count,
+# Codex's per-finding severity badges don't, so each occurrence counts as one.
+EMBEDDED_SECTION_RE = re.compile(
+    r"(?:Outside diff range comments|Duplicate comments|Nitpick comments)\s*\((\d+)\)"
+)
+EMBEDDED_BADGE_RE = re.compile(r"!\[P\d+ Badge\]")
+
+
+def embedded_finding_count(text: str) -> int:
+    """How many embedded findings a review body or conversation comment claims to carry."""
+    return len(EMBEDDED_BADGE_RE.findall(text)) + sum(
+        int(n) for n in EMBEDDED_SECTION_RE.findall(text)
+    )
 
 
 def input_items(feedback: dict | list) -> tuple[set[str], set[str]]:
@@ -33,12 +55,24 @@ def input_items(feedback: dict | list) -> tuple[set[str], set[str]]:
     if isinstance(feedback, list):
         ids = {str(t["id"]) for t in feedback}
         return ids, ids
-    urls = {
-        c["url"]
-        for s in ("reviewComments", "issueComments")
+    urls = {c["url"] for s in COMMENT_SURFACES for c in feedback.get(s, [])}
+    return {str(t["id"]) for t in feedback.get("threads", [])} | urls, urls
+
+
+def expected_embedded_counts(feedback: dict | list) -> dict[str, int]:
+    """Map each embeddable item's id/url to how many embedded findings its text claims."""
+    if isinstance(feedback, list):
+        return {
+            str(t["id"]): embedded_finding_count(
+                "\n".join(c.get("content") or "" for c in t.get("comments", []))
+            )
+            for t in feedback
+        }
+    return {
+        c["url"]: embedded_finding_count(c.get("body") or "")
+        for s in COMMENT_SURFACES
         for c in feedback.get(s, [])
     }
-    return {str(t["id"]) for t in feedback.get("threads", [])} | urls, urls
 
 
 def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
@@ -58,6 +92,17 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
     expected, embeddable = input_items(feedback)
     problems += [f"input item has no row: {i}" for i in sorted(expected - set(by_id))]
 
+    for key, count in expected_embedded_counts(feedback).items():
+        if count == 0:
+            continue
+        actual = sum(
+            1 for rid in row_ids if rid.rsplit("#", 1)[0] == key and rid != key
+        )
+        if actual < count:
+            problems.append(
+                f"{key} claims {count} embedded finding(s) but only {actual} embedded row(s) exist"
+            )
+
     for rid, row in by_id.items():
         # Check `rid in expected` first: GitHub urls already contain a `#fragment`, so a
         # url-keyed item's own row would otherwise be mistaken for an embedded row.
@@ -68,11 +113,33 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
         for field in ("mechanism", "disposition_reason"):
             if not str(row.get(field) or "").strip():
                 problems.append(f"row {rid} has no {field}")
+        if row.get("status") not in VALID_STATUSES:
+            problems.append(f"row {rid} has invalid status: {row.get('status')!r}")
+        if row.get("disposition") not in VALID_DISPOSITIONS:
+            problems.append(
+                f"row {rid} has invalid disposition: {row.get('disposition')!r}"
+            )
 
     for n, conv in enumerate(ledger.get("convergences", [])):
         mechanism = conv.get("mechanism")
-        members = {str(m) for m in conv.get("members", [])}
+        members_raw = conv.get("members", [])
+        members = {str(m) for m in members_raw}
         label = f"convergence {n} ({str(mechanism)[:MECHANISM_PREVIEW_CHARS]!r})"
+
+        missing = [
+            field_name
+            for field_name, value in (
+                ("mechanism", mechanism),
+                ("members", members_raw),
+                ("summary", conv.get("summary")),
+                ("open_questions", conv.get("open_questions")),
+            )
+            if not value or (isinstance(value, str) and not value.strip())
+        ]
+        if missing:
+            problems.append(f"{label}: missing {', '.join(missing)}")
+            continue
+
         problems += [
             f"{label}: member {m} is not a row" for m in sorted(members - set(by_id))
         ]
