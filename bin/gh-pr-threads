@@ -23,6 +23,11 @@ from collections.abc import Callable
 
 GH_TIMEOUT_SECONDS = 60
 PAGE_SIZE = 100
+THREAD_PREVIEW_CHARS = 150
+REVIEW_PREVIEW_CHARS = 400
+
+REVIEW_COMMENTS_KEY = "reviewComments"
+ISSUE_COMMENTS_KEY = "issueComments"
 
 REVIEW_FIELDS = "author { login __typename } state url body createdAt"
 ISSUE_COMMENT_FIELDS = "databaseId author { login __typename } url body createdAt"
@@ -81,6 +86,7 @@ query($id: ID!, $after: String!) {{
 """
 
 CODEX_LOGIN = "chatgpt-codex-connector"
+CODERABBIT_LOGIN = "coderabbitai"
 
 # Codex's review body when its findings are all inline threads. Anchored to the
 # whole body, and the About block may not contain another </details>, so a Codex
@@ -93,7 +99,8 @@ CODEX_BOILERPLATE_RE = re.compile(
     r"(?:(?!</details>)[\s\S])*</details>\s*\Z"
 )
 REVIEW_TRIGGER_RE = re.compile(
-    r"\A\s*@(coderabbitai|codex)\s+((full|security)\s+)?review\s*\Z", re.IGNORECASE
+    rf"\A\s*@({CODERABBIT_LOGIN}|codex)\s+((full|security)\s+)?review\s*\Z",
+    re.IGNORECASE,
 )
 
 # Known-noise denylist: (reason, predicate on (author login, body)). Each rule
@@ -130,7 +137,7 @@ NOISE_RULES: list[tuple[str, Callable[[str, str], bool]]] = [
     (
         "CodeRabbit review-command acknowledgement",
         lambda login, body: (
-            login == "coderabbitai"
+            login == CODERABBIT_LOGIN
             and "<!-- CodeRabbit review command invocation:" in body
         ),
     ),
@@ -209,12 +216,12 @@ def drain(first_page: dict, fetch_next: Callable[[str], dict]) -> list[dict]:
 
 def fetch_pr(owner: str, repo: str, pr: int) -> dict:
     """Fetch the PR with every thread, thread comment, review, and conversation comment."""
-    ids = {"owner": owner, "repo": repo, "pr": pr}
-    first = graphql(FIRST_PAGE_QUERY, **ids)["repository"]["pullRequest"]
+    pr_vars = {"owner": owner, "repo": repo, "pr": pr}
+    first = graphql(FIRST_PAGE_QUERY, **pr_vars)["repository"]["pullRequest"]
 
     threads = drain(
         first["reviewThreads"],
-        lambda after: graphql(FIRST_PAGE_QUERY, **ids, after=after)["repository"][
+        lambda after: graphql(FIRST_PAGE_QUERY, **pr_vars, after=after)["repository"][
             "pullRequest"
         ]["reviewThreads"],
     )
@@ -234,7 +241,7 @@ def fetch_pr(owner: str, repo: str, pr: int) -> dict:
         query = PR_CONNECTION_QUERY.format(field=field, size=PAGE_SIZE, fields=fields)
         return drain(
             first[field],
-            lambda after: graphql(query, **ids, after=after)["repository"][
+            lambda after: graphql(query, **pr_vars, after=after)["repository"][
                 "pullRequest"
             ][field],
         )
@@ -250,8 +257,12 @@ def fetch_pr(owner: str, repo: str, pr: int) -> dict:
 
 
 def build_report(pr: dict, show_all: bool) -> dict:
-    review_comments, excluded_reviews = split_noise(pr["reviews"], "reviewComments")
-    issue_comments, excluded_comments = split_noise(pr["comments"], "issueComments")
+    review_comments, excluded_review_comments = split_noise(
+        pr["reviews"], REVIEW_COMMENTS_KEY
+    )
+    issue_comments, excluded_issue_comments = split_noise(
+        pr["comments"], ISSUE_COMMENTS_KEY
+    )
 
     # Each reviewer's latest verdict, so "reviewed, no findings" differs from "not reviewed yet".
     # Built from the UNFILTERED reviews on purpose: a denylisted body (Codex
@@ -267,10 +278,12 @@ def build_report(pr: dict, show_all: bool) -> dict:
         }
 
     threads = pr["threads"]
-    resolved = sum(1 for t in threads if t["isResolved"])
+    resolved = sum(1 for thread in threads if thread["isResolved"])
     return {
         "pr": {"title": pr["title"], "url": pr["url"]},
-        "threads": threads if show_all else [t for t in threads if not t["isResolved"]],
+        "threads": threads
+        if show_all
+        else [thread for thread in threads if not thread["isResolved"]],
         # Counted over ALL threads regardless of --all, so an empty .threads in
         # unresolved-only mode can be told apart from "findings exist but got resolved".
         "threadCounts": {
@@ -287,16 +300,22 @@ def build_report(pr: dict, show_all: bool) -> dict:
             for r in pr["reactions"]
         ],
         "reviews": sorted(latest.values(), key=lambda r: r["author"] or ""),
-        "reviewComments": review_comments,
-        "issueComments": issue_comments,
-        "excluded": excluded_reviews + excluded_comments,
+        REVIEW_COMMENTS_KEY: review_comments,
+        ISSUE_COMMENTS_KEY: issue_comments,
+        "excluded": excluded_review_comments + excluded_issue_comments,
     }
 
 
 EMOJI = {
-    "THUMBS_UP": "👍", "THUMBS_DOWN": "👎", "LAUGH": "😄", "HOORAY": "🎉",
-    "CONFUSED": "😕", "HEART": "❤️", "ROCKET": "🚀", "EYES": "👀",
-}  # fmt: skip
+    "THUMBS_UP": "👍",
+    "THUMBS_DOWN": "👎",
+    "LAUGH": "😄",
+    "HOORAY": "🎉",
+    "CONFUSED": "😕",
+    "HEART": "❤️",
+    "ROCKET": "🚀",
+    "EYES": "👀",
+}
 
 
 def one_line(text: str, limit: int) -> str:
@@ -311,14 +330,14 @@ def render_text(report: dict, show_all: bool) -> str:
         f"Total threads: {counts['total']}, Unresolved: {counts['unresolved']}",
         "",
     ]
-    for t in report["threads"]:
-        first = t["comments"]["nodes"][0] if t["comments"]["nodes"] else {}
-        flags = (" [RESOLVED]" if show_all and t["isResolved"] else "") + (
-            " [OUTDATED]" if t["isOutdated"] else ""
+    for thread in report["threads"]:
+        first = thread["comments"]["nodes"][0] if thread["comments"]["nodes"] else {}
+        flags = (" [RESOLVED]" if show_all and thread["isResolved"] else "") + (
+            " [OUTDATED]" if thread["isOutdated"] else ""
         )
         lines += [
-            f"{t['path']}:{t['line'] or '?'} [{t['id']}]{flags} (comment: {first.get('databaseId')})",
-            f"  @{(first.get('author') or {}).get('login')}: {one_line(first.get('body'), 150)}",
+            f"{thread['path']}:{thread['line'] or '?'} [{thread['id']}]{flags} (comment: {first.get('databaseId')})",
+            f"  @{(first.get('author') or {}).get('login')}: {one_line(first.get('body'), THREAD_PREVIEW_CHARS)}",
             "",
         ]
 
@@ -334,32 +353,31 @@ def render_text(report: dict, show_all: bool) -> str:
         ],
     )
     section(
-        "Review status", [f"  @{r['author']}: {r['state']}" for r in report["reviews"]]
+        "Review status",
+        [f"  @{review['author']}: {review['state']}" for review in report["reviews"]],
     )
 
     def entry(header: str, body: str) -> list[str]:
-        return [header, f"  {one_line(body, 400)}", ""]
+        return [header, f"  {one_line(body, REVIEW_PREVIEW_CHARS)}", ""]
+
+    def entries(items: list[dict], header: Callable[[dict], str]) -> list[str]:
+        return [line for item in items for line in entry(header(item), item["body"])]
 
     section(
         "Review bodies (not threads)",
-        [
-            line
-            for r in report["reviewComments"]
-            for line in entry(
-                f"@{(r.get('author') or {}).get('login')} [{r['state']}] {r['url']}",
-                r["body"],
-            )
-        ],
+        entries(
+            report["reviewComments"],
+            lambda review: (
+                f"@{(review.get('author') or {}).get('login')} [{review['state']}] {review['url']}"
+            ),
+        ),
     )
     section(
         "Conversation comments (not threads)",
-        [
-            line
-            for c in report["issueComments"]
-            for line in entry(
-                f"@{(c.get('author') or {}).get('login')} {c['url']}", c["body"]
-            )
-        ],
+        entries(
+            report["issueComments"],
+            lambda c: f"@{(c.get('author') or {}).get('login')} {c['url']}",
+        ),
     )
     reasons = Counter(e["reason"] for e in report["excluded"])
     section(

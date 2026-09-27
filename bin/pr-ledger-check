@@ -70,9 +70,9 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
                 problems.append(f"row {rid} has no {field}")
 
     for n, conv in enumerate(ledger.get("convergences", [])):
-        mech = conv.get("mechanism")
+        mechanism = conv.get("mechanism")
         members = {str(m) for m in conv.get("members", [])}
-        label = f"convergence {n} ({str(mech)[:MECHANISM_PREVIEW_CHARS]!r})"
+        label = f"convergence {n} ({str(mechanism)[:MECHANISM_PREVIEW_CHARS]!r})"
         problems += [
             f"{label}: member {m} is not a row" for m in sorted(members - set(by_id))
         ]
@@ -80,9 +80,9 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
         problems += [
             f"{label}: member {m} is labelled {by_id[m].get('mechanism')!r}"
             for m in sorted(present)
-            if by_id[m].get("mechanism") != mech
+            if by_id[m].get("mechanism") != mechanism
         ]
-        labelled = {rid for rid, r in by_id.items() if r.get("mechanism") == mech}
+        labelled = {rid for rid, r in by_id.items() if r.get("mechanism") == mechanism}
         problems += [
             f"{label}: row {m} carries this mechanism but is not a member"
             for m in sorted(labelled - members)
