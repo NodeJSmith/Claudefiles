@@ -1,0 +1,135 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""Verify a mine-address-pr-issues review ledger against the feedback it was built from.
+
+The ledger (see skills/mine-address-pr-issues/ledger-procedure.md) must hold one
+row per input item, and its convergences must agree with the row labels. A
+finding that silently drops out of triage is indistinguishable from one that was
+never raised, so completeness is checked mechanically rather than trusted.
+
+Exit codes: 0 = ledger is complete and consistent, 1 = problems found (listed on
+stdout), 2 = an input file is missing or not valid JSON.
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+MECHANISM_PREVIEW_CHARS = 60  # enough to tell convergences apart in a problem line
+
+
+def input_items(feedback: dict | list) -> tuple[set[str], set[str]]:
+    """Return (ids every ledger must cover, ids that may carry embedded `<id>#<n>` rows).
+
+    GitHub: threads by id, review bodies and conversation comments by url; only the
+    url-keyed items can bundle several findings, so only they take embedded rows.
+    ADO (a bare list of threads): every thread by id, and any thread may be
+    general conversation carrying embedded findings.
+    """
+    if isinstance(feedback, list):
+        ids = {str(t["id"]) for t in feedback}
+        return ids, ids
+    urls = {
+        c["url"]
+        for s in ("reviewComments", "issueComments")
+        for c in feedback.get(s, [])
+    }
+    return {str(t["id"]) for t in feedback.get("threads", [])} | urls, urls
+
+
+def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
+    """Return a list of human-readable problems; empty means the ledger passes."""
+    problems: list[str] = []
+    rows = ledger.get("rows", [])
+    problems += [
+        f"row {n} has no id" for n, r in enumerate(rows) if r.get("id") is None
+    ]
+    rows = [r for r in rows if r.get("id") is not None]
+    row_ids = [str(r["id"]) for r in rows]
+    by_id = {str(r["id"]): r for r in rows}
+
+    dupes = sorted({i for i in row_ids if row_ids.count(i) > 1})
+    problems += [f"duplicate row id: {i}" for i in dupes]
+
+    expected, embeddable = input_items(feedback)
+    problems += [f"input item has no row: {i}" for i in sorted(expected - set(by_id))]
+
+    for rid, row in by_id.items():
+        # Check `rid in expected` first: GitHub urls already contain a `#fragment`, so a
+        # url-keyed item's own row would otherwise be mistaken for an embedded row.
+        if rid not in expected and rid.rsplit("#", 1)[0] not in embeddable:
+            problems.append(
+                f"row {rid} is neither an input item nor an embedded row of a review body, conversation comment, or ADO thread"
+            )
+        for field in ("mechanism", "disposition_reason"):
+            if not str(row.get(field) or "").strip():
+                problems.append(f"row {rid} has no {field}")
+
+    for n, conv in enumerate(ledger.get("convergences", [])):
+        mech = conv.get("mechanism")
+        members = {str(m) for m in conv.get("members", [])}
+        label = f"convergence {n} ({str(mech)[:MECHANISM_PREVIEW_CHARS]!r})"
+        problems += [
+            f"{label}: member {m} is not a row" for m in sorted(members - set(by_id))
+        ]
+        present = members & set(by_id)
+        problems += [
+            f"{label}: member {m} is labelled {by_id[m].get('mechanism')!r}"
+            for m in sorted(present)
+            if by_id[m].get("mechanism") != mech
+        ]
+        labelled = {rid for rid, r in by_id.items() if r.get("mechanism") == mech}
+        problems += [
+            f"{label}: row {m} carries this mechanism but is not a member"
+            for m in sorted(labelled - members)
+        ]
+    return problems
+
+
+def load(path: Path) -> dict | list:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"error: cannot read {path}: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="pr-ledger-check",
+        description="Verify a PR review ledger covers every input item and that its convergences match its row labels.",
+    )
+    parser.add_argument(
+        "feedback",
+        type=Path,
+        help="gh-pr-threads --json --all or ado-api pr threads --json --all output",
+    )
+    parser.add_argument(
+        "ledger", type=Path, help="ledger JSON written by the ledger subagent"
+    )
+    args = parser.parse_args()
+
+    feedback, ledger = load(args.feedback), load(args.ledger)
+    problems = check_ledger(feedback, ledger)
+    if problems:
+        print(f"{len(problems)} problem(s):")
+        print("\n".join(f"  - {p}" for p in problems))
+        sys.exit(1)
+    rows = ledger.get("rows", [])
+    open_actionable = sum(
+        1
+        for r in rows
+        if r.get("status") == "open" and r.get("disposition") == "actionable"
+    )
+    print(
+        f"ok: {len(input_items(feedback)[0])} input items, {len(rows)} rows, "
+        f"{len(ledger.get('convergences', []))} convergence(s), {open_actionable} open actionable"
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -8,7 +8,7 @@ Full component tables for Claudefiles. For context on what each component type d
 
 | Skill | Description |
 |-------|-------------|
-| `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
+| `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI. Review feedback, including earlier rounds, is triaged into a ledger by an Opus subagent; findings that converge on one mechanism stop the run for discussion before anything is patched |
 | `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
 | `mine-beats` | Writing exploit (beat-by-beat) — assemble raw material into a journey of beats with choose-your-own-adventure branching and grounding discipline |
 | `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
@@ -110,7 +110,7 @@ Conversation memory (recall, resume) now ships as the external
 |-------|-------------|
 | `code-judo-reviewer` | Structural simplification reviewer — hunts aggressively for simplification moves; advisory, does not block commits |
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
-| `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis. The caller supplies the full task methodology in its prompt |
+| `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis and the `mine-address-pr-issues` review ledger. The caller supplies the full task methodology in its prompt |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
 | `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against five quality dimensions |
 | `integration-reviewer` | Codebase integration reviewer — duplication, misplacement, convention drift, orphaned code, design violations |
@@ -237,6 +237,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-reply` | Reply to a PR review comment thread; optionally resolve it with `--resolve <PRRT_...>` |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List everything on a PR needing a response — inline threads, PR-level reactions (👀/👍), per-reviewer status (APPROVED/CHANGES_REQUESTED/COMMENTED), review-summary findings, and conversation comments (CodeRabbit out-of-diff comments included). Only a known-noise denylist is dropped, each listed under `.excluded` with its reason. `--json` emits `{pr, threads, threadCounts, reactions, reviews, reviewComments, issueComments, excluded}` (`threadCounts` = `{total, resolved, unresolved}` over all threads regardless of filtering, so an empty `.threads` can be told apart from "no findings ever"); `--all` includes resolved threads; fully paginated |
+| `pr-ledger-check` | Verify a `mine-address-pr-issues` review ledger against the feedback JSON it was built from: every thread, review body, and conversation comment has its own row, every row has a mechanism and disposition reason, and each convergence's members match the rows carrying its mechanism label. Exit 1 lists the problems |
 | `git-branch-base` | Print the base ref for the current branch — closest remote branch, with default branch fallback |
 | `git-branch-ahead` | Report how many commits the branch is ahead of the default branch (commits unique to this branch); fetches origin with a timeout, degrades offline. Mirror of `git-branch-behind`. Depends on `git-default-branch`, or pass `--default <branch>` to skip that resolution |
 | `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch`, or pass `--default <branch>` to skip that resolution |
