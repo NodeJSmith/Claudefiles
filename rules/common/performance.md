@@ -50,6 +50,7 @@ The `(do not downgrade; ...)` annotations below are pulled from a trailing comme
 - `agents/architect.md` — sonnet, medium
 - `agents/code-judo-reviewer.md` — sonnet, medium
 - `agents/code-reviewer.md` — sonnet, medium (do not downgrade; pre-commit safety gate)
+- `agents/deep-worker.md` — opus, high
 - `agents/engineering-backend-developer.md` — sonnet, medium
 - `agents/engineering-data-engineer.md` — sonnet, medium
 - `agents/engineering-frontend-developer.md` — sonnet, medium

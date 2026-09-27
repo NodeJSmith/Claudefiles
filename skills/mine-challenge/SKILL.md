@@ -163,12 +163,13 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
   5. **Structure each finding**: `**Why it matters**`, `**Evidence**`, `**Design challenge**`
   6. **Include a Pushback section**: findings you anticipate other critics raising that you'd disagree with
   7. **Read beyond provided files**: use Read, Grep, Glob; include **Files examined** at top of report
+  8. **Ask what each side actually knows**: wherever the target coordinates state across components (client and server, cache and source, cursor and log, retry and remote effect), check whether any component infers another's state from partial evidence instead of being told it. Inferred state is a finding even when the inference usually holds — say what it guesses from and when the guess goes wrong
 
 After all critics complete, verify each output file exists and has ≥500 bytes. Record undersized/missing files to `<tmpdir>/validation-warnings.md`.
 
 ## Phase 3: Synthesize + Classify
 
-**Dispatch synthesis as a separate subagent** (`subagent_type: standard-worker`) for fresh context.
+Synthesis is the only step that sees every critic's report side by side, so it is where cross-critic judgment happens — spotting that several findings converge on one mechanism, and asking whether that mechanism is needed at all. **Dispatch synthesis as a separate subagent** (`subagent_type: deep-worker`) for fresh context.
 
 The synthesis subagent receives:
 - All critic report paths (`<tmpdir>/<slug>-report.md` for each critic)
@@ -176,27 +177,11 @@ The synthesis subagent receives:
 - Target type
 - Output path: `<tmpdir>/challenge-results.md`
 - Contents of `<tmpdir>/validation-warnings.md` if it exists
-- The full synthesis procedure below
+- The instruction: "Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/synthesis-procedure.md` and follow it exactly."
+
+Pass the procedure by path, not by restating it — a summary of the procedure can silently drop or soften steps.
 
 **PRIMARY OBJECTIVE** (include as opening paragraph): You MUST write a findings file to `<output path>` using the Write tool before you finish. If you do nothing else, write that file.
-
-**Synthesis procedure:**
-
-1. **Read all critic reports in full** — do not glob; read each named file explicitly
-2. **Group by problem area** — cluster findings addressing the same concern. Keep similar-but-distinct issues separate.
-3. **Assign tags per finding:**
-   - `severity`: highest severity any critic assigned (must be CRITICAL / HIGH / MEDIUM / TENSION — reclassify non-contract values as MEDIUM)
-   - `type`: type best describing the root cause
-   - `design-level`: Yes wins when critics disagree
-   - `classification`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL AND no critic's Why it matters for it starts with `Audience assumption:` (those stay in front of the user, who may skip them). Otherwise User-directed. When ambiguous, default User-directed.
-   - `visibility`: `presented` for every finding
-   - `disposition`: `pending` for every finding
-4. **CRITICAL guard**: classify every CRITICAL finding as `classification: User-directed`, whatever any critic proposed and however much they agreed — a fix to a broken core requirement needs the user's decision.
-5. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement, keeping any critic's `Audience assumption:` opening verbatim), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
-6. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
-7. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
-
-**Write findings file** to the output path using `Format-version: 4` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
 
 **After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is (verify `**Likely-invalid:**` line is present; inject `**Likely-invalid:** 0` after the `**Format-version:**` line if missing); if it contains `## Finding` headings inject the header block (including `**Likely-invalid:** 0`) then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine-challenge`."
 

@@ -62,6 +62,21 @@ Each finding is a top-level section:
 Finding IDs are sequential starting from 1. `## Finding N:` headings must
 match 1:1 with findings — no gaps.
 
+## Convergence Findings
+
+When several distinct findings land on one mechanism, synthesis adds a
+convergence finding (`synthesis-procedure.md` step 8). It uses the standard
+format with `**Raised-by:** Synthesis`, `**Type:** Structural`,
+`**Design-level:** Yes`, `**Classification:** User-directed`, and one extra
+field after `**Raised-by:**`:
+
+```markdown
+**Converges:** Findings 3, 5, 7
+```
+
+Convergence findings come first in the main list. They ask whether the
+mechanism should be re-evaluated; they do not prescribe a replacement.
+
 ## Severity Taxonomy
 
 | Severity | Meaning |
@@ -111,7 +126,8 @@ enter the resolution flow:
 ## Finding Classification
 
 The synthesis subagent classifies each finding as `Auto-apply` or
-`User-directed` using these criteria:
+`User-directed` using these criteria. `synthesis-procedure.md` step 3 mirrors
+them — change both together.
 
 **Auto-apply** when ALL of the following hold:
 - Fix is localized (one section, one field, one line)
@@ -119,12 +135,14 @@ The synthesis subagent classifies each finding as `Auto-apply` or
 - Severity is not CRITICAL
 - Fix introduces no behavior change to the design's intent
 - No critic's Why it matters starts with `Audience assumption:`
+- Fix adds no state and no guard, reset, or heuristic by which one component guesses at another's state
 
 **User-directed** when ANY of the following hold:
 - Fix requires a judgment call between competing approaches
 - Severity is CRITICAL
 - A critic flagged it as out-of-audience (`Audience assumption:`), so the user can skip it
 - Fix touches multiple sections or has design-level implications
+- Fix adds state, or a guard, reset, or heuristic that guesses at another component's state
 - Critics disagreed on the resolution
 
 TENSION findings always classify as User-directed.
@@ -202,6 +220,20 @@ regardless of which one the finding actually recommends) silently breaks the
 Apply chosen option via Edit tool. Set `disposition: applied` for options,
 `disposition: skipped` for Skip, or `disposition: filed` + create an issue in
 the project's issue tracker for File as issue. Continue to next finding.
+
+**Convergence findings** use the User-directed prompt above. If the user picks
+**A** (re-evaluate the mechanism), work through the re-evaluation with the user
+and apply what they settle on to the target. Then set `disposition: applied`
+on the convergence finding and `disposition: skipped` on every finding in its
+`**Converges:**` list without prompting — the re-evaluation supersedes their
+individual fixes. This includes CRITICAL converging findings: the user decided
+them through the convergence prompt. A converging finding already resolved as
+part of an earlier convergence finding keeps that resolution. After the flow,
+recommend a re-challenge (`--re-challenge`) of the reworked target as a line in
+the final report, not a prompt. If the user picks
+**B**, set `disposition: applied` and resolve the converging findings
+individually as they come up. Skip and File as issue behave as for any other
+finding, and the converging findings still come up individually.
 
 **TENSION findings** (`Classification: User-directed`, `Severity: TENSION`). Same
 major-gate rule applies — prepend the `context-pct` result:
