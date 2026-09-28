@@ -35,7 +35,7 @@ Fields marked *init* are already filled in on every input row; copy them from th
 | `author` | *init.* Login of whoever raised it |
 | `author_kind` | *init.* `bot`, `human`, or `self` (the PR author) |
 | `location` | Path plus the function, symbol, or doc section it concerns, with the line when known. `null` for items with no code location. |
-| `finding` | One sentence: what the reviewer says is wrong |
+| `finding` | Required for every row. One sentence: what the reviewer says is wrong. For an item that is not a finding (a review trigger, an acknowledgement, a summary), say what it is. The plan and every reply quote this field. |
 | `mechanism` | See below. The most important field. |
 | `root_cause` | Why the code is wrong: the assumption or design choice that fails. Not a restatement of the symptom. |
 | `proposed_fix` | The concrete change. For resolved rows, what the replies say was done. For open rows, what you would do, specific enough to act on: name the function, the file, and what changes. "Fix error handling" is not a fix; "wrap `fetch_user()` in try/except for `ConnectionError` in `auth.py:42`" is. |

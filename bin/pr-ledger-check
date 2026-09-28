@@ -309,7 +309,7 @@ FIELD_REQUIREMENTS: dict[
     "disposition_reason": (_always, _non_empty_str),
     "related": (_always, lambda v: isinstance(v, list)),
     "outcome": (lambda r: r.get("status") == "resolved", lambda v: v in VALID_OUTCOMES),
-    "finding": (_is_open_actionable, _non_empty_str),
+    "finding": (_always, _non_empty_str),
     "root_cause": (_is_open_actionable, _non_empty_str),
     "proposed_fix": (_is_open_actionable, _non_empty_str),
     "depth": (_is_open_actionable, lambda v: v in VALID_DEPTHS),
@@ -594,22 +594,41 @@ def carrier(ledger: Ledger, rid: str) -> str:
     )
 
 
-def new_response(target_id: str, target: InputItem) -> dict:
-    """A thread reply (thread_id, comment_id, resolve) or a PR comment (about); both carry marker and lines."""
-    if target.facts["source"] == "thread":
+def new_response(target_id: str, target: InputItem) -> dict | None:
+    """What still needs doing for one target, or None if nothing does.
+
+    A thread response (thread_id, comment_id) or a PR comment (about); both carry
+    marker and lines. Replying and resolving are separate calls that can fail
+    independently, so each is decided from its own observed state: `reply` from
+    whether an earlier run's reply is there, `resolve` from whether the thread is
+    still open. Only a bot's or the PR author's thread is resolved; a human
+    reviewer resolves their own after checking the reply.
+    """
+    reply = not target.answered
+    if target.facts["source"] != "thread":
+        if not reply:
+            return None
         return {
-            "channel": "thread",
-            "thread_id": target_id,
-            "comment_id": target.comment_id,
-            "resolve": target.facts["status"] == "open"
-            and target.facts["author_kind"] in {"bot", "self"},
-            "marker": THREAD_MARKER,
+            "channel": "pr-comment",
+            "about": target_id,
+            "reply": reply,
+            "resolve": False,  # a PR comment has no thread to resolve
+            "marker": comment_marker(target_id),
             "lines": [],
         }
+    resolve = target.facts["status"] == "open" and target.facts["author_kind"] in {
+        "bot",
+        "self",
+    }
+    if not (reply or resolve):
+        return None
     return {
-        "channel": "pr-comment",
-        "about": target_id,
-        "marker": comment_marker(target_id),
+        "channel": "thread",
+        "thread_id": target_id,
+        "comment_id": target.comment_id,
+        "reply": reply,
+        "resolve": resolve,
+        "marker": THREAD_MARKER,
         "lines": [],
     }
 
@@ -657,12 +676,16 @@ def build_plan(feedback: dict | list, ledger: dict) -> dict:
                 }
             )
             continue
-        if target.answered:
+        # Cached per target, None included, so every row under a target that
+        # needs nothing more is reported the same way; Nones are dropped below.
+        if target_id not in responses:
+            responses[target_id] = new_response(target_id, target)
+        response = responses[target_id]
+        if response is None:
             unanswered.append(
                 {"row": rid, "reason": "already answered by an earlier run"}
             )
             continue
-        response = responses.setdefault(target_id, new_response(target_id, target))
         response["lines"].append(
             {
                 "row": rid,
@@ -678,7 +701,7 @@ def build_plan(feedback: dict | list, ledger: dict) -> dict:
     return {
         "counts": {"open_rows": len(open_ids), **counts},
         "entries": list(entries.values()),
-        "responses": list(responses.values()),
+        "responses": [r for r in responses.values() if r is not None],
         "unanswered": unanswered,
     }
 

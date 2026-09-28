@@ -49,8 +49,9 @@ def fill(row: dict, **changes) -> dict:
     row["fix_adds"] = row["fix_adds"] or "correction: fixes a value"
     if row["status"] == "resolved" and row["outcome"] is None:
         row["outcome"] = "fixed"
+    row["finding"] = row["finding"] or "finding"
     if row["status"] == "open" and row["disposition"] == "actionable":
-        for field in ("finding", "root_cause", "proposed_fix"):
+        for field in ("root_cause", "proposed_fix"):
             row[field] = row[field] or field
         row["depth"] = row["depth"] or "light"
     if (
@@ -579,13 +580,13 @@ def test_plan_routes_every_open_row_by_source_and_disposition() -> None:
         ("thread", "PRRT_b", True, [("PRRT_b", "fixed", None)]),
         # A human's thread gets a reply but is left for the reviewer to resolve.
         ("thread", "PRRT_c", False, [("PRRT_c", "fixed", "PRRT_b")]),
-        ("pr-comment", COMMENT_URL, None, [(COMMENT_URL, "already-addressed", None)]),
+        ("pr-comment", COMMENT_URL, False, [(COMMENT_URL, "already-addressed", None)]),
         # Embedded findings answer in one PR comment on their parent, even when
         # the parent itself (a summary) gets no reply of its own.
         (
             "pr-comment",
             review,
-            None,
+            False,
             [(f"{review}#1", "fixed", None), (f"{review}#2", "not-acting", None)],
         ),
     ]
@@ -600,8 +601,10 @@ def test_plan_routes_every_open_row_by_source_and_disposition() -> None:
 
 
 def test_plan_skips_feedback_an_earlier_run_already_answered() -> None:
+    # PRRT_c is a human's thread: once replied to, it is theirs to resolve, so
+    # nothing is left to do for it.
     feedback = copy.deepcopy(FEEDBACK)
-    feedback["threads"][1]["comments"]["nodes"].append(
+    feedback["threads"][2]["comments"]["nodes"].append(
         {"author": SELF, "createdAt": T2, "body": "Fixed. <!-- addressed-pr-issues -->"}
     )
     # The earlier run's PR comment is this skill's own output, not new feedback:
@@ -623,11 +626,11 @@ def test_plan_skips_feedback_an_earlier_run_already_answered() -> None:
 
     assert_every_open_row_placed_once(ledger, plan)
     assert [r.get("thread_id") or r.get("about") for r in plan["responses"]] == [
-        "PRRT_c",
+        "PRRT_b",
         "https://x/review-1",
     ]
     assert plan["unanswered"] == [
-        {"row": "PRRT_b", "reason": "already answered by an earlier run"},
+        {"row": "PRRT_c", "reason": "already answered by an earlier run"},
         {"row": COMMENT_URL, "reason": "already answered by an earlier run"},
     ]
 

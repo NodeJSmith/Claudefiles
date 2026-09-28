@@ -180,7 +180,7 @@ Print the plan as a numbered list **before** the AskUserQuestion. Each `actionab
 1. **The reviewer's concern** — the row's `finding`
 2. **Proposed fix** — the row's `proposed_fix`
 3. **Investigation depth** — the row's `depth`
-4. **Response** — from the row's response in `responses`: reply and resolve (`resolve` true), reply only (a human reviewer's thread), or a PR comment (`channel` `pr-comment`)
+4. **Response** — from the row's response in `responses`: reply and resolve (`reply` and `resolve` true), reply only (a human reviewer's thread), resolve only (`reply` false: an earlier run replied but the resolve didn't go through), or a PR comment (`channel` `pr-comment`)
 5. **Also answers** — the entry's `also_answers`
 
 Mark rows with a non-null `decision` as **`[DECISION NEEDED]`**, and state its `why`, `options`, and `recommendation`.
@@ -281,7 +281,7 @@ Push once after all commits.
 
 ### Responses
 
-After push is confirmed, post every item in `plan.json`'s `responses`, in order: one message per item, one line per entry in its `lines`. Drop lines for rows the user skipped in the plan, and skip an item whose lines are all dropped. Otherwise post exactly what the list says: it already covers every open row, and already leaves out feedback an earlier run answered.
+After push is confirmed, act on every item in `plan.json`'s `responses`, in order. Each item says what is still needed: post a message when `reply` is true (one message per item, one line per entry in its `lines`), and resolve the thread when `resolve` is true. The two are separate because they are separate calls: an item with `reply` false and `resolve` true is a thread an earlier run replied to but did not manage to resolve, so resolve it without posting again. Drop lines for rows the user skipped in the plan, and post nothing for an item whose lines are all dropped; resolve it only if `reply` is false, since that resolve finishes a reply an earlier run already posted. Otherwise act exactly on what the list says: it already covers every open row, and already leaves out anything an earlier run finished.
 
 Each line's `answer` sets its wording. `with` names the row that carries the concern for a duplicate; link that row's thread or item.
 - `fixed`: "Fixed — [what changed]." With `with`: "Fixed together with [link] — [what changed]."
@@ -292,7 +292,8 @@ A `pr-comment` item answers a review body or conversation comment, which has no 
 
 | `channel` | GitHub | ADO |
 |---|---|---|
-| `thread` | `gh-pr-reply {PR} {comment_id} "{body}"`, adding `--resolve {thread_id}` when `resolve` is true | `ado-api pr reply {PR} {thread_id} "{body}"`, then `ado-api pr resolve {PR} {thread_id}` when `resolve` is true |
+| `thread`, `reply` true | `gh-pr-reply {PR} {comment_id} "{body}"`, adding `--resolve {thread_id}` when `resolve` is true | `ado-api pr reply {PR} {thread_id} "{body}"`, then `ado-api pr resolve {PR} {thread_id}` when `resolve` is true |
+| `thread`, `reply` false | `gh-pr-resolve-thread {thread_id}` | `ado-api pr resolve {PR} {thread_id}` |
 | `pr-comment` | Write the body to `<tmpdir>/response-N.md`, then `gh pr comment {PR} --body-file <tmpdir>/response-N.md` | Not produced: ADO carries all conversation in threads |
 
 `resolve` is true for an open thread raised by a bot or by the PR author. A human reviewer's thread gets the reply only, so the reviewer can verify the change and resolve it.
@@ -307,7 +308,7 @@ Present a structured summary:
 ## Summary
 
 ### Review Comments
-- Resolved (bot or self threads): N threads [replied & resolved]
+- Resolved (bot or self threads): N threads [replied & resolved, or resolved only where an earlier run had already replied]
 - Replied (human threads): M threads [reply posted, awaiting reviewer]
 - PR comments: P [answering review bodies, conversation comments, and their embedded findings]
 - Already addressed: K items [answered with the evidence]
