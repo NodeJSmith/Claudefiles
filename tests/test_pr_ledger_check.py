@@ -515,3 +515,205 @@ def test_ado_threads_derive_status_and_author_kind() -> None:
     assert check_ledger(feedback, ledger) == []
     ledger["rows"] = [r for r in ledger["rows"] if r["id"] != "42"]
     assert check_ledger(feedback, ledger) == ["input item has no row: 42"]
+
+
+build_plan = MODULE["build_plan"]
+comment_marker = MODULE["comment_marker"]
+
+
+def assert_every_open_row_placed_once(ledger: dict, plan: dict) -> None:
+    open_ids = sorted(r["id"] for r in ledger["rows"] if r["status"] == "open")
+    in_entries = [e["row"] for e in plan["entries"]] + [
+        d for e in plan["entries"] for d in e["also_answers"]
+    ]
+    answered = [line["row"] for r in plan["responses"] for line in r["lines"]]
+    skipped = [u["row"] for u in plan["unanswered"]]
+    assert sorted(in_entries) == open_ids
+    assert sorted(answered + skipped) == open_ids
+
+
+def test_plan_routes_every_open_row_by_source_and_disposition() -> None:
+    review = "https://x/review-1"
+    ledger = filled_ledger(
+        PRRT_c={"disposition": "duplicate", "related": ["PRRT_b"]},
+        **{
+            review: {"disposition": "not-actionable", "embedded_count": 2},
+            COMMENT_URL: {"disposition": "already-addressed"},
+        },
+    )
+    add_embedded(ledger, review, 1)
+    add_embedded(ledger, review, 2, disposition="not-actionable")
+    assert check_ledger(FEEDBACK, ledger) == []
+
+    plan = build_plan(FEEDBACK, ledger)
+
+    assert_every_open_row_placed_once(ledger, plan)
+    assert plan["counts"] == {
+        "open_rows": 6,
+        "actionable": 2,
+        "already-addressed": 1,
+        "not-actionable": 2,
+        "duplicates": 1,
+    }
+    counts = plan["counts"]
+    assert counts["open_rows"] == sum(v for k, v in counts.items() if k != "open_rows")
+    assert [
+        (e["row"], e["disposition"], e["also_answers"]) for e in plan["entries"]
+    ] == [
+        ("PRRT_b", "actionable", ["PRRT_c"]),
+        (review, "not-actionable", []),
+        (COMMENT_URL, "already-addressed", []),
+        (f"{review}#1", "actionable", []),
+        (f"{review}#2", "not-actionable", []),
+    ]
+    summary = [
+        (
+            r["channel"],
+            r.get("thread_id") or r.get("about"),
+            r.get("resolve"),
+            [(line["row"], line["answer"], line["with"]) for line in r["lines"]],
+        )
+        for r in plan["responses"]
+    ]
+    assert summary == [
+        ("thread", "PRRT_b", True, [("PRRT_b", "fixed", None)]),
+        # A human's thread gets a reply but is left for the reviewer to resolve.
+        ("thread", "PRRT_c", False, [("PRRT_c", "fixed", "PRRT_b")]),
+        ("pr-comment", COMMENT_URL, None, [(COMMENT_URL, "already-addressed", None)]),
+        # Embedded findings answer in one PR comment on their parent, even when
+        # the parent itself (a summary) gets no reply of its own.
+        (
+            "pr-comment",
+            review,
+            None,
+            [(f"{review}#1", "fixed", None), (f"{review}#2", "not-acting", None)],
+        ),
+    ]
+    assert plan["unanswered"] == [
+        {
+            "row": review,
+            "reason": "a not-actionable reviewBody gets no reply",
+        }
+    ]
+    assert plan["responses"][0]["marker"] == "<!-- addressed-pr-issues -->"
+    assert plan["responses"][2]["marker"] == comment_marker(COMMENT_URL)
+
+
+def test_plan_skips_feedback_an_earlier_run_already_answered() -> None:
+    feedback = copy.deepcopy(FEEDBACK)
+    feedback["threads"][1]["comments"]["nodes"].append(
+        {"author": SELF, "createdAt": T2, "body": "Fixed. <!-- addressed-pr-issues -->"}
+    )
+    # The earlier run's PR comment is this skill's own output, not new feedback:
+    # it needs no ledger row, and it marks COMMENT_URL as answered.
+    feedback["issueComments"].append(
+        {
+            "url": "https://x/pull/1#issuecomment-2",
+            "author": SELF,
+            "createdAt": T2,
+            "body": f"Already addressed. {comment_marker(COMMENT_URL)}",
+        }
+    )
+    ledger = filled_ledger(
+        feedback, **{COMMENT_URL: {"disposition": "already-addressed"}}
+    )
+    assert check_ledger(feedback, ledger) == []
+
+    plan = build_plan(feedback, ledger)
+
+    assert_every_open_row_placed_once(ledger, plan)
+    assert [r.get("thread_id") or r.get("about") for r in plan["responses"]] == [
+        "PRRT_c",
+        "https://x/review-1",
+    ]
+    assert plan["unanswered"] == [
+        {"row": "PRRT_b", "reason": "already answered by an earlier run"},
+        {"row": COMMENT_URL, "reason": "already answered by an earlier run"},
+    ]
+
+
+def test_ado_embedded_findings_answer_on_their_parent_thread() -> None:
+    feedback = [
+        {
+            "id": 41,
+            "status": "active",
+            "comments": [{"author": "rev@corp.com", "publishedDate": T1}],
+        }
+    ]
+    ledger = init_ledger(feedback, "me@corp.com")
+    fill(ledger["rows"][0], disposition="not-actionable", embedded_count=1)
+    embedded = {
+        **copy.deepcopy(JUDGMENT_FIELDS),
+        "id": "41#1",
+        "source": "embedded",
+        "author": "rev@corp.com",
+        "author_kind": "human",
+        "round": T1,
+    }
+    ledger["rows"].append(fill(embedded))
+    assert check_ledger(feedback, ledger) == []
+
+    plan = build_plan(feedback, ledger)
+
+    assert_every_open_row_placed_once(ledger, plan)
+    assert [
+        (
+            r["channel"],
+            r["thread_id"],
+            r["resolve"],
+            [line["row"] for line in r["lines"]],
+        )
+        for r in plan["responses"]
+    ] == [("thread", "41", False, ["41", "41#1"])]
+
+
+def test_duplicate_conversation_comment_is_answered_with_its_carrier() -> None:
+    ledger = filled_ledger(
+        **{COMMENT_URL: {"disposition": "duplicate", "related": ["PRRT_b"]}}
+    )
+    assert check_ledger(FEEDBACK, ledger) == []
+
+    plan = build_plan(FEEDBACK, ledger)
+
+    assert_every_open_row_placed_once(ledger, plan)
+    comment = next(r for r in plan["responses"] if r.get("about") == COMMENT_URL)
+    assert comment["lines"] == [
+        {"row": COMMENT_URL, "answer": "fixed", "with": "PRRT_b"}
+    ]
+
+
+def test_reviewer_follow_up_after_an_earlier_reply_reopens_the_thread() -> None:
+    feedback = copy.deepcopy(FEEDBACK)
+    feedback["threads"][2]["comments"]["nodes"] += [
+        {
+            "author": SELF,
+            "createdAt": T2,
+            "body": "Fixed. <!-- addressed-pr-issues -->",
+        },
+        {"author": HUMAN, "createdAt": T2, "body": "Still broken on line 42."},
+    ]
+    ledger = filled_ledger(feedback)
+
+    plan = build_plan(feedback, ledger)
+
+    assert "PRRT_c" in [r.get("thread_id") for r in plan["responses"]]
+    assert all(u["row"] != "PRRT_c" for u in plan["unanswered"])
+
+
+def test_quoted_marker_in_new_feedback_is_not_mistaken_for_an_own_response() -> None:
+    quoted = "https://x/pull/1#issuecomment-3"
+    feedback = copy.deepcopy(FEEDBACK)
+    feedback["issueComments"].append(
+        {
+            "url": quoted,
+            "author": HUMAN,
+            "createdAt": T2,
+            "body": f"> Already addressed. {comment_marker(COMMENT_URL)}\n\nDisagree, please also check X.",
+        }
+    )
+
+    skeleton = init_ledger(feedback, PR_AUTHOR)
+
+    assert quoted in [r["id"] for r in skeleton["rows"]]
+    # The quote also doesn't count as having answered COMMENT_URL.
+    assert build_plan(feedback, filled_ledger(feedback))["unanswered"] == []

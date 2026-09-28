@@ -165,22 +165,31 @@ Fetch failure logs and categorize: test failures, lint/type errors, build errors
 
 ### Present the plan
 
-The plan is rendered from the ledger's **open** rows; resolved rows are history and get no entry. Start with one count line so nothing is silently dropped: "Ledger: N items — A actionable, B already addressed, C not acting on."
+Build the plan from the ledger:
 
-Print the plan as a numbered list **before** the AskUserQuestion. Each open `actionable` row is one entry, grouped under its `mechanism` (rows sharing a mechanism are fixed together as one logical group in Phase 3). Each entry must include:
+```bash
+pr-ledger-check plan <tmpdir>/feedback.json <tmpdir>/ledger.json > <tmpdir>/plan.json
+```
+
+It walks every **open** row once; resolved rows are history and appear nowhere. `entries` has one entry per open row that carries a concern, with `also_answers` listing the open duplicates answered along with it. `responses` is every reply and PR comment Phase 3 will post. `unanswered` lists the open rows that get no response, each with the reason. Every open row lands in exactly one entry and in exactly one response or `unanswered`, so the plan and the replies can't drift apart. Read `plan.json` with `Read`, and look up each row's other fields in the ledger by id.
+
+Start with one count line from `counts`, whose parts add up to `open_rows`: "Ledger: N open items — A actionable, B already addressed, C not acting on, D duplicates answered with them."
+
+Print the plan as a numbered list **before** the AskUserQuestion. Each `actionable` entry is one item, grouped under its `mechanism` (entries sharing a mechanism are fixed together as one logical group in Phase 3). Each item must include:
 
 1. **The reviewer's concern** — the row's `finding`
 2. **Proposed fix** — the row's `proposed_fix`
 3. **Investigation depth** — the row's `depth`
-4. **Resolution policy** — from `author_kind`: resolve for `bot` or `self`, reply-only for `human`
-5. **Also answers** — any open `duplicate` rows that name this row, so the restated threads are replied to and resolved along with it
+4. **Response** — from the row's response in `responses`: reply and resolve (`resolve` true), reply only (a human reviewer's thread), or a PR comment (`channel` `pr-comment`)
+5. **Also answers** — the entry's `also_answers`
 
 Mark rows with a non-null `decision` as **`[DECISION NEEDED]`**, and state its `why`, `options`, and `recommendation`.
 
 Also include:
 - Pre-flight warnings from Phase 1
-- Open `already-addressed` rows, with the evidence from `disposition_reason`, listed separately so the user can verify. Also list any open `duplicate` rows that name this row, same as an actionable row's "Also answers" — a duplicate's substantive row being `already-addressed` rather than `actionable` doesn't make the duplicate thread any less real; it still needs a reply and a resolve in Phase 3.
-- Open `not-actionable` rows under "Not acting on", each with its `disposition_reason`, so a dismissal is visible rather than silent. Inline threads here get a reply in Phase 3 explaining the decision; review bodies and conversation comments do not. Also list any open `duplicate` rows that name this row, for the same reason as above.
+- `already-addressed` entries, with the evidence from `disposition_reason` and their `also_answers`, listed separately so the user can verify.
+- `not-actionable` entries under "Not acting on", each with its `disposition_reason` and `also_answers`, so a dismissal is visible rather than silent.
+- `unanswered` rows under "No reply", each with its reason.
 
 ```
 AskUserQuestion:
@@ -270,30 +279,23 @@ fix(config): add LOGIN_REDIRECT_URL to test settings
 
 Push once after all commits.
 
-### Thread replies and resolution
+### Responses
 
-After push is confirmed, reply to threads. Reply to every open inline thread in the plan: actionable rows, already-addressed rows, "Not acting on" rows, and — regardless of which of those three the substantive row falls under — any "also answers" duplicates listed with it. For each:
+After push is confirmed, post every item in `plan.json`'s `responses`, in order: one message per item, one line per entry in its `lines`. Drop lines for rows the user skipped in the plan, and skip an item whose lines are all dropped. Otherwise post exactly what the list says: it already covers every open row, and already leaves out feedback an earlier run answered.
 
-1. **Idempotency check:** Search the thread's comment history (fetched in Phase 1) for ANY comment containing `<!-- addressed-pr-issues -->`. If found, skip the reply: the marker is what keeps a re-run of this skill from answering the same thread twice.
-2. **Post reply** with the `<!-- addressed-pr-issues -->` marker in the body. Keep replies concise and professional:
-   - Code change: "Fixed — [brief description of what was changed]. <!-- addressed-pr-issues -->"
-   - Duplicate of an actionable row that was fixed: "Fixed together with [link to the other thread] — [brief description]. <!-- addressed-pr-issues -->"
-   - Already addressed (including a duplicate of another already-addressed row): "This was addressed in a previous commit — [cite specific evidence]. <!-- addressed-pr-issues -->"
-   - Outdated/removed: "The code at this location was refactored and this concern no longer applies. <!-- addressed-pr-issues -->"
-   - Not acting on (including a duplicate of another not-actionable row): "Not planning to change this — [the row's `disposition_reason`]. <!-- addressed-pr-issues -->"
-3. **Resolve per policy:**
+Each line's `answer` sets its wording. `with` names the row that carries the concern for a duplicate; link that row's thread or item.
+- `fixed`: "Fixed — [what changed]." With `with`: "Fixed together with [link] — [what changed]."
+- `already-addressed`: "Already addressed — [the evidence in the carrying row's `disposition_reason`]." If the code at that location no longer exists: "The code at this location was refactored and this concern no longer applies."
+- `not-acting`: "Not planning to change this — [the carrying row's `disposition_reason`]."
 
-| Ledger `author_kind` | Action |
-|---|---|
-| `bot` | Reply + resolve |
-| `human` | Reply only — reviewer resolves after verifying |
-| `self` (PR author) | Reply + resolve |
+A `pr-comment` item answers a review body or conversation comment, which has no thread to reply in: link the item named in `about`, and start each line with the finding it answers (the row's `finding`) so it reads on its own. End every message with the item's `marker`: it is how a re-run knows this feedback was answered, and how it tells this skill's own comments apart from new feedback.
 
-The ledger procedure defines how `author_kind` is detected on each platform.
+| `channel` | GitHub | ADO |
+|---|---|---|
+| `thread` | `gh-pr-reply {PR} {comment_id} "{body}"`, adding `--resolve {thread_id}` when `resolve` is true | `ado-api pr reply {PR} {thread_id} "{body}"`, then `ado-api pr resolve {PR} {thread_id}` when `resolve` is true |
+| `pr-comment` | Write the body to `<tmpdir>/response-N.md`, then `gh pr comment {PR} --body-file <tmpdir>/response-N.md` | Not produced: ADO carries all conversation in threads |
 
-**GitHub resolution:** Use `gh-pr-reply {PR} {comment-database-id} "{body}" --resolve {thread-id}` for combined reply+resolve.
-
-**ADO resolution:** Two calls: `ado-api pr reply {PR} {thread-id} "{body}"` then `ado-api pr resolve {PR} {thread-id}`.
+`resolve` is true for an open thread raised by a bot or by the PR author. A human reviewer's thread gets the reply only, so the reviewer can verify the change and resolve it.
 
 **Rate limiting:** 1-second delay between mutative API calls.
 
@@ -305,10 +307,12 @@ Present a structured summary:
 ## Summary
 
 ### Review Comments
-- Resolved (bot threads): N threads [replied & resolved]
+- Resolved (bot or self threads): N threads [replied & resolved]
 - Replied (human threads): M threads [reply posted, awaiting reviewer]
-- Already addressed: K threads [replied]
-- Not acting on: J items [reason from the ledger; inline threads replied with it]
+- PR comments: P [answering review bodies, conversation comments, and their embedded findings]
+- Already addressed: K items [answered with the evidence]
+- Not acting on: J items [answered with the reason from the ledger]
+- No reply: U items [each with its reason from `unanswered`]
 - Convergences: none, or each mechanism and whether it was patched individually by choice
 
 ### Merge Conflicts
@@ -332,7 +336,7 @@ Present a structured summary:
 - **GitHub**: `gh-pr-threads`, `gh-pr-reply` (with `--resolve`), `git-platform` — run `--help` on each for usage
 - **ADO**: `ado-api pr` (show/list/create/update/threads/reply/resolve/resolve-pattern), `ado-api logs read` (CI failure logs), `ado-api work-item` — run `ado-api --help` for usage
 - **Platform**: `git-platform` — prints `github`, `ado`, or `unknown`
-- **Ledger**: `pr-ledger-check init <feedback.json> <ledger.json> --pr-author <login>` writes the Phase 2 skeleton ledger; `pr-ledger-check check <feedback.json> <ledger.json>` verifies the filled-in ledger against the feedback and the ledger procedure's rules
+- **Ledger**: `pr-ledger-check init <feedback.json> <ledger.json> --pr-author <login>` writes the Phase 2 skeleton ledger; `pr-ledger-check check <feedback.json> <ledger.json>` verifies the filled-in ledger against the feedback and the ledger procedure's rules; `pr-ledger-check plan <feedback.json> <ledger.json>` lists the plan entries and every Phase 3 response
 
 ### Error handling
 

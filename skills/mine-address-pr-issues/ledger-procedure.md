@@ -49,7 +49,7 @@ Fields marked *init* are already filled in on every input row; copy them from th
 
 **Outdated threads (GitHub `isOutdated: true`)** are still triaged, never skipped. Read the current code at that location. If the location was deleted, the row is `already-addressed` with reason "location removed — likely addressed by refactoring". If the concern is addressed, the row is `already-addressed` only with a cited line. Otherwise treat it as any open row.
 
-**Non-thread items**: a review body or conversation comment that is discussion, approval, acknowledgement, or a summary of inline threads is `not-actionable` or `duplicate` with the reason; its embedded findings get their own rows.
+**Non-thread items**: a review body or conversation comment that is discussion, approval, acknowledgement, or a summary of inline threads is `not-actionable` with the reason; its embedded findings get their own rows. Mark one `duplicate` only when it raises a specific concern as a finding in its own right that another row also raises: a duplicate gets a reply ("fixed together with …"), a `not-actionable` review body or conversation comment does not.
 
 ### `mechanism`
 
