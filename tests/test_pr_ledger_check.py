@@ -388,3 +388,22 @@ def test_incomplete_convergence_record_skips_membership_checks() -> None:
     assert problems == [
         "convergence 0 ('cursor sync'): missing summary, open_questions"
     ]
+
+
+def test_duplicate_naming_a_missing_row_is_reported() -> None:
+    rows = complete_rows()
+    rows[2] = row("PRRT_c", "docs tone", disposition="duplicate", related=["PRRT_zzz"])
+
+    problems = check_ledger(GITHUB_FEEDBACK, {"rows": rows, "convergences": []})
+
+    assert any("PRRT_zzz" in p for p in problems)
+
+
+def test_single_member_convergence_is_rejected() -> None:
+    rows = complete_rows()
+    rows[0] = row("PRRT_a", "lonely", status="resolved")
+    ledger = {"rows": rows, "convergences": [convergence("lonely", ["PRRT_a"])]}
+
+    problems = check_ledger(GITHUB_FEEDBACK, ledger)
+
+    assert any("at least 2" in p for p in problems)
