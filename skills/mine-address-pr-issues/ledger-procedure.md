@@ -1,6 +1,6 @@
 # Ledger Procedure
 
-The ledger subagent reads this file and follows it exactly. The dispatching prompt supplies the platform, the path to the saved review feedback JSON, and the output path. Everything about *how* to build the ledger lives here, so it reaches the subagent verbatim instead of through the orchestrator's summary of it.
+The ledger subagent reads this file and follows it exactly. The dispatching prompt supplies the platform, the path to the saved review feedback JSON, and the path to the skeleton ledger. Everything about *how* to build the ledger lives here, so it reaches the subagent verbatim instead of through the orchestrator's summary of it.
 
 You are triaging every piece of review feedback on a pull request. Your output is a **ledger**: one row per input item, nothing skipped, nothing merged away. A finding you dismiss still gets a row that says why. Then, from the rows, you identify **convergences**: distinct findings that keep landing on the same mechanism.
 
@@ -11,25 +11,29 @@ Review rounds often treat each finding as an isolated local patch. When findings
 ## Input
 
 - **GitHub** (`gh-pr-threads --json --all`): `.threads` (inline review threads, resolved and open), `.reviewComments` (review bodies), and `.issueComments` (PR conversation comments). Resolved threads are earlier review rounds: what was raised, and from the replies, what was done about it. `.excluded` lists known-noise messages the tool already left out; they need no rows.
-- **ADO** (`ado-api pr threads --json --all`): a list of threads, each with `id`, `status` (`active` is open), and `comments`. ADO carries general conversation in the same list.
+- **ADO** (`ado-api pr threads --json --all`): a list of threads, each with `id`, `status` (`active` or `pending` is open), and `comments`. ADO carries general conversation in the same list.
 
 The repository is the current working directory, checked out at the PR's head. Read the code a finding refers to whenever you need it to fill a field accurately.
 
 ## Step 1: one row per input item
 
-Every thread, every review body, and every conversation comment gets exactly one row, keyed by its `id` (threads, including every ADO thread) or `url` (GitHub review bodies and conversation comments). If a review body or conversation comment contains findings that appear nowhere else (for example CodeRabbit "Outside diff range" or "Duplicate comments" sections, or failed pre-merge checks in a walkthrough), give each such embedded finding its own additional row with id `<url>#<n>` (on ADO, where general conversation is a thread, `<thread id>#<n>`). The parent item keeps its own row too, and records how many embedded rows you gave it in `embedded_count` — you already read the full text to find them, so this is a declaration, not a re-count. GitHub inline threads never get embedded rows: a thread is one finding, and `embedded_count` is `null` there.
+The ledger file already exists. `pr-ledger-check init` wrote one row for every thread, review body, and conversation comment, keyed by its `id` (threads, including every ADO thread) or `url` (GitHub review bodies and conversation comments), with every field that can be read straight off the feedback already filled in: `id`, `source`, `author`, `author_kind`, `round`, and on threads `status`. Do not change those fields, remove rows, or run `init` again: `pr-ledger-check check` re-derives them from the feedback and reports any difference. Your job is the fields that need judgment.
+
+If a review body or conversation comment contains findings that appear nowhere else (for example CodeRabbit "Outside diff range" or "Duplicate comments" sections, or failed pre-merge checks in a walkthrough), add a row for each such embedded finding with id `<url>#<n>` (on ADO, where general conversation is a thread, `<thread id>#<n>`), `source` `embedded`, and the parent's `author`, `author_kind`, and `round` copied over. The parent keeps its own row too, and records how many embedded rows you gave it in `embedded_count` — you already read the full text to find them, so this is a declaration, not a re-count. GitHub inline threads never get embedded rows: a thread is one finding, and `embedded_count` is `null` there.
 
 ### Fields
 
+Fields marked *init* are already filled in on every input row; copy them from the parent onto embedded rows as described above.
+
 | Field | What to write |
 |---|---|
-| `id` | Thread `id`, or the item's `url` (`<url>#<n>` for embedded findings) |
-| `source` | `thread`, `reviewBody`, `issueComment`, or `embedded` |
-| `embedded_count` | Only on a review body, conversation comment, or ADO thread (never a GitHub inline thread — `null` there): how many embedded findings you gave their own row under this item. `0` if none. `pr-ledger-check` verifies this against the `<id>#<n>` rows that actually exist, so an embedded finding you noticed but forgot to give a row fails the check regardless of which reviewer tool's markup it came from. |
-| `round` | Timestamp of the item's first comment (`createdAt`, or `publishedDate` on ADO) |
-| `status` | `open` (unresolved or active thread, or an item nobody has answered) or `resolved` (closed before this run: history, not something this run does) |
-| `author` | Login of whoever raised it |
-| `author_kind` | `bot`, `human`, or `self` (the PR author). On GitHub, `author.__typename == "Bot"` or a `[bot]` login suffix means bot; on ADO, a `[bot]` suffix or a service-account `uniqueName` (no `@` domain, or the project's build service identity). |
+| `id` | *init.* Thread `id`, or the item's `url` (`<url>#<n>` for embedded findings) |
+| `source` | *init.* `thread`, `reviewBody`, `issueComment`, or `embedded` |
+| `embedded_count` | Only on a review body, conversation comment, or ADO thread (`null` on a GitHub inline thread; `init` leaves it `null` everywhere, so you must declare it): how many embedded findings you gave their own row under this item. `0` if none. `pr-ledger-check` verifies this against the `<id>#<n>` rows that actually exist, so an embedded finding you noticed but forgot to give a row fails the check regardless of which reviewer tool's markup it came from. |
+| `round` | *init.* Timestamp of the item's first comment |
+| `status` | *init* on threads (an unresolved GitHub thread or an `active`/`pending` ADO thread is `open`, anything else `resolved`). On a review body, conversation comment, or embedded row, you decide: `open` if nobody has answered it, `resolved` if it was already dealt with before this run (history, not something this run does). |
+| `author` | *init.* Login of whoever raised it |
+| `author_kind` | *init.* `bot`, `human`, or `self` (the PR author) |
 | `location` | Path plus the function, symbol, or doc section it concerns, with the line when known. `null` for items with no code location. |
 | `finding` | One sentence: what the reviewer says is wrong |
 | `mechanism` | See below. The most important field. |
@@ -39,9 +43,9 @@ Every thread, every review body, and every conversation comment gets exactly one
 | `outcome` | Resolved rows only: `fixed`, `declined`, `deferred` (with the issue number), or `withdrawn` (the reviewer retracted it). `null` for open rows. |
 | `disposition` | `actionable`, `already-addressed`, `not-actionable`, or `duplicate`. `duplicate` means another row raises the same concern (see `related`); `not-actionable` means no row will act on it (declined, withdrawn, disagreed, or not a finding). |
 | `disposition_reason` | Required for every row. For `already-addressed`, cite the specific file and line that addresses it; without that citation the row is `actionable`. For `duplicate`, name the row that carries the concern. For `not-actionable`, the specific reason. |
-| `related` | Ids of other rows raising the **same concern** (the same problem restated, possibly by another reviewer or after an earlier dismissal). `[]` if none. Among open rows that list each other here, exactly one keeps a substantive disposition (`actionable`, `already-addressed`, or `not-actionable`); the rest are `duplicate`, so the concern is planned and fixed once. |
+| `related` | Ids of other rows raising the **same concern** (the same problem restated, possibly by another reviewer or after an earlier dismissal). `[]` if none. Among open rows that list each other here, exactly one keeps a substantive disposition (`actionable`, `already-addressed`, or `not-actionable`); the rest are `duplicate`, so the concern is planned and fixed once. An open `duplicate` must name that open substantive row directly: the plan lists a duplicate only under the row it names. If the concern's only other row is resolved history, the open row is substantive itself. |
 | `depth` | Open `actionable` rows only: `light` (rename, docstring, formatting, typo), `medium` (logic change, bug fix, error handling), or `deep` (architectural concern, design pattern, API contract). `null` otherwise. |
-| `decision` | Open `actionable` rows only, when the fix needs the user's call; otherwise `null`. Needed when the reviewer offers two or more valid approaches, the concern is a design question with no single obvious answer, you disagree with the reviewer (say why), or the requested change conflicts with another row. Write `{"why": "...", "options": ["...", "..."], "recommendation": "..."}`. |
+| `decision` | Open `actionable` rows only, when the fix needs the user's call; otherwise `null`. Needed when the reviewer offers two or more valid approaches, the concern is a design question with no single obvious answer, you disagree with the reviewer (say why), or the requested change conflicts with another row. Write `{"why": "...", "options": ["...", "..."], "recommendation": "..."}` with at least two options; a single option is not a decision. |
 
 **Outdated threads (GitHub `isOutdated: true`)** are still triaged, never skipped. Read the current code at that location. If the location was deleted, the row is `already-addressed` with reason "location removed — likely addressed by refactoring". If the concern is addressed, the row is `already-addressed` only with a cited line. Otherwise treat it as any open row.
 
@@ -93,16 +97,17 @@ For each convergence, record:
 
 ## Output
 
-Write a single JSON file to the output path given in your task:
+Fill in the skeleton ledger in place, keeping its `pr` and `pr_author` keys:
 
 ```json
 {
   "pr": "<title>",
+  "pr_author": "<login>",
   "rows": [ { "id": "...", "source": "...", ... } ],
   "convergences": [ { "mechanism": "...", "members": ["..."], "rounds": 3, "summary": "...", "open_questions": ["..."] } ]
 }
 ```
 
-Then run `pr-ledger-check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. It verifies that every input item has its own row; that every row carries the fields its shape requires (always `mechanism`, `disposition_reason`, `status`, `disposition`, `author_kind`, each with a valid value; `outcome` on resolved rows; `finding`, `root_cause`, `proposed_fix`, `depth` on open `actionable` rows; `related` on `duplicate` rows); that `embedded_count` on a review body, conversation comment, or ADO thread matches the `<id>#<n>` rows that actually exist; and that convergence labels match membership: every row whose `mechanism` equals a convergence's is one of its members and vice versa. A membership mismatch means a label is wrong; fix the label, not just the list.
+Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. Each problem it lists breaks one of the rules in this file: a missing or unknown row, an *init* field that no longer matches the feedback, a field its row's status and disposition require that is missing or invalid (including a `fix_adds` that doesn't start with one of its kinds, or a `decision` with fewer than two options), an `embedded_count` that disagrees with the embedded rows, a `related` id that names no row, an open duplicate that names no open substantive row, a restated concern with more or fewer than one substantive row, or a convergence that is incomplete, has a `rounds` that isn't a positive integer, has fewer than two distinct findings, or whose members don't match the rows carrying its `mechanism`. A membership mismatch means a label is wrong; fix the label, not just the list.
 
 Reply with one line: the ledger path, the row count, and the number of convergences.

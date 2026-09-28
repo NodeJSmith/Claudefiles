@@ -3,158 +3,397 @@
 # requires-python = ">=3.10"
 # dependencies = []
 # ///
-"""Verify a mine-address-pr-issues review ledger against the feedback it was built from.
+"""Build and verify a mine-address-pr-issues review ledger (skills/mine-address-pr-issues/ledger-procedure.md).
 
-The ledger (see skills/mine-address-pr-issues/ledger-procedure.md) must hold one
-row per input item, every row must carry the fields its shape requires, and its
-convergences must agree with the row labels. A finding that silently drops out of
-triage is indistinguishable from one that was never raised, so completeness is
-checked mechanically rather than trusted.
+`init` writes a skeleton ledger: one row per input item, with every field that
+can be read straight off the feedback (id, source, author, author_kind, round,
+and a thread's status) already filled in. The ledger subagent only writes the
+fields that need judgment. `check` re-derives those facts, so a row that went
+missing or a fact the subagent changed is caught, then runs INVARIANTS: one
+function per rule in the procedure, each able to see the whole ledger. A finding
+that silently drops out of triage is indistinguishable from one never raised, so
+none of this is left to the subagent's self-report.
 
-Exit codes: 0 = ledger is complete and consistent, 1 = problems found (listed on
-stdout), 2 = an input file is missing or not valid JSON.
+Exit codes: 0 = ok, 1 = problems found (listed on stdout), 2 = an input file is
+missing or not valid JSON.
 """
 
 import argparse
+import copy
 import json
+import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 MECHANISM_PREVIEW_CHARS = 60  # enough to tell convergences apart in a problem line
 
-# GitHub surfaces whose items are keyed by url and may bundle embedded findings.
-COMMENT_SURFACES = ("reviewComments", "issueComments")
+# GitHub surfaces whose items are keyed by url, with the ledger `source` each maps to.
+COMMENT_SURFACES = (("reviewComments", "reviewBody"), ("issueComments", "issueComment"))
+ADO_OPEN_STATUSES = {"active", "pending"}
+# Build-service and service-principal identities: <app GUID>@<tenant GUID>.
+ADO_SERVICE_IDENTITY_RE = re.compile(r"[0-9a-f-]{36}@[0-9a-f-]{36}", re.IGNORECASE)
+FIX_ADDS_KINDS = (
+    "correction",
+    "guard",
+    "state",
+    "mirrored-field",
+    "special-case",
+    "reset",
+    "timeout-or-retry",
+    "docs-only",
+    "none",
+)
+# `fix_adds` is "<kind>: <what it adds>" (the colon is optional).
+FIX_ADDS_RE = re.compile(rf"({'|'.join(FIX_ADDS_KINDS)}):?\s+\S")
 
 VALID_STATUSES = {"open", "resolved"}
 VALID_DISPOSITIONS = {"actionable", "already-addressed", "not-actionable", "duplicate"}
+SUBSTANTIVE_DISPOSITIONS = VALID_DISPOSITIONS - {"duplicate"}
 VALID_AUTHOR_KINDS = {"bot", "human", "self"}
 VALID_DEPTHS = {"light", "medium", "deep"}
 VALID_OUTCOMES = {"fixed", "declined", "deferred", "withdrawn"}
+
+# Fields the subagent writes. `init` leaves them empty; `embedded_count` starts as
+# null rather than 0 so a parent row nobody looked at fails instead of passing.
+JUDGMENT_FIELDS = {
+    "status": None,
+    "location": None,
+    "finding": None,
+    "mechanism": None,
+    "root_cause": None,
+    "proposed_fix": None,
+    "fix_adds": None,
+    "outcome": None,
+    "disposition": None,
+    "disposition_reason": None,
+    "related": [],
+    "depth": None,
+    "decision": None,
+    "embedded_count": None,
+}
+
+
+@dataclass(frozen=True)
+class InputItem:
+    facts: dict  # derived field -> value; `init` writes these and `check` compares them
+    embeddable: bool  # may carry `<id>#<n>` rows for findings embedded in its text
+
+
+def author_kind(login: str | None, is_bot: bool, pr_author: str) -> str:
+    if is_bot:
+        return "bot"
+    if login is not None and login.lower() == pr_author.lower():
+        return "self"
+    return "human"
+
+
+def github_items(feedback: dict, pr_author: str) -> list[InputItem]:
+    items = []
+    for thread in feedback.get("threads", []):
+        nodes = (thread.get("comments") or {}).get("nodes") or [{}]
+        first = nodes[0]
+        author = first.get("author") or {}
+        login = author.get("login")
+        items.append(
+            InputItem(
+                facts={
+                    "id": str(thread["id"]),
+                    "source": "thread",
+                    "author": login,
+                    "author_kind": author_kind(login, _github_bot(author), pr_author),
+                    "round": first.get("createdAt"),
+                    "status": "resolved" if thread.get("isResolved") else "open",
+                    # A fact, not a default: an inline thread is one finding, so
+                    # it can't declare embedded rows (and can't carry any).
+                    "embedded_count": None,
+                },
+                embeddable=False,
+            )
+        )
+    for surface, source in COMMENT_SURFACES:
+        for comment in feedback.get(surface, []):
+            author = comment.get("author") or {}
+            login = author.get("login")
+            items.append(
+                InputItem(
+                    facts={
+                        "id": comment["url"],
+                        "source": source,
+                        "author": login,
+                        "author_kind": author_kind(login, _github_bot(author), pr_author),
+                        "round": comment.get("createdAt"),
+                    },
+                    embeddable=True,
+                )
+            )
+    return items
+
+
+def _github_bot(author: dict) -> bool:
+    return author.get("__typename") == "Bot" or (author.get("login") or "").endswith("[bot]")
+
+
+def ado_items(threads: list, pr_author: str) -> list[InputItem]:
+    items = []
+    for thread in threads:
+        first = (thread.get("comments") or [{}])[0]
+        name = first.get("author")
+        is_bot = (
+            (name or "").endswith("[bot]")
+            or "@" not in (name or "")  # a service account has no @domain
+            or ADO_SERVICE_IDENTITY_RE.fullmatch(name or "") is not None
+        )
+        items.append(
+            InputItem(
+                facts={
+                    "id": str(thread["id"]),
+                    "source": "thread",
+                    "author": name,
+                    "author_kind": author_kind(name, is_bot, pr_author),
+                    "round": first.get("publishedDate") or thread.get("publishedDate"),
+                    "status": "open" if thread.get("status") in ADO_OPEN_STATUSES else "resolved",
+                },
+                embeddable=True,
+            )
+        )
+    return items
+
+
+def input_items(feedback: dict | list, pr_author: str) -> dict[str, InputItem]:
+    items = ado_items(feedback, pr_author) if isinstance(feedback, list) else github_items(feedback, pr_author)
+    return {item.facts["id"]: item for item in items}
+
+
+def embedded_facts(parent: InputItem) -> dict:
+    return {
+        "source": "embedded",
+        "author": parent.facts["author"],
+        "author_kind": parent.facts["author_kind"],
+        "round": parent.facts["round"],
+    }
+
+
+def init_ledger(feedback: dict | list, pr_author: str) -> dict:
+    title = None if isinstance(feedback, list) else (feedback.get("pr") or {}).get("title")
+    rows = []
+    for item in input_items(feedback, pr_author).values():
+        row = dict(item.facts)
+        for field, empty in JUDGMENT_FIELDS.items():
+            row.setdefault(field, copy.deepcopy(empty))
+        rows.append(row)
+    return {"pr": title, "pr_author": pr_author, "rows": rows, "convergences": []}
 
 
 def _non_empty_str(value: object) -> bool:
     return isinstance(value, str) and value.strip() != ""
 
 
-def _non_empty_list(value: object) -> bool:
-    return isinstance(value, list) and len(value) > 0
+def _non_negative_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
-def _is_resolved(row: dict) -> bool:
-    return row.get("status") == "resolved"
+def _valid_decision(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and _non_empty_str(value.get("why"))
+        and _non_empty_str(value.get("recommendation"))
+        and isinstance(value.get("options"), list)
+        and len(value["options"]) >= 2
+        and all(_non_empty_str(o) for o in value["options"])
+    )
+
+
+def _is_open(row: dict) -> bool:
+    return row.get("status") == "open"
 
 
 def _is_open_actionable(row: dict) -> bool:
-    return row.get("status") == "open" and row.get("disposition") == "actionable"
-
-
-def _is_duplicate(row: dict) -> bool:
-    return row.get("disposition") == "duplicate"
+    return _is_open(row) and row.get("disposition") == "actionable"
 
 
 def _always(_row: dict) -> bool:
     return True
 
 
-# Each field's contract: when a row needs it, and what makes its value valid.
-# This is the one place the ledger's field requirements live — a downstream
-# consumer (plan renderer, worker dispatch, thread resolver) that starts
-# depending on a new field adds one entry here instead of a bespoke check, so
-# the requirement can't drift out of sync with what the field is validated to
-# contain.
+# Per-row field contract: when a row needs the field, and what makes its value
+# valid. Every field a downstream step reads (plan renderer, worker dispatch,
+# thread resolver) has an entry here.
 FIELD_REQUIREMENTS: dict[str, tuple[Callable[[dict], bool], Callable[[object], bool]]] = {
     "status": (_always, lambda v: v in VALID_STATUSES),
     "disposition": (_always, lambda v: v in VALID_DISPOSITIONS),
     "author_kind": (_always, lambda v: v in VALID_AUTHOR_KINDS),
     "mechanism": (_always, _non_empty_str),
     "disposition_reason": (_always, _non_empty_str),
-    "outcome": (_is_resolved, lambda v: v in VALID_OUTCOMES),
+    "related": (_always, lambda v: isinstance(v, list)),
+    "outcome": (lambda r: r.get("status") == "resolved", lambda v: v in VALID_OUTCOMES),
     "finding": (_is_open_actionable, _non_empty_str),
     "root_cause": (_is_open_actionable, _non_empty_str),
     "proposed_fix": (_is_open_actionable, _non_empty_str),
     "depth": (_is_open_actionable, lambda v: v in VALID_DEPTHS),
-    "related": (_is_duplicate, _non_empty_list),
+    "fix_adds": (_always, lambda v: isinstance(v, str) and FIX_ADDS_RE.match(v) is not None),
+    "decision": (lambda r: r.get("decision") is not None, _valid_decision),
 }
 
 
-def _valid_embedded_count(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+@dataclass(frozen=True)
+class Ledger:
+    items: dict[str, InputItem]
+    raw_rows: list
+    by_id: dict[str, dict]  # rows that have an id, keyed by str(id)
+    convergences: list
+
+    def related_ids(self, row: dict) -> list[str]:
+        related = row.get("related")
+        return [str(r) for r in related] if isinstance(related, list) else []
+
+    def expected_facts(self, rid: str) -> dict | None:
+        """The facts a row with this id must carry, or None if no such row may exist."""
+        # Look the id up before splitting on "#": a GitHub comment url has its own
+        # `#issuecomment-…` fragment that is not an embedded-row suffix.
+        if rid in self.items:
+            return self.items[rid].facts
+        parent_id, _, n = rid.rpartition("#")
+        parent = self.items.get(parent_id)
+        if parent is None or not parent.embeddable or not n.isdigit():
+            return None
+        return embedded_facts(parent)
 
 
-def input_items(feedback: dict | list) -> tuple[set[str], set[str]]:
-    """Return (ids every ledger must cover, ids that may carry embedded `<id>#<n>` rows).
+def connected_groups(ids: Iterable[str], edges: Iterable[tuple[str, str]]) -> dict[str, frozenset]:
+    """Map each id to the set of ids reachable from it through (undirected) edges."""
+    parent = {i: i for i in ids}
 
-    GitHub: threads by id, review bodies and conversation comments by url; only the
-    url-keyed items can bundle several findings, so only they take embedded rows.
-    ADO (a bare list of threads): every thread by id, and any thread may be
-    general conversation carrying embedded findings.
-    """
-    if isinstance(feedback, list):
-        ids = {str(t["id"]) for t in feedback}
-        return ids, ids
-    urls = {c["url"] for s in COMMENT_SURFACES for c in feedback.get(s, [])}
-    return {str(t["id"]) for t in feedback.get("threads", [])} | urls, urls
+    def root(i: str) -> str:
+        while parent[i] != i:
+            i = parent[i]
+        return i
+
+    for a, b in edges:
+        if a in parent and b in parent:
+            parent[root(a)] = root(b)
+    groups: dict[str, set] = {}
+    for i in parent:
+        groups.setdefault(root(i), set()).add(i)
+    return {i: frozenset(groups[root(i)]) for i in parent}
 
 
-def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
-    """Return a list of human-readable problems; empty means the ledger passes."""
-    problems: list[str] = []
-    rows = ledger.get("rows", [])
-    problems += [
-        f"row {n} has no id" for n, r in enumerate(rows) if r.get("id") is None
+def restatement_groups(ledger: Ledger, ids: Iterable[str]) -> dict[str, frozenset]:
+    """Group rows that list each other in `related`: one concern, restated."""
+    ids = set(ids)
+    edges = [
+        (rid, target)
+        for rid in ids
+        for target in ledger.related_ids(ledger.by_id[rid])
     ]
-    rows = [r for r in rows if r.get("id") is not None]
-    row_ids = [str(r["id"]) for r in rows]
-    by_id = {str(r["id"]): r for r in rows}
+    return connected_groups(ids, edges)
 
-    dupes = sorted({i for i in row_ids if row_ids.count(i) > 1})
-    problems += [f"duplicate row id: {i}" for i in dupes]
 
-    expected, embeddable = input_items(feedback)
-    problems += [f"input item has no row: {i}" for i in sorted(expected - set(by_id))]
+def rows_have_unique_ids(ledger: Ledger) -> list[str]:
+    problems = [f"row {n} has no id" for n, r in enumerate(ledger.raw_rows) if r.get("id") is None]
+    ids = [str(r["id"]) for r in ledger.raw_rows if r.get("id") is not None]
+    return problems + [f"duplicate row id: {i}" for i in sorted({i for i in ids if ids.count(i) > 1})]
 
-    for rid, row in by_id.items():
-        # Check `rid in expected` first: GitHub urls already contain a `#fragment`, so a
-        # url-keyed item's own row would otherwise be mistaken for an embedded row.
-        if rid not in expected and rid.rsplit("#", 1)[0] not in embeddable:
+
+def every_input_item_has_a_row(ledger: Ledger) -> list[str]:
+    return [f"input item has no row: {i}" for i in sorted(ledger.items.keys() - ledger.by_id.keys())]
+
+
+def derived_fields_match_the_feedback(ledger: Ledger) -> list[str]:
+    problems = []
+    for rid, row in ledger.by_id.items():
+        expected = ledger.expected_facts(rid)
+        if expected is None:
             problems.append(
-                f"row {rid} is neither an input item nor an embedded row of a review body, conversation comment, or ADO thread"
+                f"row {rid} is neither an input item nor an embedded row (<id>#<n>) of a review body, conversation comment, or ADO thread"
             )
+            continue
+        problems += [
+            f"row {rid} has {field} {row.get(field)!r} but the feedback says {value!r}"
+            for field, value in expected.items()
+            if field != "id" and row.get(field) != value
+        ]
+    return problems
 
-        for field, (needed, valid) in FIELD_REQUIREMENTS.items():
-            if needed(row) and not valid(row.get(field)):
-                problems.append(f"row {rid} has invalid {field}: {row.get(field)!r}")
 
-        # Embedded-finding coverage is self-reported: the ledger subagent read the
-        # full text and knows how many findings it split into their own rows, so it
-        # declares `embedded_count` on the parent row. The check is then purely
-        # mechanical — do that many `<rid>#<n>` rows actually exist — with no regex
-        # trying to recognize every reviewer tool's markup for "N findings here."
-        if rid in embeddable:
-            count = row.get("embedded_count")
-            if not _valid_embedded_count(count):
-                problems.append(
-                    f"row {rid} has no valid embedded_count (must be a non-negative integer)"
-                )
-            else:
-                actual = sum(
-                    1 for other in row_ids if other.rsplit("#", 1)[0] == rid and other != rid
-                )
-                if actual != count:
-                    problems.append(
-                        f"{rid} declares embedded_count={count} but has {actual} embedded row(s)"
-                    )
+def rows_satisfy_the_field_contract(ledger: Ledger) -> list[str]:
+    return [
+        f"row {rid} has invalid {field}: {row.get(field)!r}"
+        for rid, row in ledger.by_id.items()
+        for field, (needed, valid) in FIELD_REQUIREMENTS.items()
+        if needed(row) and not valid(row.get(field))
+    ]
 
-    for n, conv in enumerate(ledger.get("convergences", [])):
+
+def embedded_counts_match_embedded_rows(ledger: Ledger) -> list[str]:
+    problems = []
+    for rid, item in ledger.items.items():
+        row = ledger.by_id.get(rid)
+        if row is None or not item.embeddable:
+            continue
+        count = row.get("embedded_count")
+        if not _non_negative_int(count):
+            problems.append(f"row {rid} has no valid embedded_count (must be a non-negative integer)")
+            continue
+        actual = sum(1 for other in ledger.by_id if other != rid and other.rpartition("#")[0] == rid)
+        if actual != count:
+            problems.append(f"{rid} declares embedded_count={count} but has {actual} embedded row(s)")
+    return problems
+
+
+def related_ids_exist(ledger: Ledger) -> list[str]:
+    return [
+        f"row {rid} lists related row {target}, which does not exist"
+        for rid, row in ledger.by_id.items()
+        for target in ledger.related_ids(row)
+        if target not in ledger.by_id
+    ]
+
+
+def open_duplicates_name_an_open_substantive_row(ledger: Ledger) -> list[str]:
+    # The plan lists an open duplicate only under the open substantive row it
+    # names, so a duplicate naming anything else is never replied to.
+    problems = []
+    for rid, row in ledger.by_id.items():
+        if not (_is_open(row) and row.get("disposition") == "duplicate"):
+            continue
+        targets = [ledger.by_id.get(t) for t in ledger.related_ids(row)]
+        if not any(
+            t is not None and _is_open(t) and t.get("disposition") in SUBSTANTIVE_DISPOSITIONS
+            for t in targets
+        ):
+            problems.append(
+                f"open duplicate row {rid} names no open actionable, already-addressed, or not-actionable row in related"
+            )
+    return problems
+
+
+def restated_concerns_have_one_substantive_row(ledger: Ledger) -> list[str]:
+    open_ids = [rid for rid, row in ledger.by_id.items() if _is_open(row)]
+    problems = []
+    for group in sorted({g for g in restatement_groups(ledger, open_ids).values() if len(g) > 1}, key=sorted):
+        substantive = [
+            rid for rid in group if ledger.by_id[rid].get("disposition") in SUBSTANTIVE_DISPOSITIONS
+        ]
+        if len(substantive) != 1:
+            problems.append(
+                f"open rows {', '.join(sorted(group))} restate one concern but {len(substantive)} keep a substantive disposition (exactly one must; the rest are duplicate)"
+            )
+    return problems
+
+
+def convergences_are_well_formed(ledger: Ledger) -> list[str]:
+    problems = []
+    groups = restatement_groups(ledger, ledger.by_id)
+    for n, conv in enumerate(ledger.convergences):
         mechanism = conv.get("mechanism")
         members_raw = conv.get("members", [])
-        members = {str(m) for m in members_raw}
         label = f"convergence {n} ({str(mechanism)[:MECHANISM_PREVIEW_CHARS]!r})"
 
         missing = [
-            field_name
-            for field_name, value in (
+            name
+            for name, value in (
                 ("mechanism", mechanism),
                 ("members", members_raw),
                 ("summary", conv.get("summary")),
@@ -165,22 +404,59 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
         if missing:
             problems.append(f"{label}: missing {', '.join(missing)}")
             continue
+        rounds = conv.get("rounds")
+        if not (_non_negative_int(rounds) and rounds >= 1):
+            problems.append(f"{label}: invalid rounds: {rounds!r} (must be a positive integer)")
 
+        members = {str(m) for m in members_raw}
+        present = members & ledger.by_id.keys()
+        problems += [f"{label}: member {m} is not a row" for m in sorted(members - present)]
         problems += [
-            f"{label}: member {m} is not a row" for m in sorted(members - set(by_id))
-        ]
-        present = members & set(by_id)
-        problems += [
-            f"{label}: member {m} is labelled {by_id[m].get('mechanism')!r}"
+            f"{label}: member {m} is labelled {ledger.by_id[m].get('mechanism')!r}"
             for m in sorted(present)
-            if by_id[m].get("mechanism") != mechanism
+            if ledger.by_id[m].get("mechanism") != mechanism
         ]
-        labelled = {rid for rid, r in by_id.items() if r.get("mechanism") == mechanism}
+        labelled = {rid for rid, r in ledger.by_id.items() if r.get("mechanism") == mechanism}
         problems += [
             f"{label}: row {m} carries this mechanism but is not a member"
             for m in sorted(labelled - members)
         ]
+        distinct = len({groups[m] for m in present})
+        if distinct < 2:
+            problems.append(
+                f"{label}: needs at least 2 distinct findings, has {distinct} (rows that list each other in related count as one)"
+            )
     return problems
+
+
+# One function per rule in ledger-procedure.md. Each sees the whole ledger, so a
+# rule that spans rows is written the same way as one about a single row.
+INVARIANTS: tuple[Callable[[Ledger], list[str]], ...] = (
+    rows_have_unique_ids,
+    every_input_item_has_a_row,
+    derived_fields_match_the_feedback,
+    rows_satisfy_the_field_contract,
+    embedded_counts_match_embedded_rows,
+    related_ids_exist,
+    open_duplicates_name_an_open_substantive_row,
+    restated_concerns_have_one_substantive_row,
+    convergences_are_well_formed,
+)
+
+
+def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
+    """Return a list of human-readable problems; empty means the ledger passes."""
+    pr_author = ledger.get("pr_author")
+    if not _non_empty_str(pr_author):
+        return ["ledger has no pr_author; create it with `pr-ledger-check init`"]
+    raw_rows = ledger.get("rows", [])
+    view = Ledger(
+        items=input_items(feedback, pr_author),
+        raw_rows=raw_rows,
+        by_id={str(r["id"]): r for r in raw_rows if r.get("id") is not None},
+        convergences=ledger.get("convergences", []),
+    )
+    return [problem for invariant in INVARIANTS for problem in invariant(view)]
 
 
 def load(path: Path) -> dict | list:
@@ -191,21 +467,13 @@ def load(path: Path) -> dict | list:
         sys.exit(2)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="pr-ledger-check",
-        description="Verify a PR review ledger covers every input item and that its convergences match its row labels.",
-    )
-    parser.add_argument(
-        "feedback",
-        type=Path,
-        help="gh-pr-threads --json --all or ado-api pr threads --json --all output",
-    )
-    parser.add_argument(
-        "ledger", type=Path, help="ledger JSON written by the ledger subagent"
-    )
-    args = parser.parse_args()
+def run_init(args: argparse.Namespace) -> None:
+    ledger = init_ledger(load(args.feedback), args.pr_author)
+    args.ledger.write_text(json.dumps(ledger, indent=2) + "\n")
+    print(f"wrote {len(ledger['rows'])} skeleton rows to {args.ledger}")
 
+
+def run_check(args: argparse.Namespace) -> None:
     feedback, ledger = load(args.feedback), load(args.ledger)
     problems = check_ledger(feedback, ledger)
     if problems:
@@ -213,15 +481,34 @@ def main() -> None:
         print("\n".join(f"  - {p}" for p in problems))
         sys.exit(1)
     rows = ledger.get("rows", [])
-    open_actionable = sum(
-        1
-        for r in rows
-        if r.get("status") == "open" and r.get("disposition") == "actionable"
-    )
+    open_actionable = sum(1 for r in rows if _is_open_actionable(r))
     print(
-        f"ok: {len(input_items(feedback)[0])} input items, {len(rows)} rows, "
-        f"{len(ledger.get('convergences', []))} convergence(s), {open_actionable} open actionable"
+        f"ok: {len(rows)} rows, {len(ledger.get('convergences', []))} convergence(s), "
+        f"{open_actionable} open actionable"
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="pr-ledger-check",
+        description="Build and verify the mine-address-pr-issues review ledger.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    feedback_help = "gh-pr-threads --json --all or ado-api pr threads --json --all output"
+
+    init = sub.add_parser("init", help="Write a skeleton ledger with every derivable field filled in.")
+    init.add_argument("feedback", type=Path, help=feedback_help)
+    init.add_argument("ledger", type=Path, help="where to write the skeleton ledger")
+    init.add_argument("--pr-author", required=True, help="PR author's login (GitHub) or uniqueName (ADO)")
+    init.set_defaults(run=run_init)
+
+    check = sub.add_parser("check", help="Verify a filled-in ledger against the feedback.")
+    check.add_argument("feedback", type=Path, help=feedback_help)
+    check.add_argument("ledger", type=Path, help="ledger JSON filled in by the ledger subagent")
+    check.set_defaults(run=run_check)
+
+    args = parser.parse_args()
+    args.run(args)
 
 
 if __name__ == "__main__":

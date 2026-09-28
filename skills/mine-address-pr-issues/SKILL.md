@@ -32,8 +32,10 @@ Output is `github`, `ado`, or `unknown`. If `unknown`, tell the user the platfor
 **GitHub:**
 
 ```bash
-gh pr view {PR} --json number,title,url,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,isDraft,reviewDecision
+gh pr view {PR} --json number,title,url,author,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,isDraft,reviewDecision
 ```
+
+The PR author is `author.login`.
 
 If `mergeable` is `UNKNOWN`, retry up to 3 times with backoff (3s, 6s, 12s) — GitHub computes mergeability asynchronously. If still `UNKNOWN` after retries, warn the user and continue.
 
@@ -43,7 +45,7 @@ If `mergeable` is `UNKNOWN`, retry up to 3 times with backoff (3s, 6s, 12s) — 
 ado-api pr show {PR} --json
 ```
 
-Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
+Returns `pullRequestId`, `title`, `status`, `author` (the PR author's `uniqueName`), `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
 
 ### Review threads & non-thread comments (separate from metadata)
 
@@ -75,7 +77,7 @@ Returns a JSON object with three surfaces — **all three need triage** — plus
 ado-api pr threads {PR} --json --all > <tmpdir>/feedback.json
 ```
 
-Returns a list of threads, each with `id`, `status` (`active` is open), and `comments` (`id`, `author`, `content`, `publishedDate`). ADO carries general conversation in the same list, so it has no separate `.reviewComments`/`.issueComments` split, and no `isOutdated` concept.
+Returns a list of threads, each with `id`, `status` (`active` or `pending` is open), and `comments` (`id`, `author`, `content`, `publishedDate`). ADO carries general conversation in the same list, so it has no separate `.reviewComments`/`.issueComments` split, and no `isOutdated` concept.
 
 ### CI status
 
@@ -105,21 +107,27 @@ Review comments are triaged into a **ledger**: one row per piece of feedback, re
 
 If the feedback holds no threads, review bodies, or conversation comments, skip the ledger and the convergence gate; the plan then covers only merge conflicts and CI.
 
-Dispatch the ledger to a **`deep-worker` subagent**. It runs at the deep tier whatever model the main session uses, because the triage and convergence judgment is the part of this skill that most needs it:
+First write the skeleton: one row per input item, with every field that can be read off the feedback (ids, sources, authors, author kinds, rounds, thread status) already filled in, so the subagent spends its judgment only where judgment is needed:
+
+```bash
+pr-ledger-check init <tmpdir>/feedback.json <tmpdir>/ledger.json --pr-author <PR author from Phase 1>
+```
+
+Then dispatch the rest of the ledger to a **`deep-worker` subagent**. It runs at the deep tier whatever model the main session uses, because the triage and convergence judgment is the part of this skill that most needs it:
 
 > Build the review-feedback ledger for PR #{N} ({platform}). Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-address-pr-issues/ledger-procedure.md` and follow it exactly.
 >
 > - Review feedback: `<tmpdir>/feedback.json`
 > - The repository is the current working directory, at the PR's head. Read code as needed; do not modify files or run git commands that change state.
-> - Write the ledger to: `<tmpdir>/ledger.json`
+> - Skeleton ledger to fill in place: `<tmpdir>/ledger.json`
 
 Then verify it mechanically:
 
 ```bash
-pr-ledger-check <tmpdir>/feedback.json <tmpdir>/ledger.json
+pr-ledger-check check <tmpdir>/feedback.json <tmpdir>/ledger.json
 ```
 
-Exit 0 means every input item has a row and the convergences match their labels. On exit 1, dispatch `deep-worker` again with the check's output and the instruction to fix `<tmpdir>/ledger.json` per the same procedure until `pr-ledger-check` passes. After two failed fix rounds, show the remaining problems to the user and stop: an incomplete ledger means some feedback would go unaddressed without anyone knowing.
+Exit 0 means every input item has a row, the derived fields still match the feedback, and every rule in the ledger procedure holds. On exit 1, dispatch `deep-worker` again with the check's output and the instruction to fix `<tmpdir>/ledger.json` per the same procedure until `pr-ledger-check` passes. After two failed fix rounds, show the remaining problems to the user and stop: an incomplete ledger means some feedback would go unaddressed without anyone knowing.
 
 Read the ledger with `Read`; it is the source for everything below.
 
@@ -324,7 +332,7 @@ Present a structured summary:
 - **GitHub**: `gh-pr-threads`, `gh-pr-reply` (with `--resolve`), `git-platform` — run `--help` on each for usage
 - **ADO**: `ado-api pr` (show/list/create/update/threads/reply/resolve/resolve-pattern), `ado-api logs read` (CI failure logs), `ado-api work-item` — run `ado-api --help` for usage
 - **Platform**: `git-platform` — prints `github`, `ado`, or `unknown`
-- **Ledger**: `pr-ledger-check <feedback.json> <ledger.json>` — verifies the Phase 2 ledger covers every input item and that its convergences match their row labels
+- **Ledger**: `pr-ledger-check init <feedback.json> <ledger.json> --pr-author <login>` writes the Phase 2 skeleton ledger; `pr-ledger-check check <feedback.json> <ledger.json>` verifies the filled-in ledger against the feedback and the ledger procedure's rules
 
 ### Error handling
 
