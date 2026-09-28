@@ -717,3 +717,32 @@ def test_quoted_marker_in_new_feedback_is_not_mistaken_for_an_own_response() -> 
     assert quoted in [r["id"] for r in skeleton["rows"]]
     # The quote also doesn't count as having answered COMMENT_URL.
     assert build_plan(feedback, filled_ledger(feedback))["unanswered"] == []
+
+
+def test_every_row_needs_a_finding() -> None:
+    # Plan entries and PR-comment lines quote `finding` for every disposition,
+    # not only for actionable rows.
+    ledger = filled_ledger(**{COMMENT_URL: {"disposition": "already-addressed"}})
+    at(ledger, COMMENT_URL)["finding"] = None
+
+    assert check_ledger(FEEDBACK, ledger) == [
+        f"row {COMMENT_URL} has invalid finding: None"
+    ]
+
+
+def test_answered_but_unresolved_bot_thread_still_gets_resolved() -> None:
+    # gh-pr-reply posts the reply before resolving, so a failed resolve leaves
+    # the marker on a thread that is still open.
+    feedback = copy.deepcopy(FEEDBACK)
+    feedback["threads"][1]["comments"]["nodes"].append(
+        {"author": SELF, "createdAt": T2, "body": "Fixed. <!-- addressed-pr-issues -->"}
+    )
+    ledger = filled_ledger(feedback)
+
+    plan = build_plan(feedback, ledger)
+
+    assert_every_open_row_placed_once(ledger, plan)
+    thread = next(r for r in plan["responses"] if r.get("thread_id") == "PRRT_b")
+    assert (thread["reply"], thread["resolve"]) == (False, True)
+    fresh = next(r for r in plan["responses"] if r.get("thread_id") == "PRRT_c")
+    assert (fresh["reply"], fresh["resolve"]) == (True, False)
