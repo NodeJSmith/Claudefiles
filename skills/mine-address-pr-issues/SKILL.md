@@ -171,8 +171,8 @@ Mark rows with a non-null `decision` as **`[DECISION NEEDED]`**, and state its `
 
 Also include:
 - Pre-flight warnings from Phase 1
-- Open `already-addressed` rows, with the evidence from `disposition_reason`, listed separately so the user can verify
-- Open `not-actionable` rows under "Not acting on", each with its `disposition_reason`, so a dismissal is visible rather than silent. Inline threads here get a reply in Phase 3 explaining the decision; review bodies and conversation comments do not.
+- Open `already-addressed` rows, with the evidence from `disposition_reason`, listed separately so the user can verify. Also list any open `duplicate` rows that name this row, same as an actionable row's "Also answers" — a duplicate's substantive row being `already-addressed` rather than `actionable` doesn't make the duplicate thread any less real; it still needs a reply and a resolve in Phase 3.
+- Open `not-actionable` rows under "Not acting on", each with its `disposition_reason`, so a dismissal is visible rather than silent. Inline threads here get a reply in Phase 3 explaining the decision; review bodies and conversation comments do not. Also list any open `duplicate` rows that name this row, for the same reason as above.
 
 ```
 AskUserQuestion:
@@ -264,15 +264,15 @@ Push once after all commits.
 
 ### Thread replies and resolution
 
-After push is confirmed, reply to threads. Reply to every open inline thread in the plan: addressed rows, their "also answers" duplicates, already-addressed rows, and "Not acting on" rows. For each:
+After push is confirmed, reply to threads. Reply to every open inline thread in the plan: actionable rows, already-addressed rows, "Not acting on" rows, and — regardless of which of those three the substantive row falls under — any "also answers" duplicates listed with it. For each:
 
 1. **Idempotency check:** Search the thread's comment history (fetched in Phase 1) for ANY comment containing `<!-- addressed-pr-issues -->`. If found, skip the reply: the marker is what keeps a re-run of this skill from answering the same thread twice.
 2. **Post reply** with the `<!-- addressed-pr-issues -->` marker in the body. Keep replies concise and professional:
    - Code change: "Fixed — [brief description of what was changed]. <!-- addressed-pr-issues -->"
-   - Duplicate of a fixed row: "Fixed together with [link to the other thread] — [brief description]. <!-- addressed-pr-issues -->"
-   - Already addressed: "This was addressed in a previous commit — [cite specific evidence]. <!-- addressed-pr-issues -->"
+   - Duplicate of an actionable row that was fixed: "Fixed together with [link to the other thread] — [brief description]. <!-- addressed-pr-issues -->"
+   - Already addressed (including a duplicate of another already-addressed row): "This was addressed in a previous commit — [cite specific evidence]. <!-- addressed-pr-issues -->"
    - Outdated/removed: "The code at this location was refactored and this concern no longer applies. <!-- addressed-pr-issues -->"
-   - Not acting on: "Not planning to change this — [the row's `disposition_reason`]. <!-- addressed-pr-issues -->"
+   - Not acting on (including a duplicate of another not-actionable row): "Not planning to change this — [the row's `disposition_reason`]. <!-- addressed-pr-issues -->"
 3. **Resolve per policy:**
 
 | Ledger `author_kind` | Action |
