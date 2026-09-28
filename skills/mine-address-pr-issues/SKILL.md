@@ -32,8 +32,10 @@ Output is `github`, `ado`, or `unknown`. If `unknown`, tell the user the platfor
 **GitHub:**
 
 ```bash
-gh pr view {PR} --json number,title,url,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,isDraft,reviewDecision
+gh pr view {PR} --json number,title,url,author,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,isDraft,reviewDecision
 ```
+
+The PR author is `author.login`.
 
 If `mergeable` is `UNKNOWN`, retry up to 3 times with backoff (3s, 6s, 12s) — GitHub computes mergeability asynchronously. If still `UNKNOWN` after retries, warn the user and continue.
 
@@ -43,33 +45,39 @@ If `mergeable` is `UNKNOWN`, retry up to 3 times with backoff (3s, 6s, 12s) — 
 ado-api pr show {PR} --json
 ```
 
-Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
+Returns `pullRequestId`, `title`, `status`, `author` (the PR author's `uniqueName`), `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
 
 ### Review threads & non-thread comments (separate from metadata)
 
-`gh pr view --json` does not return review threads (inline comments from reviewers or Copilot), so PR metadata alone can't tell you whether review comments exist. Run the fetching command below.
+`gh pr view --json` does not return review threads (inline comments from reviewers or Copilot), so PR metadata alone can't tell you whether review comments exist. Run the fetching command below, saving its output for the Phase 2 ledger in a temp directory:
+
+```bash
+get-skill-tmpdir mine-address-pr
+```
+
+Use the printed path as `<tmpdir>` for the rest of the run.
 
 **GitHub:**
 
 ```bash
-gh-pr-threads {PR} --json --all
+gh-pr-threads {PR} --json --all > <tmpdir>/feedback.json
 ```
 
-Returns a JSON object with three surfaces — **all three need triage**:
+Returns a JSON object with three surfaces — **all three need triage** — plus `.excluded`:
 
 - `.threads` — inline review threads (resolvable). Each has `id` (`PRRT_…`), `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, and `comments` (with `databaseId`, `body`, `author.login`, `author.__typename`).
-- `.reviewComments` — review-summary bodies carrying findings that are **not** inline threads. CodeRabbit posts substantial findings here ("Outside diff range comments", "Duplicate comments", "Nitpick comments") when it can't anchor to the diff. **Not resolvable** — no `PRRT_` id; reply with a normal PR comment. Each has `author`, `state`, `url`, `body`.
-- `.issueComments` — PR conversation comments (human comments, bot chat replies). Machine-generated status noise (walkthroughs, build reports) is already filtered out. **Not resolvable.** Each has `author`, `databaseId`, `url`, `body`.
+- `.reviewComments` — every non-empty review body. Some carry findings that are **not** inline threads: CodeRabbit posts substantial findings here ("Outside diff range comments", "Duplicate comments", "Nitpick comments") when it can't anchor to the diff. **Not resolvable** — no `PRRT_` id; reply with a normal PR comment. Each has `author`, `state`, `url`, `body`.
+- `.issueComments` — PR conversation comments (human comments, bot replies, and CodeRabbit's walkthrough, whose pre-merge checks can report failures). **Not resolvable.** Each has `author`, `databaseId`, `url`, `body`.
 
-Do NOT skip `.reviewComments` — it is the surface most often missed, and CodeRabbit routinely puts Major findings there.
+`.excluded` lists the known-noise messages the tool left out (Codecov reports, Codex status tables, review triggers), each with its reason. Resolved threads are kept on purpose: they are the earlier review rounds the Phase 2 ledger compares new findings against.
 
 **ADO:**
 
 ```bash
-ado-api pr threads {PR} --json --all
+ado-api pr threads {PR} --json --all > <tmpdir>/feedback.json
 ```
 
-Returns all threads as JSON. Threads with `threadContext` are inline comments; threads without are general conversation. ADO has no `isOutdated` concept. ADO carries general comments in the same thread list, so it has no separate `.reviewComments`/`.issueComments` split.
+Returns a list of threads, each with `id`, `status` (`active` or `pending` is open), and `comments` (`id`, `author`, `content`, `publishedDate`). ADO carries general conversation in the same list, so it has no separate `.reviewComments`/`.issueComments` split, and no `isOutdated` concept.
 
 ### CI status
 
@@ -91,38 +99,57 @@ Check and display as informational warnings (NOT blockers):
 
 ## Phase 2: Triage & Plan
 
-Categorize all issues into three groups: **review comments**, **merge conflicts**, **CI failures**.
+Triage covers three groups: **review comments**, **merge conflicts**, **CI failures**.
 
-### Review comments
+### Review comments: build the ledger
 
-**Exclude resolved threads:** GitHub `isResolved: true`, ADO `status != "active"`.
+Review comments are triaged into a **ledger**: one row per piece of feedback, resolved history included, each with the same fields (mechanism, root cause, proposed fix, what the fix adds, disposition). Laying every finding side by side is what reveals a **convergence**: distinct findings, often across review rounds, that keep landing on the same mechanism. That pattern means the mechanism may be wrong rather than under-patched, and no single finding shows it.
 
-**Triage outdated threads (GitHub only):** For each thread with `isOutdated: true`:
-1. Read the comment body to understand the concern
-2. Read the current code at that location
-3. If the location was entirely deleted: auto-categorize as "location removed — likely addressed by refactoring"
-4. If the concern is addressed: categorize as "already addressed" ONLY if you can cite the specific line that addresses it
-5. Otherwise: categorize as "needs manual review"
+If the feedback holds no threads, review bodies, or conversation comments, skip the ledger and the convergence gate; the plan then covers only merge conflicts and CI.
 
-Do NOT blanket-exclude outdated threads. Do NOT confidently dismiss concerns without citing evidence.
+First write the skeleton: one row per input item, with every field that can be read off the feedback (ids, sources, authors, author kinds, rounds, thread status) already filled in, so the subagent spends its judgment only where judgment is needed:
 
-**General comment assessment:** For non-inline comments, determine if actionable vs. discussion/approval/acknowledgment. Include only actionable, unaddressed comments.
+```bash
+pr-ledger-check init <tmpdir>/feedback.json <tmpdir>/ledger.json --pr-author <PR author from Phase 1>
+```
 
-**Already-addressed detection:** For each unresolved thread, read the current code at the referenced location and compare against what the reviewer requested. If already present, categorize as "already addressed."
+Then dispatch the rest of the ledger to a **`deep-worker` subagent**. It runs at the deep tier whatever model the main session uses, because the triage and convergence judgment is the part of this skill that most needs it:
 
-### Assign investigation depth
+> Build the review-feedback ledger for PR #{N} ({platform}). Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-address-pr-issues/ledger-procedure.md` and follow it exactly.
+>
+> - Review feedback: `<tmpdir>/feedback.json`
+> - The repository is the current working directory, at the PR's head. Read code as needed; do not modify files or run git commands that change state.
+> - Skeleton ledger to fill in place: `<tmpdir>/ledger.json`
 
-For each issue, assign a depth based on the comment's nature:
+Then verify it mechanically:
 
-| Comment type | Depth | Description |
-|---|---|---|
-| Rename, docstring, formatting, typo | `light` | Skip call-site investigation |
-| Logic change, bug fix, error handling | `medium` | Read call sites, understand usage |
-| Architectural concern, design pattern, API contract | `deep` | Read all callers, tests, adjacent modules |
+```bash
+pr-ledger-check check <tmpdir>/feedback.json <tmpdir>/ledger.json
+```
 
-### Group logically
+Exit 0 means every input item has a row, the derived fields still match the feedback, and every rule in the ledger procedure holds. On exit 1, dispatch `deep-worker` again with the check's output and the instruction to fix `<tmpdir>/ledger.json` per the same procedure until `pr-ledger-check` passes. After two failed fix rounds, show the remaining problems to the user and stop: an incomplete ledger means some feedback would go unaddressed without anyone knowing.
 
-Group related comments for efficient execution — e.g., all error-handling comments together, all comments on a single feature together.
+Read the ledger with `Read`; it is the source for everything below.
+
+### Convergence gate
+
+If the ledger has any `convergences`, stop here, **before** planning or fixing anything else, merge conflicts and CI failures included. A structural problem can make other fixes moot or conflict with them, and a redesign can change what the conflicting or failing code even is, so it is discussed first.
+
+For each convergence, print: its `mechanism`; its members, one line each with the finding, round, and `outcome` or open status; its `summary`; and its `open_questions` as a list. The open questions are for the user's re-evaluation; do not answer them or propose a redesign here.
+
+```
+AskUserQuestion:
+  question: "Review feedback on PR #{N} keeps converging on {mechanism(s)}. Findings like these often mean the mechanism should be re-evaluated rather than patched again. How do you want to proceed?"
+  header: "Converging"
+  multiSelect: false
+  options:
+    - label: "Stop and discuss (Recommended)"
+      description: "Make no fixes or replies; talk through whether the mechanism should change first"
+    - label: "Patch individually"
+      description: "Continue to the plan and address the converging findings one by one, like any other finding"
+```
+
+If "Stop and discuss": end the skill here with no code changes, commits, or thread replies. The ledger at `<tmpdir>/ledger.json` is the reference for that discussion; a later run of this skill builds a fresh one. If "Patch individually": continue, and note in the Phase 4 summary that the convergence was patched individually by choice.
 
 ### Merge conflicts
 
@@ -138,24 +165,31 @@ Fetch failure logs and categorize: test failures, lint/type errors, build errors
 
 ### Present the plan
 
-Print the plan as a numbered list **before** the AskUserQuestion. Each entry must include:
+Build the plan from the ledger:
 
-1. **The reviewer's concern** — one-sentence summary of what they asked for
-2. **Proposed fix** — concrete description of the code change (name the function, the file, what will change). "Fix error handling" is not a plan; "wrap `fetch_user()` in try/except for `ConnectionError` in `auth.py:42`" is.
-3. **Investigation depth** — `light` / `medium` / `deep`
-4. **Resolution policy** — resolve (bot or self-review) or reply-only (human reviewer)
+```bash
+pr-ledger-check plan <tmpdir>/feedback.json <tmpdir>/ledger.json > <tmpdir>/plan.json
+```
 
-Mark items that need a user decision with **`[DECISION NEEDED]`** — these are comments where:
-- The reviewer suggests two or more valid approaches
-- The concern is about design/architecture with no single obvious answer
-- You disagree with the reviewer's suggestion (state why)
-- The requested change would conflict with another reviewer's comment
+It walks every **open** row once; resolved rows are history and appear nowhere. `entries` has one entry per open row that carries a concern, with `also_answers` listing the open duplicates answered along with it. `responses` is every reply and PR comment Phase 3 will post. `unanswered` lists the open rows that get no response, each with the reason. Every open row lands in exactly one entry and in exactly one response or `unanswered`, so the plan and the replies can't drift apart. Read `plan.json` with `Read`, and look up each row's other fields in the ledger by id.
 
-For `[DECISION NEEDED]` items, state the options and your recommendation.
+Start with one count line from `counts`, whose parts add up to `open_rows`: "Ledger: N open items — A actionable, B already addressed, C not acting on, D duplicates answered with them."
+
+Print the plan as a numbered list **before** the AskUserQuestion. Each `actionable` entry is one item, grouped under its `mechanism` (entries sharing a mechanism are fixed together as one logical group in Phase 3). Each item must include:
+
+1. **The reviewer's concern** — the row's `finding`
+2. **Proposed fix** — the row's `proposed_fix`
+3. **Investigation depth** — the row's `depth`
+4. **Response** — from the row's response in `responses`: reply and resolve (`reply` and `resolve` true), reply only (a human reviewer's thread), resolve only (`reply` false: an earlier run replied but the resolve didn't go through), or a PR comment (`channel` `pr-comment`)
+5. **Also answers** — the entry's `also_answers`
+
+Mark rows with a non-null `decision` as **`[DECISION NEEDED]`**, and state its `why`, `options`, and `recommendation`.
 
 Also include:
 - Pre-flight warnings from Phase 1
-- "Already addressed" items (with evidence) — listed separately so the user can verify
+- `already-addressed` entries, with the evidence from `disposition_reason` and their `also_answers`, listed separately so the user can verify.
+- `not-actionable` entries under "Not acting on", each with its `disposition_reason` and `also_answers`, so a dismissal is visible rather than silent.
+- `unanswered` rows under "No reply", each with its reason.
 
 ```
 AskUserQuestion:
@@ -190,19 +224,13 @@ AskUserQuestion:
 
 ## Phase 3: Execute
 
-### Create temp directory
-
-```bash
-get-skill-tmpdir mine-address-pr
-```
-
 ### Fix each logical group (serial)
 
 For each group from the plan, launch a **`standard-worker` subagent** with:
-- The review comment(s) to address (bodies, file paths, line numbers)
+- The review comment(s) to address (bodies, file paths, line numbers, and the ledger row's `root_cause`)
 - The approved proposed fix from the plan (what the user agreed to)
 - For `[DECISION NEEDED]` items: the resolved decision
-- The investigation depth (`light`, `medium`, or `deep`)
+- The investigation depth (`light`, `medium`, or `deep`): the deepest `depth` among the group's rows, so no row in the group is under-investigated
 - Output path: `<tmpdir>/group-N/result.md`
 
 **Subagent prompt template:**
@@ -251,30 +279,24 @@ fix(config): add LOGIN_REDIRECT_URL to test settings
 
 Push once after all commits.
 
-### Thread replies and resolution
+### Responses
 
-After push is confirmed, reply to threads. For each addressed thread:
+After push is confirmed, act on every item in `plan.json`'s `responses`, in order. Each item says what is still needed: post a message when `reply` is true (one message per item, one line per entry in its `lines`), and resolve the thread when `resolve` is true. The two are separate because they are separate calls: an item with `reply` false and `resolve` true is a thread an earlier run replied to but did not manage to resolve, so resolve it without posting again. Drop lines for rows the user skipped in the plan, and post nothing for an item whose lines are all dropped; resolve it only if `reply` is false, since that resolve finishes a reply an earlier run already posted. Otherwise act exactly on what the list says: it already covers every open row, and already leaves out anything an earlier run finished.
 
-1. **Idempotency check:** Search the thread's comment history (fetched in Phase 1) for ANY comment containing `<!-- addressed-pr-issues -->`. If found, skip the reply.
-2. **Post reply** with the `<!-- addressed-pr-issues -->` marker in the body. Keep replies concise and professional:
-   - Code change: "Fixed — [brief description of what was changed]. <!-- addressed-pr-issues -->"
-   - Already addressed: "This was addressed in a previous commit — [cite specific evidence]. <!-- addressed-pr-issues -->"
-   - Outdated/removed: "The code at this location was refactored and this concern no longer applies. <!-- addressed-pr-issues -->"
-3. **Resolve per policy:**
+Each line's `answer` sets its wording. `with` names the row that carries the concern for a duplicate; link that row's thread or item.
+- `fixed`: "Fixed — [what changed]." With `with`: "Fixed together with [link] — [what changed]."
+- `already-addressed`: "Already addressed — [the evidence in the carrying row's `disposition_reason`]." If the code at that location no longer exists: "The code at this location was refactored and this concern no longer applies."
+- `not-acting`: "Not planning to change this — [the carrying row's `disposition_reason`]."
 
-| Thread author | Action |
-|---|---|
-| Bot | Reply + resolve |
-| Human reviewer | Reply only — reviewer resolves after verifying |
-| PR author (self-review) | Reply + resolve |
+A `pr-comment` item answers a review body or conversation comment, which has no thread to reply in: link the item named in `about`, and start each line with the finding it answers (the row's `finding`) so it reads on its own. End every message with the item's `marker`: it is how a re-run knows this feedback was answered, and how it tells this skill's own comments apart from new feedback.
 
-**Bot detection:**
-- **GitHub:** `author.__typename == "Bot"` is the primary signal. Fall back to `[bot]` suffix check on `author.login` if `__typename` is unavailable.
-- **ADO:** Check for `[bot]` suffix on `author.uniqueName`. Also check if `uniqueName` matches service account patterns (no `@` domain, or matches the project's build service identity).
+| `channel` | GitHub | ADO |
+|---|---|---|
+| `thread`, `reply` true | `gh-pr-reply {PR} {comment_id} "{body}"`, adding `--resolve {thread_id}` when `resolve` is true | `ado-api pr reply {PR} {thread_id} "{body}"`, then `ado-api pr resolve {PR} {thread_id}` when `resolve` is true |
+| `thread`, `reply` false | `gh-pr-resolve-thread {thread_id}` | `ado-api pr resolve {PR} {thread_id}` |
+| `pr-comment` | Write the body to `<tmpdir>/response-N.md`, then `gh pr comment {PR} --body-file <tmpdir>/response-N.md` | Not produced: ADO carries all conversation in threads |
 
-**GitHub resolution:** Use `gh-pr-reply {PR} {comment-database-id} "{body}" --resolve {thread-id}` for combined reply+resolve.
-
-**ADO resolution:** Two calls: `ado-api pr reply {PR} {thread-id} "{body}"` then `ado-api pr resolve {PR} {thread-id}`.
+`resolve` is true for an open thread raised by a bot or by the PR author. A human reviewer's thread gets the reply only, so the reviewer can verify the change and resolve it.
 
 **Rate limiting:** 1-second delay between mutative API calls.
 
@@ -286,10 +308,13 @@ Present a structured summary:
 ## Summary
 
 ### Review Comments
-- Resolved (bot threads): N threads [replied & resolved]
+- Resolved (bot or self threads): N threads [replied & resolved, or resolved only where an earlier run had already replied]
 - Replied (human threads): M threads [reply posted, awaiting reviewer]
-- Already addressed: K threads [replied]
-- Skipped: J threads [reason]
+- PR comments: P [answering review bodies, conversation comments, and their embedded findings]
+- Already addressed: K items [answered with the evidence]
+- Not acting on: J items [answered with the reason from the ledger]
+- No reply: U items [each with its reason from `unanswered`]
+- Convergences: none, or each mechanism and whether it was patched individually by choice
 
 ### Merge Conflicts
 - Resolved: N files — [merge/rebase] origin/<base> into <head>
@@ -312,6 +337,7 @@ Present a structured summary:
 - **GitHub**: `gh-pr-threads`, `gh-pr-reply` (with `--resolve`), `git-platform` — run `--help` on each for usage
 - **ADO**: `ado-api pr` (show/list/create/update/threads/reply/resolve/resolve-pattern), `ado-api logs read` (CI failure logs), `ado-api work-item` — run `ado-api --help` for usage
 - **Platform**: `git-platform` — prints `github`, `ado`, or `unknown`
+- **Ledger**: `pr-ledger-check init <feedback.json> <ledger.json> --pr-author <login>` writes the Phase 2 skeleton ledger; `pr-ledger-check check <feedback.json> <ledger.json>` verifies the filled-in ledger against the feedback and the ledger procedure's rules; `pr-ledger-check plan <feedback.json> <ledger.json>` lists the plan entries and every Phase 3 response
 
 ### Error handling
 

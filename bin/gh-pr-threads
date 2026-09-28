@@ -1,406 +1,471 @@
-#!/usr/bin/env bash
-# List PR review threads with summary
-# Usage: gh-pr-threads [--json] [--all] [-R OWNER/REPO] [pr-number]
-# If no PR number given, auto-detects from current branch
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""List everything on a GitHub PR that may need a response.
 
-set -euo pipefail
+Three surfaces: inline review threads (resolvable), review bodies, and PR
+conversation comments. Every surface is fully paginated, including the comments
+inside each thread. Messages on a known-noise denylist are left out of the
+surfaces but listed under `excluded` with a reason; anything unrecognized is
+kept, because a dropped finding is invisible while an extra item costs one
+triage line.
+"""
 
-# --- Argument parsing ---
-output_json=false
-show_all=false
-pr_number=""
-repo_flag=""
+import argparse
+import json
+import re
+import subprocess
+import sys
+from collections import Counter
+from collections.abc import Callable
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -h | --help)
-      cat << 'EOF'
-Usage: gh-pr-threads [--json] [--all] [-R OWNER/REPO] [pr-number]
+GH_TIMEOUT_SECONDS = 60
+PAGE_SIZE = 100
+THREAD_PREVIEW_CHARS = 150
+REVIEW_PREVIEW_CHARS = 400
 
+REVIEW_COMMENTS_KEY = "reviewComments"
+ISSUE_COMMENTS_KEY = "issueComments"
+
+REVIEW_FIELDS = "author { login __typename } state url body createdAt"
+ISSUE_COMMENT_FIELDS = "databaseId author { login __typename } url body createdAt"
+THREAD_COMMENT_FIELDS = (
+    "id databaseId body author { login __typename } createdAt updatedAt"
+)
+REACTION_FIELDS = "content user { login } createdAt"
+
+FIRST_PAGE_QUERY = f"""
+query($owner: String!, $repo: String!, $pr: Int!, $after: String) {{
+  repository(owner: $owner, name: $repo) {{
+    pullRequest(number: $pr) {{
+      title
+      url
+      reactions(first: {PAGE_SIZE}) {{ pageInfo {{ hasNextPage endCursor }} nodes {{ {REACTION_FIELDS} }} }}
+      reviews(first: {PAGE_SIZE}) {{ pageInfo {{ hasNextPage endCursor }} nodes {{ {REVIEW_FIELDS} }} }}
+      comments(first: {PAGE_SIZE}) {{ pageInfo {{ hasNextPage endCursor }} nodes {{ {ISSUE_COMMENT_FIELDS} }} }}
+      reviewThreads(first: {PAGE_SIZE}, after: $after) {{
+        pageInfo {{ hasNextPage endCursor }}
+        nodes {{
+          id isResolved isOutdated path line startLine diffSide
+          comments(first: {PAGE_SIZE}) {{
+            pageInfo {{ hasNextPage endCursor }}
+            nodes {{ {THREAD_COMMENT_FIELDS} }}
+          }}
+        }}
+      }}
+    }}
+  }}
+}}
+"""
+
+# Filled per call with .format() rather than an f-string: the connection name
+# and its node fields differ between call sites (reviews, comments, reactions).
+PR_CONNECTION_QUERY = """
+query($owner: String!, $repo: String!, $pr: Int!, $after: String!) {{
+  repository(owner: $owner, name: $repo) {{
+    pullRequest(number: $pr) {{
+      {field}(first: {size}, after: $after) {{ pageInfo {{ hasNextPage endCursor }} nodes {{ {fields} }} }}
+    }}
+  }}
+}}
+"""
+
+THREAD_COMMENTS_QUERY = f"""
+query($id: ID!, $after: String!) {{
+  node(id: $id) {{
+    ... on PullRequestReviewThread {{
+      comments(first: {PAGE_SIZE}, after: $after) {{
+        pageInfo {{ hasNextPage endCursor }}
+        nodes {{ {THREAD_COMMENT_FIELDS} }}
+      }}
+    }}
+  }}
+}}
+"""
+
+CODEX_LOGIN = "chatgpt-codex-connector"
+CODERABBIT_LOGIN = "coderabbitai"
+
+# Codex's review body when its findings are all inline threads. Anchored to the
+# whole body, and the About block may not contain another </details>, so a Codex
+# body carrying anything extra (a finding, a second <details>) is not matched.
+CODEX_BOILERPLATE_RE = re.compile(
+    r"\A\s*### 💡 Codex Review\s+"
+    r"Here are some automated review suggestions for this pull request\.\s+"
+    r"\*\*Reviewed commit:\*\* `[0-9a-f]+`\s*"
+    r"<details>\s*<summary>ℹ️ About Codex in GitHub</summary>"
+    r"(?:(?!</details>)[\s\S])*</details>\s*\Z"
+)
+REVIEW_TRIGGER_RE = re.compile(
+    rf"\A\s*@({CODERABBIT_LOGIN}|codex)\s+((full|security)\s+)?review\s*\Z",
+    re.IGNORECASE,
+)
+
+# Known-noise denylist: (reason, predicate on (author login, body)). Each rule
+# matches a stable identity (bot login plus its marker) or an entire body.
+# Deliberately absent: CodeRabbit's walkthrough comment (its pre-merge checks
+# can report failures), CodeRabbit chat replies, and CodeRabbit review bodies
+# (they carry outside-diff/duplicate/nitpick findings that exist nowhere else).
+NOISE_RULES: list[tuple[str, Callable[[str, str], bool]]] = [
+    ("Codecov coverage report", lambda login, body: login.startswith("codecov")),
+    (
+        "Codex review status table",
+        lambda login, body: (
+            login == CODEX_LOGIN
+            and body.lstrip().startswith("<!-- codex-pull-request-review-summary -->")
+        ),
+    ),
+    (
+        "Codex review boilerplate (its findings are inline threads)",
+        lambda login, body: (
+            login == CODEX_LOGIN and CODEX_BOILERPLATE_RE.match(body) is not None
+        ),
+    ),
+    (
+        "ReadTheDocs build preview",
+        lambda login, body: (
+            login == "read-the-docs-community"
+            and body.lstrip().startswith("<!-- readthedocs-")
+        ),
+    ),
+    (
+        "review trigger command",
+        lambda login, body: REVIEW_TRIGGER_RE.match(body) is not None,
+    ),
+    (
+        "CodeRabbit review-command acknowledgement",
+        lambda login, body: (
+            login == CODERABBIT_LOGIN
+            and "<!-- CodeRabbit review command invocation:" in body
+        ),
+    ),
+]
+
+
+def noise_reason(node: dict) -> str | None:
+    login = (node.get("author") or {}).get("login") or ""
+    body = node.get("body") or ""
+    for reason, matches in NOISE_RULES:
+        if matches(login, body):
+            return reason
+    return None
+
+
+def split_noise(nodes: list[dict], surface: str) -> tuple[list[dict], list[dict]]:
+    """Split one surface into (kept, excluded). Empty bodies carry no content and are skipped."""
+    kept, excluded = [], []
+    for node in nodes:
+        if not (node.get("body") or "").strip():
+            continue
+        reason = noise_reason(node)
+        if reason is None:
+            kept.append(node)
+        else:
+            author = (node.get("author") or {}).get("login")
+            excluded.append(
+                {
+                    "surface": surface,
+                    "author": author,
+                    "url": node.get("url"),
+                    "reason": reason,
+                }
+            )
+    return kept, excluded
+
+
+def gh(*args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            timeout=GH_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        sys.exit(f"error: gh {args[0]} timed out after {GH_TIMEOUT_SECONDS}s")
+    if result.returncode != 0:
+        sys.exit(
+            result.stderr.strip() or f"error: gh {args[0]} exited {result.returncode}"
+        )
+    return result.stdout
+
+
+def graphql(query: str, **variables: str | int) -> dict:
+    args = ["api", "graphql", "-f", f"query={query}"]
+    for key, value in variables.items():
+        args += ["-F" if isinstance(value, int) else "-f", f"{key}={value}"]
+    response = json.loads(gh(*args))
+    # gh api graphql does not exit non-zero on GraphQL-level errors.
+    if response.get("errors"):
+        sys.exit(response["errors"][0].get("message", "unknown GraphQL error"))
+    return response["data"]
+
+
+def drain(first_page: dict, fetch_next: Callable[[str], dict]) -> list[dict]:
+    """Follow a connection's cursor to the end, starting from a page already in hand."""
+    nodes = list(first_page["nodes"])
+    page = first_page
+    while page["pageInfo"]["hasNextPage"] and page["pageInfo"]["endCursor"]:
+        page = fetch_next(page["pageInfo"]["endCursor"])
+        nodes += page["nodes"]
+    return nodes
+
+
+def fetch_pr(owner: str, repo: str, pr: int) -> dict:
+    """Fetch the PR with every thread, thread comment, review, and conversation comment."""
+    pr_vars = {"owner": owner, "repo": repo, "pr": pr}
+    first = graphql(FIRST_PAGE_QUERY, **pr_vars)["repository"]["pullRequest"]
+
+    threads = drain(
+        first["reviewThreads"],
+        lambda after: graphql(FIRST_PAGE_QUERY, **pr_vars, after=after)["repository"][
+            "pullRequest"
+        ]["reviewThreads"],
+    )
+    for thread in threads:
+        # tid= binds this thread's id when the lambda is created; a bare
+        # thread["id"] in the body would be looked up at call time instead.
+        thread["comments"] = {
+            "nodes": drain(
+                thread["comments"],
+                lambda after, tid=thread["id"]: graphql(
+                    THREAD_COMMENTS_QUERY, id=tid, after=after
+                )["node"]["comments"],
+            )
+        }
+
+    def connection(field: str, fields: str) -> list[dict]:
+        query = PR_CONNECTION_QUERY.format(field=field, size=PAGE_SIZE, fields=fields)
+        return drain(
+            first[field],
+            lambda after: graphql(query, **pr_vars, after=after)["repository"][
+                "pullRequest"
+            ][field],
+        )
+
+    return {
+        "title": first["title"],
+        "url": first["url"],
+        "reactions": connection("reactions", REACTION_FIELDS),
+        "threads": threads,
+        "reviews": connection("reviews", REVIEW_FIELDS),
+        "comments": connection("comments", ISSUE_COMMENT_FIELDS),
+    }
+
+
+def build_report(pr: dict, show_all: bool) -> dict:
+    review_comments, excluded_review_comments = split_noise(
+        pr["reviews"], REVIEW_COMMENTS_KEY
+    )
+    issue_comments, excluded_issue_comments = split_noise(
+        pr["comments"], ISSUE_COMMENTS_KEY
+    )
+
+    # Each reviewer's latest verdict, so "reviewed, no findings" differs from "not reviewed yet".
+    # Built from the UNFILTERED reviews on purpose: a denylisted body (Codex
+    # boilerplate) is still proof that the reviewer ran.
+    latest: dict[str, dict] = {}
+    for review in sorted(pr["reviews"], key=lambda r: r["createdAt"]):
+        author = (review.get("author") or {}).get("login")
+        latest[author] = {
+            "author": author,
+            "state": review["state"],
+            "createdAt": review["createdAt"],
+            "url": review["url"],
+        }
+
+    threads = pr["threads"]
+    resolved = sum(1 for thread in threads if thread["isResolved"])
+    return {
+        "pr": {"title": pr["title"], "url": pr["url"]},
+        "threads": threads
+        if show_all
+        else [thread for thread in threads if not thread["isResolved"]],
+        # Counted over ALL threads regardless of --all, so an empty .threads in
+        # unresolved-only mode can be told apart from "findings exist but got resolved".
+        "threadCounts": {
+            "total": len(threads),
+            "resolved": resolved,
+            "unresolved": len(threads) - resolved,
+        },
+        "reactions": [
+            {
+                "user": (r.get("user") or {}).get("login"),
+                "reaction": r["content"],
+                "createdAt": r["createdAt"],
+            }
+            for r in pr["reactions"]
+        ],
+        "reviews": sorted(latest.values(), key=lambda r: r["author"] or ""),
+        REVIEW_COMMENTS_KEY: review_comments,
+        ISSUE_COMMENTS_KEY: issue_comments,
+        "excluded": excluded_review_comments + excluded_issue_comments,
+    }
+
+
+EMOJI = {
+    "THUMBS_UP": "👍",
+    "THUMBS_DOWN": "👎",
+    "LAUGH": "😄",
+    "HOORAY": "🎉",
+    "CONFUSED": "😕",
+    "HEART": "❤️",
+    "ROCKET": "🚀",
+    "EYES": "👀",
+}
+
+
+def one_line(text: str, limit: int) -> str:
+    return (text or "")[:limit].replace("\n", " ")
+
+
+def render_text(report: dict, show_all: bool) -> str:
+    counts = report["threadCounts"]
+    lines = [
+        f"PR: {report['pr']['title']}",
+        f"URL: {report['pr']['url']}",
+        f"Total threads: {counts['total']}, Unresolved: {counts['unresolved']}",
+        "",
+    ]
+    for thread in report["threads"]:
+        first = thread["comments"]["nodes"][0] if thread["comments"]["nodes"] else {}
+        flags = (" [RESOLVED]" if show_all and thread["isResolved"] else "") + (
+            " [OUTDATED]" if thread["isOutdated"] else ""
+        )
+        lines += [
+            f"{thread['path']}:{thread['line'] or '?'} [{thread['id']}]{flags} (comment: {first.get('databaseId')})",
+            f"  @{(first.get('author') or {}).get('login')}: {one_line(first.get('body'), THREAD_PREVIEW_CHARS)}",
+            "",
+        ]
+
+    def section(title: str, rows: list[str]) -> None:
+        if rows:
+            lines.extend([f"── {title} ──", *rows, ""])
+
+    section(
+        "Reactions",
+        [
+            f"  @{r['user']}: {EMOJI.get(r['reaction'], r['reaction'])}"
+            for r in report["reactions"]
+        ],
+    )
+    section(
+        "Review status",
+        [f"  @{review['author']}: {review['state']}" for review in report["reviews"]],
+    )
+
+    def entry(header: str, body: str) -> list[str]:
+        return [header, f"  {one_line(body, REVIEW_PREVIEW_CHARS)}", ""]
+
+    def entries(items: list[dict], header: Callable[[dict], str]) -> list[str]:
+        return [line for item in items for line in entry(header(item), item["body"])]
+
+    section(
+        "Review bodies (not threads)",
+        entries(
+            report["reviewComments"],
+            lambda review: (
+                f"@{(review.get('author') or {}).get('login')} [{review['state']}] {review['url']}"
+            ),
+        ),
+    )
+    section(
+        "Conversation comments (not threads)",
+        entries(
+            report["issueComments"],
+            lambda c: f"@{(c.get('author') or {}).get('login')} {c['url']}",
+        ),
+    )
+    reasons = Counter(e["reason"] for e in report["excluded"])
+    section(
+        f"Excluded as known noise ({len(report['excluded'])})",
+        [f"  {n}x {reason}" for reason, n in reasons.items()],
+    )
+    return "\n".join(lines).rstrip("\n")
+
+
+def resolve_target(
+    repo_flag: str | None, pr_number: int | None
+) -> tuple[str, str, int]:
+    if repo_flag:
+        if "/" not in repo_flag:
+            sys.exit(f"error: --repo value must be OWNER/REPO (got: {repo_flag})")
+        nwo = repo_flag
+    else:
+        nwo = gh(
+            "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"
+        ).strip()
+    if pr_number is None:
+        repo_args = ["-R", nwo] if repo_flag else []
+        pr_number = int(
+            gh("pr", "view", *repo_args, "--json", "number", "-q", ".number").strip()
+        )
+    owner, name = nwo.split("/", 1)
+    return owner, name, pr_number
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="gh-pr-threads",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""\
 List everything on a PR that may need a response: inline review threads, plus
-review-summary findings and conversation comments that aren't inline threads.
+review bodies and conversation comments that aren't inline threads.
 
 The non-thread surfaces matter because CodeRabbit posts substantial findings
 ("Outside diff range comments", "Duplicate comments") in review bodies rather
-than inline threads. Auto-generated walkthrough/summary noise is filtered out.
+than inline threads. Every surface is fully paginated. Only messages on a
+known-noise denylist (Codecov reports, Codex status/boilerplate, ReadTheDocs
+previews, bare "@coderabbitai review" triggers) are left out, and each one is
+listed under .excluded with its reason; anything unrecognized is kept.
 
-Options:
-  -R, --repo OWNER/REPO  Target a specific repository (default: current repo)
-  --json                 Emit a JSON object: {pr, threads, threadCounts, reactions, reviews, reviewComments, issueComments}
-  --all                  Include resolved threads (default: unresolved only)
-  -h, --help             Show this help message and exit
-
-Only inline threads are resolvable (PRRT_ ids). Review-summary findings and
+Only inline threads are resolvable (PRRT_ ids). Review bodies and
 conversation comments are informational — reply with a normal PR comment.
 
-If no PR number given, auto-detects from current branch.
-
+If no PR number given, auto-detects from current branch.""",
+        epilog="""\
 Examples:
   gh-pr-threads                  # unresolved threads on current branch's PR
   gh-pr-threads 42               # unresolved threads on PR #42
   gh-pr-threads --all 42         # all threads (including resolved) on PR #42
   gh-pr-threads --json 42        # raw JSON output for scripting
   gh-pr-threads 42 --json --all  # combine flags in any order
-  gh-pr-threads 134 -R NodeJSmith/otf-api
-EOF
-      exit 0
-      ;;
-    --json) output_json=true ;;
-    --all) show_all=true ;;
-    --repo | -R)
-      if [[ $# -lt 2 ]]; then
-        echo "error: $1 requires a value (OWNER/REPO)" >&2
-        exit 1
-      fi
-      repo_flag="$2"
-      shift
-      ;;
-    --repo=* | -R=*) repo_flag="${1#*=}" ;;
-    *) pr_number="$1" ;;
-  esac
-  shift
-done
-
-if [[ -n "$repo_flag" ]]; then
-  if [[ "$repo_flag" != */* ]]; then
-    echo "error: --repo value must be OWNER/REPO (got: $repo_flag)" >&2
-    exit 1
-  fi
-  export GH_REPO="$repo_flag"
-  repo_owner="${repo_flag%%/*}"
-  repo_name="${repo_flag#*/}"
-else
-  nwo=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
-  repo_owner="${nwo%%/*}"
-  repo_name="${nwo#*/}"
-fi
-
-if [[ -z "$pr_number" ]]; then
-  pr_number=$(gh pr view --json number -q '.number')
-fi
-
-# --- GraphQL query (parameterized for pagination) ---
-build_query() {
-  local after_clause=""
-  if [[ -n "${1:-}" ]]; then
-    after_clause=", after: \"$1\""
-  fi
-  cat << GRAPHQL
-query(\$owner: String!, \$repo: String!, \$pr: Int!) {
-  repository(owner: \$owner, name: \$repo) {
-    pullRequest(number: \$pr) {
-      title
-      url
-      reactions(first: 100) {
-        nodes {
-          content
-          user { login }
-          createdAt
-        }
-      }
-      reviews(first: 100) {
-        pageInfo { hasNextPage endCursor }
-        nodes {
-          author { login __typename }
-          state
-          url
-          body
-          createdAt
-        }
-      }
-      comments(first: 100) {
-        pageInfo { hasNextPage }
-        nodes {
-          databaseId
-          author { login __typename }
-          url
-          body
-          createdAt
-        }
-      }
-      reviewThreads(first: 100${after_clause}) {
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          startLine
-          diffSide
-          comments(first: 50) {
-            nodes {
-              id
-              databaseId
-              body
-              author { login __typename }
-              createdAt
-              updatedAt
-            }
-          }
-        }
-      }
-    }
-  }
-}
-GRAPHQL
-}
-
-# --- Pagination loop: accumulate all thread nodes ---
-all_nodes="[]"
-cursor=""
-meta_response=""
-
-while true; do
-  query=$(build_query "$cursor")
-
-  response=$(gh api graphql \
-    -f query="$query" \
-    -f owner="$repo_owner" \
-    -f repo="$repo_name" \
-    -F pr="$pr_number")
-
-  # Check for GraphQL-level errors (gh api graphql does NOT exit non-zero on these)
-  if printf '%s' "$response" | jq -e '.errors' > /dev/null 2>&1; then
-    printf '%s' "$response" | jq -r '.errors[0].message // "unknown GraphQL error"' >&2
-    exit 1
-  fi
-
-  # Only reviewThreads is paginated; title/url/reviews/comments are identical on
-  # every page, so keep the first page's response as the source for all of them.
-  if [[ -z "$meta_response" ]]; then
-    meta_response="$response"
-  fi
-
-  # Extract page nodes and metadata
-  page_nodes=$(printf '%s' "$response" | jq '.data.repository.pullRequest.reviewThreads.nodes')
-  has_next=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
-  end_cursor=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
-
-  # Accumulate nodes
-  all_nodes=$(printf '%s\n%s' "$all_nodes" "$page_nodes" | jq -s 'add')
-
-  # Stop conditions
-  if [[ "$has_next" != "true" ]]; then
-    break
-  fi
-  # Safety: prevent infinite loop if endCursor is null/empty
-  if [[ -z "$end_cursor" || "$end_cursor" == "null" ]]; then
-    break
-  fi
-  cursor="$end_cursor"
-done
-
-# --- Non-thread surfaces (review summary bodies + PR conversation comments) ---
-# CodeRabbit posts substantial findings ("Outside diff range comments",
-# "Duplicate comments") in review BODIES, not inline threads — and auto-generated
-# walkthrough/summary noise in conversation comments. Filter to signal only.
-pr_data=$(printf '%s' "$meta_response" | jq '.data.repository.pullRequest')
-pr_title=$(printf '%s' "$pr_data" | jq -r '.title')
-pr_url=$(printf '%s' "$pr_data" | jq -r '.url')
-
-# --- Paginate reviews (separate loop — independent cursor from threads) ---
-all_reviews=$(printf '%s' "$pr_data" | jq '.reviews.nodes')
-reviews_has_next=$(printf '%s' "$pr_data" | jq -r '.reviews.pageInfo.hasNextPage')
-
-if [[ "$reviews_has_next" == "true" ]]; then
-  reviews_cursor=$(printf '%s' "$pr_data" | jq -r '.reviews.pageInfo.endCursor')
-  while true; do
-    reviews_query=$(
-      cat << GRAPHQL
-query(\$owner: String!, \$repo: String!, \$pr: Int!) {
-  repository(owner: \$owner, name: \$repo) {
-    pullRequest(number: \$pr) {
-      reviews(first: 100, after: "${reviews_cursor}") {
-        pageInfo { hasNextPage endCursor }
-        nodes {
-          author { login __typename }
-          state
-          url
-          body
-          createdAt
-        }
-      }
-    }
-  }
-}
-GRAPHQL
+  gh-pr-threads 134 -R NodeJSmith/otf-api""",
     )
-    reviews_resp=$(gh api graphql \
-      -f query="$reviews_query" \
-      -f owner="$repo_owner" \
-      -f repo="$repo_name" \
-      -F pr="$pr_number")
+    parser.add_argument(
+        "pr_number",
+        nargs="?",
+        type=int,
+        help="PR number (default: current branch's PR)",
+    )
+    parser.add_argument(
+        "-R",
+        "--repo",
+        help="Target a specific repository as OWNER/REPO (default: current repo)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object: {pr, threads, threadCounts, reactions, reviews, reviewComments, issueComments, excluded}",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Include resolved threads (default: unresolved only)",
+    )
+    args = parser.parse_args()
 
-    if printf '%s' "$reviews_resp" | jq -e '.errors' > /dev/null 2>&1; then
-      printf '%s' "$reviews_resp" | jq -r '.errors[0].message // "unknown GraphQL error"' >&2
-      break
-    fi
+    owner, name, pr_number = resolve_target(args.repo, args.pr_number)
+    report = build_report(fetch_pr(owner, name, pr_number), args.all)
+    print(
+        json.dumps(report, ensure_ascii=False)
+        if args.json
+        else render_text(report, args.all)
+    )
 
-    page_reviews=$(printf '%s' "$reviews_resp" | jq '.data.repository.pullRequest.reviews.nodes')
-    all_reviews=$(printf '%s\n%s' "$all_reviews" "$page_reviews" | jq -s 'add')
 
-    reviews_has_next=$(printf '%s' "$reviews_resp" | jq -r '.data.repository.pullRequest.reviews.pageInfo.hasNextPage')
-    reviews_cursor=$(printf '%s' "$reviews_resp" | jq -r '.data.repository.pullRequest.reviews.pageInfo.endCursor')
-    if [[ "$reviews_has_next" != "true" || -z "$reviews_cursor" || "$reviews_cursor" == "null" ]]; then
-      break
-    fi
-  done
-fi
-
-# Warn if comments were truncated (reviews are now fully paginated)
-if printf '%s' "$pr_data" | jq -e '.comments.pageInfo.hasNextPage' > /dev/null 2>&1; then
-  echo "warning: PR has >100 conversation comments — comments beyond the first 100 are not shown" >&2
-fi
-
-# PR-level reactions (e.g. Codex adds 👀 when mid-review).
-pr_reactions=$(printf '%s' "$pr_data" | jq '
-  [.reactions.nodes[] | {user: .user.login, reaction: .content, createdAt: .createdAt}]')
-
-# Review status: per-reviewer latest state (APPROVED, CHANGES_REQUESTED, etc.)
-# so the caller can distinguish "reviewed with no findings" from "not reviewed yet."
-# Uses all_reviews (paginated) instead of pr_data.reviews.nodes (truncated).
-review_status=$(printf '%s' "$all_reviews" | jq '
-  [.[]
-   | {author: .author.login, state: .state, createdAt: .createdAt, url: .url}]
-  | group_by(.author)
-  | [.[] | sort_by(.createdAt) | last]')
-
-# Review bodies: keep human-authored summaries, or bot bodies carrying out-of-band
-# findings (CodeRabbit posts these in the body, not as inline threads). Drop
-# pointer-boilerplate ("Actionable comments posted: N" whose items are already
-# captured as inline threads) — we scan for finding-section titles independently
-# of that header, since a body can contain both.
-#
-# CodeRabbit has no findings API (REST/GraphQL/SARIF/webhook) — parsing these
-# section titles out of the review-body markdown is the only available path. The
-# titles are CodeRabbit product copy, NOT an API contract, and have drifted before
-# (emoji/wording change across releases). The match below is deliberately tolerant
-# (bare phrases, no emoji, no counts); if CodeRabbit renames a section this is the
-# line to update.
-review_comments=$(printf '%s' "$all_reviews" | jq '
-  [.[]
-   | select((.body | length) > 0)
-   | select((.author.__typename == "User")
-            or (.body | test("Outside diff range|Duplicate comments|Nitpick comments")))]')
-
-# Conversation comments: drop machine-generated status noise. Automated status
-# comments lead with an HTML marker comment (e.g. CodeRabbit's
-# "<!-- This is an auto-generated comment: ... -->", ReadTheDocs' "<!-- readthedocs-... -->");
-# genuine human comments and bot chat replies lead with prose. Keep the latter.
-issue_comments=$(printf '%s' "$pr_data" | jq '
-  [.comments.nodes[]
-   | select((.body | length) > 0)
-   | select(.body | test("^\\s*<!--") | not)]')
-
-# --- Output ---
-if [[ "$output_json" == true ]]; then
-  # JSON mode: object with all three surfaces. Threads stay under .threads
-  # (same node shape as before); non-thread surfaces are not resolvable.
-  if [[ "$show_all" == true ]]; then
-    threads_json=$(printf '%s' "$all_nodes" | jq '.')
-  else
-    threads_json=$(printf '%s' "$all_nodes" | jq '[.[] | select(.isResolved | not)]')
-  fi
-  # Counts over ALL threads regardless of --all/isResolved filtering above, so a
-  # caller reading `.threads == []` in default (unresolved-only) mode can tell
-  # "nobody left inline findings" apart from "findings exist but got resolved" —
-  # the latter is common (CodeRabbit/Codex findings get addressed and marked
-  # resolved) and would otherwise look identical to no review activity at all.
-  thread_counts=$(printf '%s' "$all_nodes" | jq '
-    {total: length,
-     resolved: [.[] | select(.isResolved)] | length,
-     unresolved: [.[] | select(.isResolved | not)] | length}')
-  # --slurpfile (not --argjson) for these four: --argjson puts the whole
-  # blob on argv, which hits Linux's ~128 KiB MAX_ARG_STRLEN per-argument cap
-  # on PRs with many threads (E2BIG). --slurpfile reads via a pipe instead,
-  # wrapping each blob in a one-element array — hence the [0] indexing below.
-  jq -n \
-    --arg title "$pr_title" \
-    --arg url "$pr_url" \
-    --slurpfile threads <(printf '%s' "$threads_json") \
-    --slurpfile threadCounts <(printf '%s' "$thread_counts") \
-    --slurpfile reactions <(printf '%s' "$pr_reactions") \
-    --slurpfile reviews <(printf '%s' "$review_status") \
-    --slurpfile reviewComments <(printf '%s' "$review_comments") \
-    --slurpfile issueComments <(printf '%s' "$issue_comments") \
-    '{pr: {title: $title, url: $url}, threads: $threads[0], threadCounts: $threadCounts[0], reactions: $reactions[0], reviews: $reviews[0], reviewComments: $reviewComments[0], issueComments: $issueComments[0]}'
-else
-  # Human-readable mode (original --jq behavior)
-  if [[ "$show_all" == true ]]; then
-    # Show all threads — no isResolved filter
-    printf '%s' "$all_nodes" | jq -r --arg title "$pr_title" --arg url "$pr_url" '
-      length as $total |
-      [.[] | select(.isResolved | not)] | length as $unresolved |
-      "PR: \($title)",
-      "URL: \($url)",
-      "Total threads: \($total), Unresolved: \($unresolved)",
-      "",
-      (to_entries[] | .value |
-          "\(.path):\(.line // "?") [\(.id)]" +
-          (if .isResolved then " [RESOLVED]" else "" end) +
-          (if .isOutdated then " [OUTDATED]" else "" end) +
-          " (comment: \(.comments.nodes[0].databaseId))",
-          "  @\(.comments.nodes[0].author.login): \(.comments.nodes[0].body[0:150] | gsub("\n"; " "))",
-          ""
-      )
-    '
-  else
-    # Default: unresolved only (matches original behavior)
-    printf '%s' "$all_nodes" | jq -r --arg title "$pr_title" --arg url "$pr_url" '
-      length as $total |
-      [.[] | select(.isResolved | not)] as $unresolved |
-      "PR: \($title)",
-      "URL: \($url)",
-      "Total threads: \($total), Unresolved: \($unresolved | length)",
-      "",
-      ($unresolved[] |
-          "\(.path):\(.line // "?") [\(.id)] (comment: \(.comments.nodes[0].databaseId))" +
-          (if .isOutdated then " [OUTDATED]" else "" end),
-          "  @\(.comments.nodes[0].author.login): \(.comments.nodes[0].body[0:150] | gsub("\n"; " "))",
-          ""
-      )
-    '
-  fi
-
-  # PR-level reactions — Codex adds 👀 mid-review, 👍 on approval.
-  printf '%s' "$pr_reactions" | jq -r '
-    def emoji: {"THUMBS_UP":"👍","THUMBS_DOWN":"👎","LAUGH":"😄","HOORAY":"🎉",
-                "CONFUSED":"😕","HEART":"❤️","ROCKET":"🚀","EYES":"👀"}[.] // .;
-    if length > 0 then
-      "── Reactions ──",
-      (.[] | "  @\(.user): \(.reaction | emoji)"),
-      ""
-    else empty end'
-
-  # Review status — shows each reviewer's latest verdict so the caller can
-  # distinguish "reviewed, no findings" from "review hasn't run yet."
-  printf '%s' "$review_status" | jq -r '
-    if length > 0 then
-      "── Review status ──",
-      (.[] | "  @\(.author): \(.state)"),
-      ""
-    else empty end'
-
-  # Non-thread surfaces — not resolvable (no PRRT_ id; reply with a normal PR
-  # comment, not a thread-resolve). Shown regardless of --all.
-  printf '%s' "$review_comments" | jq -r '
-    if length > 0 then
-      "── Review-summary findings (not threads — out-of-diff / duplicate / nitpick, or human review bodies) ──",
-      (.[] | "@\(.author.login) [\(.state)] \(.url)",
-             "  \(.body[0:400] | gsub("\n"; " "))",
-             ""),
-      ""
-    else empty end'
-  printf '%s' "$issue_comments" | jq -r '
-    if length > 0 then
-      "── Conversation comments (not threads) ──",
-      (.[] | "@\(.author.login) \(.url)",
-             "  \(.body[0:400] | gsub("\n"; " "))",
-             ""),
-      ""
-    else empty end'
-fi
+if __name__ == "__main__":
+    main()

@@ -7,6 +7,11 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - `mine-challenge` synthesis now checks whether distinct findings converge on one mechanism and, when they do, adds a convergence finding asking whether the mechanism should be re-evaluated (including whether it's needed at all) instead of patching each finding individually. Auto-apply no longer fires for fixes that add state or a guard/reset/heuristic guessing at another component's state. Synthesis procedure extracted to `skills/mine-challenge/synthesis-procedure.md` and passed to the subagent by path; new `deep-worker` agent (opus) runs synthesis in place of `standard-worker`. (#597)
+- `mine-address-pr-issues` now triages PR review feedback into a ledger (one row per input item) and stops for user input when convergent findings' root cause is ambiguous, instead of auto-applying a guess. `bin/pr-ledger-check` mechanically verifies ledger completeness and consistency rather than trusting the triaging subagent's self-report. (#598)
+
+### Fixed
+
+- `bin/gh-pr-threads` rewritten from bash to Python: replaces an ad hoc HTML-comment allowlist (which dropped legitimate CodeRabbit walkthrough comments) with an explicit noise denylist that keeps anything unrecognized, and fully paginates every PR review surface. Replies now post correctly on dismissed/excluded inline threads. (#598)
 
 ## 2026-09-26
 
