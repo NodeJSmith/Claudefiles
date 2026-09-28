@@ -6,9 +6,10 @@
 """Verify a mine-address-pr-issues review ledger against the feedback it was built from.
 
 The ledger (see skills/mine-address-pr-issues/ledger-procedure.md) must hold one
-row per input item, and its convergences must agree with the row labels. A
-finding that silently drops out of triage is indistinguishable from one that was
-never raised, so completeness is checked mechanically rather than trusted.
+row per input item, every row must carry the fields its shape requires, and its
+convergences must agree with the row labels. A finding that silently drops out of
+triage is indistinguishable from one that was never raised, so completeness is
+checked mechanically rather than trusted.
 
 Exit codes: 0 = ledger is complete and consistent, 1 = problems found (listed on
 stdout), 2 = an input file is missing or not valid JSON.
@@ -16,8 +17,8 @@ stdout), 2 = an input file is missing or not valid JSON.
 
 import argparse
 import json
-import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 MECHANISM_PREVIEW_CHARS = 60  # enough to tell convergences apart in a problem line
@@ -27,21 +28,58 @@ COMMENT_SURFACES = ("reviewComments", "issueComments")
 
 VALID_STATUSES = {"open", "resolved"}
 VALID_DISPOSITIONS = {"actionable", "already-addressed", "not-actionable", "duplicate"}
-
-# Markers a review body or conversation comment uses to say it bundles several
-# embedded findings: CodeRabbit's collapsed sections carry an explicit count,
-# Codex's per-finding severity badges don't, so each occurrence counts as one.
-EMBEDDED_SECTION_RE = re.compile(
-    r"(?:Outside diff range comments|Duplicate comments|Nitpick comments)\s*\((\d+)\)"
-)
-EMBEDDED_BADGE_RE = re.compile(r"!\[P\d+ Badge\]")
+VALID_AUTHOR_KINDS = {"bot", "human", "self"}
+VALID_DEPTHS = {"light", "medium", "deep"}
+VALID_OUTCOMES = {"fixed", "declined", "deferred", "withdrawn"}
 
 
-def embedded_finding_count(text: str) -> int:
-    """How many embedded findings a review body or conversation comment claims to carry."""
-    return len(EMBEDDED_BADGE_RE.findall(text)) + sum(
-        int(n) for n in EMBEDDED_SECTION_RE.findall(text)
-    )
+def _non_empty_str(value: object) -> bool:
+    return isinstance(value, str) and value.strip() != ""
+
+
+def _non_empty_list(value: object) -> bool:
+    return isinstance(value, list) and len(value) > 0
+
+
+def _is_resolved(row: dict) -> bool:
+    return row.get("status") == "resolved"
+
+
+def _is_open_actionable(row: dict) -> bool:
+    return row.get("status") == "open" and row.get("disposition") == "actionable"
+
+
+def _is_duplicate(row: dict) -> bool:
+    return row.get("disposition") == "duplicate"
+
+
+def _always(_row: dict) -> bool:
+    return True
+
+
+# Each field's contract: when a row needs it, and what makes its value valid.
+# This is the one place the ledger's field requirements live — a downstream
+# consumer (plan renderer, worker dispatch, thread resolver) that starts
+# depending on a new field adds one entry here instead of a bespoke check, so
+# the requirement can't drift out of sync with what the field is validated to
+# contain.
+FIELD_REQUIREMENTS: dict[str, tuple[Callable[[dict], bool], Callable[[object], bool]]] = {
+    "status": (_always, lambda v: v in VALID_STATUSES),
+    "disposition": (_always, lambda v: v in VALID_DISPOSITIONS),
+    "author_kind": (_always, lambda v: v in VALID_AUTHOR_KINDS),
+    "mechanism": (_always, _non_empty_str),
+    "disposition_reason": (_always, _non_empty_str),
+    "outcome": (_is_resolved, lambda v: v in VALID_OUTCOMES),
+    "finding": (_is_open_actionable, _non_empty_str),
+    "root_cause": (_is_open_actionable, _non_empty_str),
+    "proposed_fix": (_is_open_actionable, _non_empty_str),
+    "depth": (_is_open_actionable, lambda v: v in VALID_DEPTHS),
+    "related": (_is_duplicate, _non_empty_list),
+}
+
+
+def _valid_embedded_count(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
 def input_items(feedback: dict | list) -> tuple[set[str], set[str]]:
@@ -57,22 +95,6 @@ def input_items(feedback: dict | list) -> tuple[set[str], set[str]]:
         return ids, ids
     urls = {c["url"] for s in COMMENT_SURFACES for c in feedback.get(s, [])}
     return {str(t["id"]) for t in feedback.get("threads", [])} | urls, urls
-
-
-def expected_embedded_counts(feedback: dict | list) -> dict[str, int]:
-    """Map each embeddable item's id/url to how many embedded findings its text claims."""
-    if isinstance(feedback, list):
-        return {
-            str(t["id"]): embedded_finding_count(
-                "\n".join(c.get("content") or "" for c in t.get("comments", []))
-            )
-            for t in feedback
-        }
-    return {
-        c["url"]: embedded_finding_count(c.get("body") or "")
-        for s in COMMENT_SURFACES
-        for c in feedback.get(s, [])
-    }
 
 
 def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
@@ -92,17 +114,6 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
     expected, embeddable = input_items(feedback)
     problems += [f"input item has no row: {i}" for i in sorted(expected - set(by_id))]
 
-    for key, count in expected_embedded_counts(feedback).items():
-        if count == 0:
-            continue
-        actual = sum(
-            1 for rid in row_ids if rid.rsplit("#", 1)[0] == key and rid != key
-        )
-        if actual < count:
-            problems.append(
-                f"{key} claims {count} embedded finding(s) but only {actual} embedded row(s) exist"
-            )
-
     for rid, row in by_id.items():
         # Check `rid in expected` first: GitHub urls already contain a `#fragment`, so a
         # url-keyed item's own row would otherwise be mistaken for an embedded row.
@@ -110,15 +121,30 @@ def check_ledger(feedback: dict | list, ledger: dict) -> list[str]:
             problems.append(
                 f"row {rid} is neither an input item nor an embedded row of a review body, conversation comment, or ADO thread"
             )
-        for field in ("mechanism", "disposition_reason"):
-            if not str(row.get(field) or "").strip():
-                problems.append(f"row {rid} has no {field}")
-        if row.get("status") not in VALID_STATUSES:
-            problems.append(f"row {rid} has invalid status: {row.get('status')!r}")
-        if row.get("disposition") not in VALID_DISPOSITIONS:
-            problems.append(
-                f"row {rid} has invalid disposition: {row.get('disposition')!r}"
-            )
+
+        for field, (needed, valid) in FIELD_REQUIREMENTS.items():
+            if needed(row) and not valid(row.get(field)):
+                problems.append(f"row {rid} has invalid {field}: {row.get(field)!r}")
+
+        # Embedded-finding coverage is self-reported: the ledger subagent read the
+        # full text and knows how many findings it split into their own rows, so it
+        # declares `embedded_count` on the parent row. The check is then purely
+        # mechanical — do that many `<rid>#<n>` rows actually exist — with no regex
+        # trying to recognize every reviewer tool's markup for "N findings here."
+        if rid in embeddable:
+            count = row.get("embedded_count")
+            if not _valid_embedded_count(count):
+                problems.append(
+                    f"row {rid} has no valid embedded_count (must be a non-negative integer)"
+                )
+            else:
+                actual = sum(
+                    1 for other in row_ids if other.rsplit("#", 1)[0] == rid and other != rid
+                )
+                if actual != count:
+                    problems.append(
+                        f"{rid} declares embedded_count={count} but has {actual} embedded row(s)"
+                    )
 
     for n, conv in enumerate(ledger.get("convergences", [])):
         mechanism = conv.get("mechanism")

@@ -17,7 +17,7 @@ The repository is the current working directory, checked out at the PR's head. R
 
 ## Step 1: one row per input item
 
-Every thread, every review body, and every conversation comment gets exactly one row, keyed by its `id` (threads, including every ADO thread) or `url` (GitHub review bodies and conversation comments). If a review body or conversation comment contains findings that appear nowhere else (for example CodeRabbit "Outside diff range" or "Duplicate comments" sections, or failed pre-merge checks in a walkthrough), give each such embedded finding its own additional row with id `<url>#<n>` (on ADO, where general conversation is a thread, `<thread id>#<n>`). The parent item keeps its own row too. GitHub inline threads never get embedded rows: a thread is one finding.
+Every thread, every review body, and every conversation comment gets exactly one row, keyed by its `id` (threads, including every ADO thread) or `url` (GitHub review bodies and conversation comments). If a review body or conversation comment contains findings that appear nowhere else (for example CodeRabbit "Outside diff range" or "Duplicate comments" sections, or failed pre-merge checks in a walkthrough), give each such embedded finding its own additional row with id `<url>#<n>` (on ADO, where general conversation is a thread, `<thread id>#<n>`). The parent item keeps its own row too, and records how many embedded rows you gave it in `embedded_count` — you already read the full text to find them, so this is a declaration, not a re-count. GitHub inline threads never get embedded rows: a thread is one finding, and `embedded_count` is `null` there.
 
 ### Fields
 
@@ -25,6 +25,7 @@ Every thread, every review body, and every conversation comment gets exactly one
 |---|---|
 | `id` | Thread `id`, or the item's `url` (`<url>#<n>` for embedded findings) |
 | `source` | `thread`, `reviewBody`, `issueComment`, or `embedded` |
+| `embedded_count` | Only on a review body, conversation comment, or ADO thread (never a GitHub inline thread — `null` there): how many embedded findings you gave their own row under this item. `0` if none. `pr-ledger-check` verifies this against the `<id>#<n>` rows that actually exist, so an embedded finding you noticed but forgot to give a row fails the check regardless of which reviewer tool's markup it came from. |
 | `round` | Timestamp of the item's first comment (`createdAt`, or `publishedDate` on ADO) |
 | `status` | `open` (unresolved or active thread, or an item nobody has answered) or `resolved` (closed before this run: history, not something this run does) |
 | `author` | Login of whoever raised it |
@@ -102,6 +103,6 @@ Write a single JSON file to the output path given in your task:
 }
 ```
 
-Then run `pr-ledger-check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. It verifies that every input item has its own row, that every row has a `mechanism` and a `disposition_reason`, and that convergence labels match membership: every row whose `mechanism` equals a convergence's is one of its members and vice versa. A membership mismatch means a label is wrong; fix the label, not just the list.
+Then run `pr-ledger-check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. It verifies that every input item has its own row; that every row carries the fields its shape requires (always `mechanism`, `disposition_reason`, `status`, `disposition`, `author_kind`, each with a valid value; `outcome` on resolved rows; `finding`, `root_cause`, `proposed_fix`, `depth` on open `actionable` rows; `related` on `duplicate` rows); that `embedded_count` on a review body, conversation comment, or ADO thread matches the `<id>#<n>` rows that actually exist; and that convergence labels match membership: every row whose `mechanism` equals a convergence's is one of its members and vice versa. A membership mismatch means a label is wrong; fix the label, not just the list.
 
 Reply with one line: the ledger path, the row count, and the number of convergences.
