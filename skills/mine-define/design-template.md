@@ -149,7 +149,7 @@ Reviewers, challenge runs, and comb passes should treat drift against a terminal
 - Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases) describe observable behaviors — what the system does, not how it's built. Naming the domain is fine ("pytest", "webhook", "CLI flag"); dictating implementation steps is not ("use subprocess.Popen", "add a column to the X table")
 - Architecture, Implementation Preferences, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
 - Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
-- **One fact, one home.** Any enumeration (an inventory table, a file list, a coverage list) lives in exactly one section; every other section cites it by ID or name instead of re-listing it. A count or one-line summary of a fact is a copy of it, so it cites the home too. When several requirements depend on the same mapping, write the mapping once — usually a table — and have the requirements cite it.
+- **One fact, one home** — follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` (One Fact, One Home)
 
 ## Scope Mode Effects
 
@@ -171,9 +171,7 @@ Reviewers, challenge runs, and comb passes should treat drift against a terminal
 - Functional Requirements use canonical identifier format `FR#N` where N is a positive integer (e.g., `FR#1`, `FR#2`). Identifiers must be unique within the document. Each FR describes exactly one testable behavior — do not bundle multiple behaviors into a single entry
 - Acceptance Criteria use canonical identifier format `AC#N` where N is a positive integer (e.g., `AC#1`, `AC#2`). Identifiers must be unique within the document
 - Acceptance Criteria must be verifiable by running a local command (test, lint, grep, script, or hitting a locally-reachable service). Criteria that require CI pipeline status, GitHub Actions job output, post-merge observation, or PR review state are not ACs. Move them to Dependencies and Assumptions
-- AC numbers are global and sequential across the document, never hierarchical (e.g., `AC#3.2`)
-- An AC that verifies several FRs sits under its primary FR and names the others as `(also FR#N)` or `(also FR#N, FR#M)`, but only when it verifies each cited FR's behavior on its own; an FR that no AC fully verifies gets its own AC
-- Checks that apply to the whole test suite ("all tests pass", "lint clean") are not ACs — task Verify and orchestrate already enforce them
+- AC numbering, citation, and whole-suite-check rules follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` (Nested ACs and Numbering Rules)
 - Visual Artifacts section is optional — include it only when visual references exist; omit the section entirely otherwise
 - Key Constraints section is required — include it even if no feature-specific prohibitions emerged (mark it empty with a note rather than omitting)
 - Once `**Status:**` is terminal (`archived` or `abandoned`), treat the document as frozen — never edit body sections (Problem through Open Questions) to reflect later reality. New drift goes in `## Addendum` as a new dated entry, never as a rewrite of earlier sections.

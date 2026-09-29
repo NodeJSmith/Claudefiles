@@ -58,11 +58,9 @@ Drift against a terminal-status design doc is expected, not a finding — review
 
 - Functional Requirements use canonical identifier format `FR#N` (e.g., `FR#1`, `FR#2`). Each describes exactly one testable behavior.
 - Acceptance Criteria use canonical identifier format `AC#N` (e.g., `AC#1`, `AC#2`). Each must be verifiable by running a local command.
-- AC numbers are global and sequential across the document, never hierarchical (e.g., `AC#3.2`)
-- An AC that verifies several FRs sits under its primary FR and names the others as `(also FR#N)` or `(also FR#N, FR#M)`, but only when it verifies each cited FR's behavior on its own; an FR that no AC fully verifies gets its own AC
-- Checks that apply to the whole test suite ("all tests pass", "lint clean") are not ACs — task Verify and orchestrate already enforce them
+- AC numbering, citation, and whole-suite-check rules follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` (Nested ACs and Numbering Rules)
 - When `## Operational Lifecycle` applies, the numbered requirements must cover repeated failure, retry bounds/termination, recovery or deliberately terminal behavior, and visible accounting; isolated one-transition tests are insufficient.
 - The Approach section should reference actual file paths, class names, and patterns found during investigation.
-- **One fact, one home.** Any enumeration (an inventory table, a file list, a coverage list) lives in exactly one section; every other section cites it by ID or name instead of re-listing it. A count or one-line summary of a fact is a copy of it, so it cites the home too. When several requirements depend on the same mapping, write the mapping once — usually a table — and have the requirements cite it.
+- **One fact, one home** — follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` (One Fact, One Home)
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing.
 - Once `**Status:**` is terminal (`archived` or `abandoned`), never edit body sections to reflect later reality — append a dated entry to `## Addendum` instead.

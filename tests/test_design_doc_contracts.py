@@ -19,10 +19,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFINE_TEMPLATE = "skills/mine-define/design-template.md"
 SKETCH_TEMPLATE = "skills/mine-sketch/design-template.md"
+DESIGN_DOC_FORMAT = "skills/mine-define/design-doc-format.md"
 PLAN_VALIDATOR_PROMPT = "skills/mine-plan/validator-prompt.md"
 PLAN_SKILL = "skills/mine-plan/SKILL.md"
 CHALLENGE_FINDINGS_PROTOCOL = "skills/mine-challenge/findings-protocol.md"
 IMPLEMENTATION_REVIEW_PROMPT = "skills/mine-implementation-review/reviewer-prompt.md"
+ORCHESTRATE_TDD = "skills/mine-orchestrate/tdd.md"
 FINE_TOOTHED_COMB_AGENT = "agents/fine-toothed-comb.md"
 COMB_GATE = "skills/mine-comb/comb-gate.md"
 
@@ -123,9 +125,40 @@ def test_define_required_test_types_carries_moved_guidance() -> None:
     assert re.search(r"completion/status accounting", required_types)
 
 
-# AC#3: rules (a)-(c) on AC numbering/citation appear in the section named
-# by the Template change map (mine-define's Section Rules, mine-sketch's
-# Content Rules).
+# Shared format-contract file (challenge Finding 1, ship-time re-evaluation):
+# both templates cite skills/mine-define/design-doc-format.md for the AC
+# numbering/citation rules and "one fact, one home" instead of each carrying
+# its own copy of the rule text — the byte-identical duplication a challenge
+# critic found is the drift risk this replaces.
+def test_design_doc_format_file_exists_with_canonical_rules() -> None:
+    text = _text(DESIGN_DOC_FORMAT)
+    # Collapse whitespace for substring checks below so prose line-wrapping
+    # in the source file doesn't break a check spanning a wrap point.
+    flat = re.sub(r"\s+", " ", text)
+    assert re.search(r"^## FR/AC Definition$", text, re.MULTILINE)
+    assert re.search(r"^## Nested ACs and Numbering Rules$", text, re.MULTILINE)
+    assert re.search(r"^## One Fact, One Home$", text, re.MULTILINE)
+    assert re.search(r"^## Where Tests Are Named$", text, re.MULTILINE)
+    # (a) global sequential numbering, never hierarchical
+    assert re.search(r"global and sequential", flat)
+    assert re.search(r"never hierarchical", flat)
+    # (b) primary FR + (also FR#N) citation, uncovered FR gets its own AC
+    assert re.search(r"\(also FR#N\)", flat)
+    assert re.search(r"no AC fully verifies gets its own AC", flat)
+    # (c) whole-suite checks are not ACs
+    assert re.search(r"all tests pass", flat)
+    assert re.search(r"not ACs", flat)
+    # one fact, one home
+    assert re.search(r"is a copy of it, so it cites the home too", flat)
+    assert re.search(r"several requirements depend on the same mapping", flat)
+    # FR/AC definition anchoring, matching the cfl parser
+    assert re.search(r"first thing in a Markdown list item", flat)
+    assert re.search(r"mid-sentence", flat)
+    assert re.search(r"struck-through", flat)
+
+
+# AC#3/AC#4 (superseded by the ship-time challenge's convergence resolution):
+# both templates cite the shared file instead of restating the rules inline.
 @pytest.mark.parametrize(
     ("relative_path", "section_heading"),
     [
@@ -133,7 +166,7 @@ def test_define_required_test_types_carries_moved_guidance() -> None:
         (SKETCH_TEMPLATE, "## Content Rules"),
     ],
 )
-def test_numbering_and_citation_rules_present(
+def test_numbering_and_citation_rules_cite_shared_file(
     relative_path: str, section_heading: str
 ) -> None:
     text = _text(relative_path)
@@ -145,25 +178,17 @@ def test_numbering_and_citation_rules_present(
         f"{relative_path} has no '{section_heading}' section"
     )
     section = section_match.group(1)
-    # (a) global sequential numbering, never hierarchical
-    assert re.search(r"global and sequential", section)
-    assert re.search(r"never hierarchical", section)
-    # (b) primary FR + (also FR#N) citation, uncovered FR gets its own AC
-    assert re.search(r"\(also FR#N\)", section)
-    assert re.search(r"no AC fully verifies gets its own AC", section)
-    # (c) whole-suite checks are not ACs
-    assert re.search(r"all tests pass", section)
-    assert re.search(r"not ACs", section)
+    assert re.search(r"design-doc-format\.md", section)
+    assert re.search(r"Nested ACs and Numbering Rules", section)
+    # the rule text itself must not be duplicated here anymore
+    assert re.search(r"global and sequential", section) is None
 
 
-# AC#4: the "One fact, one home" rule (with its summary and shared-mapping
-# clauses) appears in each template's Content Rules, and each FR#4
-# placeholder change from the Template change map is applied.
 @pytest.mark.parametrize(
     "relative_path",
     [DEFINE_TEMPLATE, SKETCH_TEMPLATE],
 )
-def test_one_fact_one_home_rule_present(relative_path: str) -> None:
+def test_one_fact_one_home_cites_shared_file(relative_path: str) -> None:
     text = _text(relative_path)
     content_rules_match = re.search(
         r"^## Content Rules$(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
@@ -171,8 +196,42 @@ def test_one_fact_one_home_rule_present(relative_path: str) -> None:
     assert content_rules_match is not None
     content_rules = content_rules_match.group(1)
     assert re.search(r"One fact, one home", content_rules)
-    assert re.search(r"is a copy of it, so it cites the home too", content_rules)
-    assert re.search(r"several requirements depend on the same mapping", content_rules)
+    assert re.search(r"design-doc-format\.md", content_rules)
+    assert re.search(r"One Fact, One Home", content_rules)
+    # the rule's own body text must not be duplicated here anymore
+    assert (
+        re.search(r"is a copy of it, so it cites the home too", content_rules) is None
+    )
+
+
+def test_templates_dont_byte_duplicate_shared_rule_text() -> None:
+    """The specific duplication a challenge critic found: confirm it's gone."""
+    define_text = _text(DEFINE_TEMPLATE)
+    sketch_text = _text(SKETCH_TEMPLATE)
+    assert "global and sequential" not in define_text
+    assert "global and sequential" not in sketch_text
+    assert "is a copy of it, so it cites the home too" not in define_text
+    assert "is a copy of it, so it cites the home too" not in sketch_text
+
+
+def test_validator_cites_shared_fr_ac_definition() -> None:
+    """Challenge Finding 4: the validator's extraction rule must not be looser
+    than the cfl parser's anchored definition."""
+    text = _text(PLAN_VALIDATOR_PROMPT)
+    assert re.search(r"design-doc-format\.md", text)
+    assert re.search(r"FR/AC Definition", text)
+    assert re.search(r"wherever it appears", text) is None
+
+
+def test_tdd_and_reviewer_prompt_agree_on_test_naming_location() -> None:
+    """Challenge Finding 3: tdd.md and reviewer-prompt.md must name the same
+    two places a design names its tests (ACs and Test Strategy), not just one."""
+    tdd_text = _text(ORCHESTRATE_TDD)
+    reviewer_text = _text(IMPLEMENTATION_REVIEW_PROMPT)
+    assert re.search(r"Acceptance Criteria", tdd_text)
+    assert re.search(r"Test Strategy", tdd_text)
+    assert re.search(r"Acceptance Criteria", reviewer_text)
+    assert re.search(r"Test Strategy", reviewer_text)
 
 
 def test_operational_lifecycle_placeholder_reframes_outcomes_as_fr_ac() -> None:
