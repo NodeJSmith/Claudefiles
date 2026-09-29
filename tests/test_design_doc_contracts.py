@@ -19,6 +19,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFINE_TEMPLATE = "skills/mine-define/design-template.md"
 SKETCH_TEMPLATE = "skills/mine-sketch/design-template.md"
+PLAN_VALIDATOR_PROMPT = "skills/mine-plan/validator-prompt.md"
+PLAN_SKILL = "skills/mine-plan/SKILL.md"
 
 
 def _text(relative_path: str) -> str:
@@ -240,3 +242,69 @@ def test_sketch_has_no_standalone_acceptance_criteria_or_edge_cases_or_architect
         assert re.search(rf"^{re.escape(heading)}$", text, re.MULTILINE) is None, (
             f"mine-sketch template unexpectedly has a '{heading}' section"
         )
+
+
+# AC#7: validator-prompt.md Step 1 describes a single extraction pass for FR
+# and AC identifiers with no location field, and no longer contains "the
+# section it appears in".
+def test_validator_step1_describes_single_extraction_pass_with_no_location() -> None:
+    text = _text(PLAN_VALIDATOR_PROMPT)
+    step1_match = re.search(
+        r"^## Step 1: Extract Requirements from design\.md$(.*?)(?=^## )",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert step1_match is not None, (
+        f"{PLAN_VALIDATOR_PROMPT} has no '## Step 1: Extract Requirements from design.md' section"
+    )
+    step1 = step1_match.group(1)
+    assert re.search(r"the section it appears in", step1) is None, (
+        "Step 1 still records 'the section it appears in' — extraction must be a single pass "
+        "with no location field"
+    )
+    assert re.search(r"single pass", step1) is not None
+    assert re.search(r"FR#N", step1) is not None
+    assert re.search(r"AC#N", step1) is not None
+
+
+# AC#8: SKILL.md's extraction list names exactly the Test Strategy
+# subsections FR#2 keeps (Required Test Types, Existing Tests to Adapt,
+# Tests to Remove — no New Test Coverage) and describes ACs as nested under
+# their FRs.
+def test_skill_extraction_list_names_kept_test_strategy_subsections() -> None:
+    text = _text(PLAN_SKILL)
+    extract_match = re.search(
+        r"^### Extract key information$(.*?)(?=^### |\Z)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert extract_match is not None, (
+        f"{PLAN_SKILL} has no '### Extract key information' section"
+    )
+    extract_section = extract_match.group(1)
+    assert re.search(r"New Test Coverage", extract_section) is None, (
+        "SKILL.md's extraction list still names the removed New Test Coverage subsection"
+    )
+    for subsection in (
+        "Required Test Types",
+        "Existing Tests to Adapt",
+        "Tests to Remove",
+    ):
+        assert subsection in extract_section, (
+            f"SKILL.md's extraction list is missing the kept Test Strategy subsection "
+            f"'{subsection}'"
+        )
+
+
+def test_skill_extraction_list_describes_acs_nested_under_frs() -> None:
+    text = _text(PLAN_SKILL)
+    extract_match = re.search(
+        r"^### Extract key information$(.*?)(?=^### |\Z)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert extract_match is not None
+    extract_section = extract_match.group(1)
+    assert re.search(r"nested under", extract_section) is not None, (
+        "SKILL.md's extraction list must describe ACs as nested under their FRs"
+    )

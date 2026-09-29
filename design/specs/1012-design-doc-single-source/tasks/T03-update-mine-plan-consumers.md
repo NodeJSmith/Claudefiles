@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Update mine-plan's validator and extraction wording"
-status: "planned"
+status: "done"
 depends_on: ["T02"]
 implements: ["FR#7", "AC#7", "FR#8", "AC#8"]
 ---
