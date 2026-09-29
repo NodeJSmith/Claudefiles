@@ -16,8 +16,8 @@ import yaml
 import cfl.output as output_module
 from cfl.run import task_id_sort_key
 
-_FR_PATTERN = re.compile(r"\*\*FR#(\d+)\*\*\s+(.*)")
-_AC_PATTERN = re.compile(r"\*\*AC#(\d+)\*\*\s+(.*)")
+_FR_PATTERN = re.compile(r"^\s*-\s+\*\*FR#(\d+)\*\*\s+(.*)")
+_AC_PATTERN = re.compile(r"^\s*-\s+\*\*AC#(\d+)\*\*\s+(.*)")
 _SCOPE_MODE_PATTERN = re.compile(r"\*\*Scope-mode:\*\*\s*(\S+)", re.IGNORECASE)
 _COMPLEXITY_PATTERN = re.compile(
     r"\*\*Complexity:\*\*\s*(trivial|moderate|complex)", re.IGNORECASE

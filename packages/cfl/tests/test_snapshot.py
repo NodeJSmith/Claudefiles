@@ -188,3 +188,60 @@ def test_snapshot_plan_missing_dir_exits(spec_and_run, db_conn, capsys):
 
     with pytest.raises(SystemExit):
         snapshot_plan(db_conn, run_id, "/nonexistent/path")
+
+
+def test_snapshot_nested_format_matches_flat(db_conn, tmp_path, capsys):
+    """Nested FR/AC list items parse the same as the equivalent flat format,
+    while a mid-sentence bolded citation and a struck-through removal do not
+    count."""
+    _, flat_run_id = insert_spec_with_run(db_conn, 2, "flat-feature", REMOTE_URL)
+    flat_dir = tmp_path / "flat"
+    flat_dir.mkdir()
+    (flat_dir / "design.md").write_text(
+        "## Functional Requirements\n"
+        "\n"
+        "- **FR#1** Users can create widgets\n"
+        "- **FR#2** Users can delete widgets\n"
+        "\n"
+        "## Acceptance Criteria\n"
+        "\n"
+        "- **AC#1** Widget list shows all widgets\n"
+        "- **AC#2** Widget can be removed (also FR#2)\n"
+    )
+
+    _, nested_run_id = insert_spec_with_run(db_conn, 3, "nested-feature", REMOTE_URL)
+    nested_dir = tmp_path / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "design.md").write_text(
+        "## Functional Requirements\n"
+        "\n"
+        "- **FR#1** Users can create widgets\n"
+        "  - **AC#1** Widget list shows all widgets\n"
+        "- **FR#2** Users can delete widgets\n"
+        "  - **AC#2** Widget can be removed (also FR#2)\n"
+        "\n"
+        "This depends on **FR#1** being done first.\n"
+        "\n"
+        "- ~~**FR#9**~~ **Removed** — dropped.\n"
+    )
+
+    snapshot_plan(db_conn, flat_run_id, str(flat_dir))
+    _ = capsys.readouterr()
+    snapshot_plan(db_conn, nested_run_id, str(nested_dir))
+    _ = capsys.readouterr()
+
+    flat_row = db_conn.execute(
+        "SELECT * FROM plan_snapshots WHERE run_id=?", (flat_run_id,)
+    ).fetchone()
+    nested_row = db_conn.execute(
+        "SELECT * FROM plan_snapshots WHERE run_id=?", (nested_run_id,)
+    ).fetchone()
+
+    assert nested_row["fr_count"] == flat_row["fr_count"] == 2
+    assert nested_row["ac_count"] == flat_row["ac_count"] == 2
+
+    flat_reqs = json.loads(flat_row["requirements"])
+    nested_reqs = json.loads(nested_row["requirements"])
+
+    assert nested_reqs["frs"] == flat_reqs["frs"]
+    assert nested_reqs["acs"] == flat_reqs["acs"]

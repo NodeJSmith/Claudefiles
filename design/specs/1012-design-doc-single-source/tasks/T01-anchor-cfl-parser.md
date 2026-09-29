@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Anchor cfl FR/AC patterns to list-item start"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#6", "AC#6"]
 ---
