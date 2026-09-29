@@ -21,7 +21,7 @@ None.
 - Do not add a one-line-per-FR digest to templates; FR#4 treats a summary as a copy.
 - A count or one-line summary of a fact elsewhere in a template is itself a restatement — cite the home instead.
 - Never hardcode `~/.claude` in skill/agent text; use `${CLAUDE_CONFIG_DIR:-~/.claude}` (the repo lints this).
-- Commit types: `docs:` for skill, template, and agent changes; `fix:` for the `snapshot.py` anchoring; `test:` for tests.
+- Commit types: `docs:` for skill, template, and agent changes; `fix:` for the `snapshot.py` anchoring. Tests ship in the same commit as the change they pin.
 
 ## Design Doc References
 - ## Functional Requirements — FR#1–FR#12, each with its nested ACs; the ACs are the Verify criteria

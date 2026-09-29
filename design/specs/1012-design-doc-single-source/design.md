@@ -49,7 +49,7 @@ Each FR's own acceptance criteria follow it directly. Contract checks in the ACs
 
 - **FR#1** The `mine-define` template places each requirement's acceptance criteria directly under that FR as indented `**AC#N**` bullets and has no top-level `## Acceptance Criteria` section.
   - **AC#1** The contract tests pass a check that `skills/mine-define/design-template.md` has no `## Acceptance Criteria` heading, that no remaining text names Acceptance Criteria as a section, and that its Functional Requirements placeholder contains an indented `**AC#` bullet.
-- **FR#2** Test Strategy in the `mine-define` template holds only concerns that span requirements: `### Required Test Types`, `### Existing Tests to Adapt`, `### Tests to Remove`. `### New Test Coverage` is removed, because the ACs now name what each behavior's test proves.
+- **FR#2** Test Strategy in the `mine-define` template holds only concerns that span requirements: `### Required Test Types`, `### Existing Tests to Adapt`, `### Tests to Remove`. `### New Test Coverage` is removed, because the ACs now name what each behavior's test proves; its two pieces of guidance that don't belong to any single requirement move into `### Required Test Types`: identify which testing layer (unit, integration, E2E) each behavior needs, and, when Operational Lifecycle is present, cover repeated transient failure, user-action-required or terminal failure, retry bounds, recovery/reset, mixed realistic populations, and completion/status accounting, since isolated single-transition tests do not prove convergence.
   - **AC#2** `grep -n "New Test Coverage" skills/mine-define/design-template.md` returns no matches.
 - **FR#3** Each template states these rules, in the section the Template change map names: (a) AC numbers are global and sequential across the doc, never hierarchical like `AC#3.2`; (b) an AC that verifies several FRs sits under its primary FR and names the others as `(also FR#N)` or `(also FR#N, FR#M)`, but only when it verifies each cited FR's behavior on its own; an FR that no AC fully verifies gets its own AC; (c) checks that apply to the whole suite ("all tests pass", "lint clean") are not ACs, because task Verify and orchestrate already enforce them.
   - **AC#3** The contract tests find rules (a) through (c) in each template, in the section the Template change map names.
@@ -121,7 +121,7 @@ The two templates have different sections, so this table is the one home for whe
 | Content Rules list of requirements sections (FR#1) | Line naming "Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria)" drops Acceptance Criteria; ACs are covered as part of Functional Requirements | n/a, no such list |
 | Numbering and citation rules (FR#3) | `## Section Rules` | `## Content Rules` (sketch has no Section Rules) |
 | One-fact-one-home rule (FR#4) | `## Content Rules` | `## Content Rules` |
-| Test Strategy trim (FR#2) | `### New Test Coverage` deleted | n/a, no Test Strategy |
+| Test Strategy trim (FR#2) | `### New Test Coverage` deleted; its layer and Operational Lifecycle guidance moves to `### Required Test Types` | n/a, no Test Strategy |
 | Operational Lifecycle (FR#4) | The placeholder's closing line ("Express every applicable lifecycle outcome as an FR#N or AC#N below") is rewritten: the section explains the model, and each outcome is an FR with its ACs | Same rewrite of its equivalent closing line |
 | Edge Cases (FR#4) | Placeholder says it holds context only; implied behavior becomes an FR with ACs | n/a, no Edge Cases |
 | File-list home (FR#4) | `### Changed Files` is the home; `## Architecture` and `## Replacement Targets` placeholders say to cite it | `## Changed Files` is the home; `## Approach` placeholder says to cite it |
@@ -147,7 +147,7 @@ Among the formats surveyed in the research brief, OpenSpec nests scenarios under
 ## Implementation Preferences
 
 - Contract tests use the parametrized regex-anchor style of `tests/test_challenge_mandate_contracts.py`.
-- Commits use `docs:` for skill, template, and agent changes, `fix:` for the `snapshot.py` anchoring, and `test:` for tests.
+- Commits use `docs:` for skill, template, and agent changes and `fix:` for the `snapshot.py` anchoring. Tests ship in the same commit as the change they pin.
 
 ## Replacement Targets
 
