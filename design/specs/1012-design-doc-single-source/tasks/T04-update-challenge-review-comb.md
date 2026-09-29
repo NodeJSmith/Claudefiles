@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Align challenge, impl-review, and comb with nested ACs"
-status: "planned"
+status: "done"
 depends_on: ["T03"]
 implements: ["FR#9", "AC#9", "FR#10", "AC#10", "FR#11", "AC#11", "FR#12", "AC#12"]
 ---

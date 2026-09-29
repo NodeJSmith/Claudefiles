@@ -21,6 +21,10 @@ DEFINE_TEMPLATE = "skills/mine-define/design-template.md"
 SKETCH_TEMPLATE = "skills/mine-sketch/design-template.md"
 PLAN_VALIDATOR_PROMPT = "skills/mine-plan/validator-prompt.md"
 PLAN_SKILL = "skills/mine-plan/SKILL.md"
+CHALLENGE_FINDINGS_PROTOCOL = "skills/mine-challenge/findings-protocol.md"
+IMPLEMENTATION_REVIEW_PROMPT = "skills/mine-implementation-review/reviewer-prompt.md"
+FINE_TOOTHED_COMB_AGENT = "agents/fine-toothed-comb.md"
+COMB_GATE = "skills/mine-comb/comb-gate.md"
 
 
 def _text(relative_path: str) -> str:
@@ -307,4 +311,86 @@ def test_skill_extraction_list_describes_acs_nested_under_frs() -> None:
     extract_section = extract_match.group(1)
     assert re.search(r"nested under", extract_section) is not None, (
         "SKILL.md's extraction list must describe ACs as nested under their FRs"
+    )
+
+
+# AC#9: the challenge's Inline Resolution Flow references the design
+# template's Content Rules for design-doc targets.
+def test_challenge_inline_resolution_references_design_template_content_rules() -> None:
+    text = _text(CHALLENGE_FINDINGS_PROTOCOL)
+    flow_match = re.search(
+        r"^## Inline Resolution Flow$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
+    )
+    assert flow_match is not None, (
+        f"{CHALLENGE_FINDINGS_PROTOCOL} has no '## Inline Resolution Flow' section"
+    )
+    flow = flow_match.group(1)
+    assert re.search(r"design-doc", flow) is not None
+    assert re.search(r"Content Rules", flow) is not None
+    assert re.search(r"mine-sketch/design-template\.md", flow) is not None
+    assert re.search(r"mine-define/design-template\.md", flow) is not None
+    assert re.search(r"\*\*Mode:\*\* sketch", flow) is not None
+
+
+# AC#10: the implementation reviewer's missing-test check names the design's
+# ACs as a place tests are named, alongside Test Strategy.
+def test_implementation_review_missing_test_check_names_acs() -> None:
+    text = _text(IMPLEMENTATION_REVIEW_PROMPT)
+    section_match = re.search(
+        r"^### 7\. Test coverage$(.*?)(?=^### |\Z)", text, re.MULTILINE | re.DOTALL
+    )
+    assert section_match is not None, (
+        f"{IMPLEMENTATION_REVIEW_PROMPT} has no '### 7. Test coverage' section"
+    )
+    section = section_match.group(1)
+    assert re.search(r"Acceptance Criteria", section) is not None, (
+        "missing-test check must name the design's Acceptance Criteria as a place tests "
+        "are named"
+    )
+    assert re.search(r"Test Strategy", section) is not None
+
+
+# AC#11: fine-toothed-comb.md instructs consolidating disagreeing
+# restatements into one home rather than syncing the copies.
+def test_fine_toothed_comb_recommends_consolidate_not_sync() -> None:
+    text = _text(FINE_TOOTHED_COMB_AGENT)
+    assert re.search(r"consolidat", text, re.IGNORECASE) is not None
+    assert re.search(r"every place it'?s stated", text) is not None
+    assert (
+        re.search(r"not syncing|instead of restating|not\b.*\bsync", text) is not None
+    )
+
+
+# AC#12: comb-gate.md's intro names exactly the skills under `skills/` that
+# reference comb-gate.md.
+def test_comb_gate_intro_names_exactly_its_referencing_skills() -> None:
+    comb_gate_path = REPO_ROOT / COMB_GATE
+    text = comb_gate_path.read_text()
+
+    intro_match = re.search(
+        r"^# Comb Gate$\n\n(.+?)\n\n", text, re.DOTALL | re.MULTILINE
+    )
+    assert intro_match is not None, f"{COMB_GATE} has no intro paragraph"
+    intro = intro_match.group(1)
+
+    skills_dir = REPO_ROOT / "skills"
+    referencing_skills = set()
+    for path in skills_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.resolve() == comb_gate_path.resolve():
+            continue
+        try:
+            content = path.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+        if "comb-gate.md" in content:
+            referencing_skills.add(path.relative_to(skills_dir).parts[0])
+
+    assert referencing_skills, "expected at least one skill to reference comb-gate.md"
+
+    named_skills = set(re.findall(r"`(mine-[a-z-]+)`", intro))
+    assert named_skills == referencing_skills, (
+        f"comb-gate.md intro names {named_skills} but the skills that actually "
+        f"reference comb-gate.md are {referencing_skills}"
     )

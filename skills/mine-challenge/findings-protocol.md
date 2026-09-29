@@ -183,6 +183,16 @@ and the finding must stay in the main list.
 After synthesis completes and the findings file is written, challenge resolves
 findings in order.
 
+**Design-doc targets.** When the target type is `design-doc` (see
+`skills/mine-challenge/SKILL.md`'s target-type table), every edit below —
+Auto-apply, User-directed, and TENSION alike — follows the Content Rules of
+the template that produced the doc:
+`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` when
+the doc's header has `**Mode:** sketch`, otherwise
+`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-template.md`. In
+particular, keep ACs nested under their FR and don't restate a fact that
+already lives elsewhere in the doc — cite its existing home instead.
+
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
 
