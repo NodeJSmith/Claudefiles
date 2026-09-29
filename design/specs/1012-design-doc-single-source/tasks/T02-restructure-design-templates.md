@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Restructure both design templates to nest ACs under FRs"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#1", "AC#1", "FR#2", "AC#2", "FR#3", "AC#3", "FR#4", "AC#4", "FR#5", "AC#5"]
 ---

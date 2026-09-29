@@ -38,24 +38,21 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 ## Functional Requirements
 
 - **FR#1** [One testable behavior — state what the system must do, not how]
+  - **AC#1** [Measurable, observable outcome — verifiable by running a local command]
 - **FR#2** [Each entry describes exactly one behavior; do not bundle multiple behaviors into a single FR]
+  - **AC#2** [Each entry tests one outcome, verifiable by running a local command. An AC that verifies more than one FR sits under its primary FR and cites the others as (also FR#N)]
+
+[Each AC must be verifiable by an executor running commands in the local repo: tests, linters, grep, scripts, or hitting locally-reachable services. Criteria that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state are process gates, not acceptance criteria. An executor has no way to observe these, so they get marked CONTESTED and stall the pipeline for manual resolution. Describe them in Dependencies and Assumptions instead.]
 
 ## Edge Cases
 
-[Boundary conditions, error states, unusual inputs.]
+[Boundary conditions, error states, unusual inputs — context only. Any implied behavior becomes its own FR#N with ACs above, not prose here.]
 
 ## Operational Lifecycle
 
 [Conditional section — include only when the feature owns resumable work state across invocations, such as a background worker, batch/backfill, scheduler, queue consumer, or persistent retry state around an external provider/subprocess. Define: what proves one run and the overall workload complete; the concrete event that makes each failure eligible again; retry limits/backoff/cost bounds; states requiring explicit user action and how they reset; user-visible progress, exclusion, success, failure, and blocked accounting; behavior across repeated invocations with unchanged state; and the realistic population or repeated-run scenario that validates convergence and reporting. Omit entirely when the feature has no such operational lifecycle.]
 
-[Express every applicable lifecycle outcome as an FR#N or AC#N below. This keeps lifecycle behavior traceable into task `implements` and Verify criteria; this section explains the model but does not replace numbered requirements.]
-
-## Acceptance Criteria
-
-- **AC#1** [Measurable, observable outcome — verifiable by running a local command]
-- **AC#2** [Each entry tests one outcome; map to one or more FR#N identifiers where relevant]
-
-[Each AC must be verifiable by an executor running commands in the local repo: tests, linters, grep, scripts, or hitting locally-reachable services. Criteria that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state are process gates, not acceptance criteria. An executor has no way to observe these, so they get marked CONTESTED and stall the pipeline for manual resolution. Describe them in Dependencies and Assumptions instead.]
+[This section explains the model, not the requirements themselves — every applicable lifecycle outcome is its own FR#N with ACs above, keeping lifecycle behavior traceable into task `implements` and Verify criteria.]
 
 ## Visual Artifacts
 
@@ -71,7 +68,7 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 ## Architecture
 
-[The recommended approach with rationale. Reference specific files, patterns, and abstractions from the research brief. Include data model, interface contracts, and any relevant diagrams in prose form.]
+[The recommended approach with rationale. Reference specific files, patterns, and abstractions from the research brief. Include data model, interface contracts, and any relevant diagrams in prose form. Cite `### Changed Files` for the file list rather than repeating it here.]
 
 ## Implementation Preferences
 
@@ -79,7 +76,7 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 ## Replacement Targets
 
-[Existing code, patterns, or approaches being intentionally replaced by this change. Derived from `Replace` entries in the code leverage table. For each target: the file/pattern being replaced, what replaces it, and whether the old code should be removed outright or migrated incrementally. Implementers should remove or migrate these — not preserve them alongside the new code. If this is purely additive with no code being superseded, state "No existing code is being replaced."]
+[Existing code, patterns, or approaches being intentionally replaced by this change. Derived from `Replace` entries in the code leverage table. For each target: the file/pattern being replaced, what replaces it, and whether the old code should be removed outright or migrated incrementally. Implementers should remove or migrate these — not preserve them alongside the new code. If this is purely additive with no code being superseded, state "No existing code is being replaced." Cite `### Changed Files` for the file list rather than repeating it here.]
 
 ## Migration
 
@@ -104,13 +101,10 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 [For repos with no test infrastructure, replace the entire Test Strategy section (including all subsection headings below) with a single line: "N/A — no test infrastructure in this repo."]
 
 ### Required Test Types
-[Which testing layers this change requires, confirmed during discovery. State each required layer with its justification tied to the change shape. Note any gaps where a useful layer has no repo infrastructure. For trivial features (no Phase 1.5 recon), state the required layer(s) from direct inspection of the changed files. Example: "Unit (new validator logic — single module), Integration (API→DB flow — crosses service boundary). Gap: no E2E infrastructure; frontend+backend interaction is untested."]
+[Which testing layers this change requires, confirmed during discovery. State each required layer with its justification tied to the change shape, identifying which testing layer (unit, integration, E2E) each behavior needs. When Operational Lifecycle is present, include repeated transient failure, user-action-required or terminal failure, retry bounds, recovery/reset, mixed realistic populations, and completion/status accounting as applicable; isolated single-transition tests do not prove convergence. Note any gaps where a useful layer has no repo infrastructure. For trivial features (no Phase 1.5 recon), state the required layer(s) from direct inspection of the changed files. Example: "Unit (new validator logic — single module), Integration (API→DB flow — crosses service boundary). Gap: no E2E infrastructure; frontend+backend interaction is untested."]
 
 ### Existing Tests to Adapt
 [Test files that will break or need updating due to this change, with file paths and what specifically needs to change. Sourced from Phase 1.5 test survey. If none, state "No existing tests affected."]
-
-### New Test Coverage
-[New behaviors that need tests. Map to Functional Requirements (FR#N) where possible. Identify which testing layer (unit, integration, E2E) each behavior needs. When Operational Lifecycle is present, include repeated transient failure, user-action-required or terminal failure, retry bounds, recovery/reset, mixed realistic populations, and completion/status accounting as applicable; isolated single-transition tests do not prove convergence.]
 
 ### Tests to Remove
 [Tests for functionality being removed or replaced. Reference Replacement Targets where applicable. If none, state "No tests to remove."]
@@ -152,9 +146,10 @@ Reviewers, challenge runs, and comb passes should treat drift against a terminal
 
 ## Content Rules
 
-- Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) describe observable behaviors — what the system does, not how it's built. Naming the domain is fine ("pytest", "webhook", "CLI flag"); dictating implementation steps is not ("use subprocess.Popen", "add a column to the X table")
+- Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases) describe observable behaviors — what the system does, not how it's built. Naming the domain is fine ("pytest", "webhook", "CLI flag"); dictating implementation steps is not ("use subprocess.Popen", "add a column to the X table")
 - Architecture, Implementation Preferences, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
 - Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
+- **One fact, one home.** Any enumeration (an inventory table, a file list, a coverage list) lives in exactly one section; every other section cites it by ID or name instead of re-listing it. A count or one-line summary of a fact is a copy of it, so it cites the home too. When several requirements depend on the same mapping, write the mapping once — usually a table — and have the requirements cite it.
 
 ## Scope Mode Effects
 
@@ -176,6 +171,9 @@ Reviewers, challenge runs, and comb passes should treat drift against a terminal
 - Functional Requirements use canonical identifier format `FR#N` where N is a positive integer (e.g., `FR#1`, `FR#2`). Identifiers must be unique within the document. Each FR describes exactly one testable behavior — do not bundle multiple behaviors into a single entry
 - Acceptance Criteria use canonical identifier format `AC#N` where N is a positive integer (e.g., `AC#1`, `AC#2`). Identifiers must be unique within the document
 - Acceptance Criteria must be verifiable by running a local command (test, lint, grep, script, or hitting a locally-reachable service). Criteria that require CI pipeline status, GitHub Actions job output, post-merge observation, or PR review state are not ACs. Move them to Dependencies and Assumptions
+- AC numbers are global and sequential across the document, never hierarchical (e.g., `AC#3.2`)
+- An AC that verifies several FRs sits under its primary FR and names the others as `(also FR#N)` or `(also FR#N, FR#M)`, but only when it verifies each cited FR's behavior on its own; an FR that no AC fully verifies gets its own AC
+- Checks that apply to the whole test suite ("all tests pass", "lint clean") are not ACs — task Verify and orchestrate already enforce them
 - Visual Artifacts section is optional — include it only when visual references exist; omit the section entirely otherwise
 - Key Constraints section is required — include it even if no feature-specific prohibitions emerged (mark it empty with a note rather than omitting)
 - Once `**Status:**` is terminal (`archived` or `abandoned`), treat the document as frozen — never edit body sections (Problem through Open Questions) to reflect later reality. New drift goes in `## Addendum` as a new dated entry, never as a rewrite of earlier sections.

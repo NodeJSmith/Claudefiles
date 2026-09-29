@@ -22,22 +22,19 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 ## Functional Requirements
 
 - **FR#1** [One testable behavior — state what the system must do, not how]
+  - **AC#1** [Measurable, observable outcome — verifiable by running a local command]
 - **FR#2** [Each entry describes exactly one behavior]
-
-## Operational Lifecycle
-
-[Conditional section — include only when the feature owns resumable work state across invocations, such as a background worker, batch/backfill, scheduler, queue consumer, or persistent retry state. Define completion, retry eligibility and bounds, states requiring user action and their recovery path, repeated-run convergence, visible progress/failure accounting, and a realistic local validation scenario. Omit otherwise. Express every applicable lifecycle outcome as an FR#N or AC#N so planning can trace and verify it.]
-
-## Acceptance Criteria
-
-- **AC#1** [Measurable, observable outcome — verifiable by running a local command]
-- **AC#2** [Each entry tests one outcome; map to FR#N identifiers where relevant]
+  - **AC#2** [Each entry tests one outcome, verifiable by running a local command. An AC that verifies more than one FR sits under its primary FR and cites the others as (also FR#N)]
 
 [Each AC must be verifiable by an executor running commands in the local repo.]
 
+## Operational Lifecycle
+
+[Conditional section — include only when the feature owns resumable work state across invocations, such as a background worker, batch/backfill, scheduler, queue consumer, or persistent retry state. Define completion, retry eligibility and bounds, states requiring user action and their recovery path, repeated-run convergence, visible progress/failure accounting, and a realistic local validation scenario. Omit otherwise. This section explains the model, not the requirements themselves — every applicable lifecycle outcome is its own FR#N with ACs above, so planning can trace and verify it.]
+
 ## Approach
 
-[The recommended approach with rationale. Reference specific files, patterns, and existing code. Key architecture decisions go here. This replaces the full Architecture, Implementation Preferences, and Alternatives Considered sections from a full design doc — keep it focused on what matters for execution.]
+[The recommended approach with rationale. Reference specific files, patterns, and existing code. Key architecture decisions go here. This replaces the full Architecture, Implementation Preferences, and Alternatives Considered sections from a full design doc — keep it focused on what matters for execution. Cite `## Changed Files` for the file list rather than repeating it here.]
 
 ## Dependencies and Assumptions
 
@@ -61,7 +58,11 @@ Drift against a terminal-status design doc is expected, not a finding — review
 
 - Functional Requirements use canonical identifier format `FR#N` (e.g., `FR#1`, `FR#2`). Each describes exactly one testable behavior.
 - Acceptance Criteria use canonical identifier format `AC#N` (e.g., `AC#1`, `AC#2`). Each must be verifiable by running a local command.
+- AC numbers are global and sequential across the document, never hierarchical (e.g., `AC#3.2`)
+- An AC that verifies several FRs sits under its primary FR and names the others as `(also FR#N)` or `(also FR#N, FR#M)`, but only when it verifies each cited FR's behavior on its own; an FR that no AC fully verifies gets its own AC
+- Checks that apply to the whole test suite ("all tests pass", "lint clean") are not ACs — task Verify and orchestrate already enforce them
 - When `## Operational Lifecycle` applies, the numbered requirements must cover repeated failure, retry bounds/termination, recovery or deliberately terminal behavior, and visible accounting; isolated one-transition tests are insufficient.
 - The Approach section should reference actual file paths, class names, and patterns found during investigation.
+- **One fact, one home.** Any enumeration (an inventory table, a file list, a coverage list) lives in exactly one section; every other section cites it by ID or name instead of re-listing it. A count or one-line summary of a fact is a copy of it, so it cites the home too. When several requirements depend on the same mapping, write the mapping once — usually a table — and have the requirements cite it.
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing.
 - Once `**Status:**` is terminal (`archived` or `abandoned`), never edit body sections to reflect later reality — append a dated entry to `## Addendum` instead.
