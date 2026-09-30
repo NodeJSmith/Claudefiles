@@ -33,6 +33,17 @@ def _text(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text()
 
 
+def _section(text: str, heading: str, level: int = 2) -> str | None:
+    """Extract a Markdown section's body, from its heading to the next
+    heading at the same level (or end of file, if it's the last section).
+    Returns None if the heading isn't found.
+    """
+    marker = "#" * level
+    pattern = rf"^{marker} {re.escape(heading)}$(.*?)(?=^{marker} |\Z)"
+    match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
+    return match.group(1) if match else None
+
+
 # AC#1 (also FR#1, FR#5): no top-level "## Acceptance Criteria" heading, no
 # remaining text naming Acceptance Criteria as a section, and the Functional
 # Requirements placeholder nests an indented AC bullet under an FR bullet.
@@ -74,13 +85,10 @@ def test_no_text_names_acceptance_criteria_as_a_section(relative_path: str) -> N
 )
 def test_functional_requirements_placeholder_nests_acs(relative_path: str) -> None:
     text = _text(relative_path)
-    fr_section_match = re.search(
-        r"^## Functional Requirements$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    assert fr_section_match is not None, (
+    fr_section = _section(text, "Functional Requirements")
+    assert fr_section is not None, (
         f"{relative_path} has no '## Functional Requirements' section"
     )
-    fr_section = fr_section_match.group(1)
     assert re.search(r"^- \*\*FR#\d+\*\*", fr_section, re.MULTILINE) is not None
     assert re.search(r"^\s+- \*\*AC#\d+\*\*", fr_section, re.MULTILINE) is not None
 
@@ -94,11 +102,9 @@ def test_define_test_strategy_drops_new_test_coverage() -> None:
 
 def test_define_test_strategy_keeps_exactly_three_subsections() -> None:
     text = _text(DEFINE_TEMPLATE)
-    test_strategy_match = re.search(
-        r"^## Test Strategy$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    assert test_strategy_match is not None
-    subsections = re.findall(r"^### (.+)$", test_strategy_match.group(1), re.MULTILINE)
+    test_strategy = _section(text, "Test Strategy")
+    assert test_strategy is not None
+    subsections = re.findall(r"^### (.+)$", test_strategy, re.MULTILINE)
     assert subsections == [
         "Required Test Types",
         "Existing Tests to Adapt",
@@ -111,11 +117,8 @@ def test_define_required_test_types_carries_moved_guidance() -> None:
     from the deleted New Test Coverage subsection into Required Test Types.
     """
     text = _text(DEFINE_TEMPLATE)
-    required_types_match = re.search(
-        r"^### Required Test Types$(.*?)(?=^### )", text, re.MULTILINE | re.DOTALL
-    )
-    assert required_types_match is not None
-    required_types = required_types_match.group(1)
+    required_types = _section(text, "Required Test Types", level=3)
+    assert required_types is not None
     assert re.search(
         r"which testing layer \(unit, integration, E2E\) each behavior needs",
         required_types,
@@ -125,11 +128,10 @@ def test_define_required_test_types_carries_moved_guidance() -> None:
     assert re.search(r"completion/status accounting", required_types)
 
 
-# Shared format-contract file (challenge Finding 1, ship-time re-evaluation):
-# both templates cite skills/mine-define/design-doc-format.md for the AC
-# numbering/citation rules and "one fact, one home" instead of each carrying
-# its own copy of the rule text — the byte-identical duplication a challenge
-# critic found is the drift risk this replaces.
+# Shared format-contract file: both templates cite
+# skills/mine-define/design-doc-format.md for the AC numbering/citation rules
+# and "one fact, one home" instead of each carrying its own copy of the rule
+# text — a byte-identical copy would silently drift from the source.
 def test_design_doc_format_file_exists_with_canonical_rules() -> None:
     text = _text(DESIGN_DOC_FORMAT)
     # Collapse whitespace for substring checks below so prose line-wrapping
@@ -157,8 +159,8 @@ def test_design_doc_format_file_exists_with_canonical_rules() -> None:
     assert re.search(r"struck-through", flat)
 
 
-# AC#3/AC#4 (superseded by the ship-time challenge's convergence resolution):
-# both templates cite the shared file instead of restating the rules inline.
+# AC#3/AC#4: both templates cite the shared file instead of restating the
+# rules inline.
 @pytest.mark.parametrize(
     ("relative_path", "section_heading"),
     [
@@ -170,14 +172,8 @@ def test_numbering_and_citation_rules_cite_shared_file(
     relative_path: str, section_heading: str
 ) -> None:
     text = _text(relative_path)
-    escaped_heading = re.escape(section_heading)
-    section_match = re.search(
-        rf"^{escaped_heading}$(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
-    )
-    assert section_match is not None, (
-        f"{relative_path} has no '{section_heading}' section"
-    )
-    section = section_match.group(1)
+    section = _section(text, section_heading.removeprefix("## "))
+    assert section is not None, f"{relative_path} has no '{section_heading}' section"
     assert re.search(r"design-doc-format\.md", section)
     assert re.search(r"Nested ACs and Numbering Rules", section)
     # the rule text itself must not be duplicated here anymore
@@ -190,11 +186,8 @@ def test_numbering_and_citation_rules_cite_shared_file(
 )
 def test_one_fact_one_home_cites_shared_file(relative_path: str) -> None:
     text = _text(relative_path)
-    content_rules_match = re.search(
-        r"^## Content Rules$(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
-    )
-    assert content_rules_match is not None
-    content_rules = content_rules_match.group(1)
+    content_rules = _section(text, "Content Rules")
+    assert content_rules is not None
     assert re.search(r"One fact, one home", content_rules)
     assert re.search(r"design-doc-format\.md", content_rules)
     assert re.search(r"One Fact, One Home", content_rules)
@@ -205,7 +198,7 @@ def test_one_fact_one_home_cites_shared_file(relative_path: str) -> None:
 
 
 def test_templates_dont_byte_duplicate_shared_rule_text() -> None:
-    """The specific duplication a challenge critic found: confirm it's gone."""
+    """Templates must not duplicate the shared rule text verbatim."""
     define_text = _text(DEFINE_TEMPLATE)
     sketch_text = _text(SKETCH_TEMPLATE)
     assert "global and sequential" not in define_text
@@ -215,8 +208,8 @@ def test_templates_dont_byte_duplicate_shared_rule_text() -> None:
 
 
 def test_validator_cites_shared_fr_ac_definition() -> None:
-    """Challenge Finding 4: the validator's extraction rule must not be looser
-    than the cfl parser's anchored definition."""
+    """The validator's extraction rule must not be looser than the cfl
+    parser's anchored FR/AC definition."""
     text = _text(PLAN_VALIDATOR_PROMPT)
     assert re.search(r"design-doc-format\.md", text)
     assert re.search(r"FR/AC Definition", text)
@@ -224,8 +217,8 @@ def test_validator_cites_shared_fr_ac_definition() -> None:
 
 
 def test_tdd_and_reviewer_prompt_agree_on_test_naming_location() -> None:
-    """Challenge Finding 3: tdd.md and reviewer-prompt.md must name the same
-    two places a design names its tests (ACs and Test Strategy), not just one."""
+    """tdd.md and reviewer-prompt.md must name the same two places a design
+    names its tests (ACs and Test Strategy), not just one."""
     tdd_text = _text(ORCHESTRATE_TDD)
     reviewer_text = _text(IMPLEMENTATION_REVIEW_PROMPT)
     assert re.search(r"Acceptance Criteria", tdd_text)
@@ -241,55 +234,41 @@ def test_operational_lifecycle_placeholder_reframes_outcomes_as_fr_ac() -> None:
     """
     for relative_path in (DEFINE_TEMPLATE, SKETCH_TEMPLATE):
         text = _text(relative_path)
-        lifecycle_match = re.search(
-            r"^## Operational Lifecycle$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-        )
-        assert lifecycle_match is not None, (
+        lifecycle = _section(text, "Operational Lifecycle")
+        assert lifecycle is not None, (
             f"{relative_path} has no '## Operational Lifecycle' section"
         )
-        lifecycle = lifecycle_match.group(1)
         assert re.search(r"explains the model", lifecycle)
         assert re.search(r"its own FR#N with ACs", lifecycle)
 
 
 def test_define_edge_cases_placeholder_holds_context_only() -> None:
     text = _text(DEFINE_TEMPLATE)
-    edge_cases_match = re.search(
-        r"^## Edge Cases$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    assert edge_cases_match is not None
-    edge_cases = edge_cases_match.group(1)
+    edge_cases = _section(text, "Edge Cases")
+    assert edge_cases is not None
     assert re.search(r"context only", edge_cases)
     assert re.search(r"becomes its own FR#N with ACs", edge_cases)
 
 
 def test_define_architecture_and_replacement_targets_cite_changed_files() -> None:
     text = _text(DEFINE_TEMPLATE)
-    architecture_match = re.search(
-        r"^## Architecture$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    replacement_targets_match = re.search(
-        r"^## Replacement Targets$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    assert architecture_match is not None
-    assert replacement_targets_match is not None
-    assert re.search(r"### Changed Files", architecture_match.group(1))
-    assert re.search(r"### Changed Files", replacement_targets_match.group(1))
+    architecture = _section(text, "Architecture")
+    replacement_targets = _section(text, "Replacement Targets")
+    assert architecture is not None
+    assert replacement_targets is not None
+    assert re.search(r"### Changed Files", architecture)
+    assert re.search(r"### Changed Files", replacement_targets)
 
 
 def test_sketch_approach_cites_changed_files() -> None:
     text = _text(SKETCH_TEMPLATE)
-    approach_match = re.search(
-        r"^## Approach$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    assert approach_match is not None
-    assert re.search(r"## Changed Files", approach_match.group(1))
+    approach = _section(text, "Approach")
+    assert approach is not None
+    assert re.search(r"## Changed Files", approach)
 
 
 # AC#5: the FR#1/AC#1 nested-AC check, run against the mine-sketch template.
-def test_sketch_has_no_standalone_acceptance_criteria_or_edge_cases_or_architecture() -> (
-    None
-):
+def test_sketch_excludes_define_only_sections() -> None:
     """FR#5: mine-sketch has no Section Rules, Edge Cases, Architecture,
     Replacement Targets, or Test Strategy sections — those are mine-define-only.
     """
@@ -312,15 +291,10 @@ def test_sketch_has_no_standalone_acceptance_criteria_or_edge_cases_or_architect
 # section it appears in".
 def test_validator_step1_describes_single_extraction_pass_with_no_location() -> None:
     text = _text(PLAN_VALIDATOR_PROMPT)
-    step1_match = re.search(
-        r"^## Step 1: Extract Requirements from design\.md$(.*?)(?=^## )",
-        text,
-        re.MULTILINE | re.DOTALL,
-    )
-    assert step1_match is not None, (
+    step1 = _section(text, "Step 1: Extract Requirements from design.md")
+    assert step1 is not None, (
         f"{PLAN_VALIDATOR_PROMPT} has no '## Step 1: Extract Requirements from design.md' section"
     )
-    step1 = step1_match.group(1)
     assert re.search(r"the section it appears in", step1) is None, (
         "Step 1 still records 'the section it appears in' — extraction must be a single pass "
         "with no location field"
@@ -336,15 +310,10 @@ def test_validator_step1_describes_single_extraction_pass_with_no_location() -> 
 # their FRs.
 def test_skill_extraction_list_names_kept_test_strategy_subsections() -> None:
     text = _text(PLAN_SKILL)
-    extract_match = re.search(
-        r"^### Extract key information$(.*?)(?=^### |\Z)",
-        text,
-        re.MULTILINE | re.DOTALL,
-    )
-    assert extract_match is not None, (
+    extract_section = _section(text, "Extract key information", level=3)
+    assert extract_section is not None, (
         f"{PLAN_SKILL} has no '### Extract key information' section"
     )
-    extract_section = extract_match.group(1)
     assert re.search(r"New Test Coverage", extract_section) is None, (
         "SKILL.md's extraction list still names the removed New Test Coverage subsection"
     )
@@ -361,13 +330,8 @@ def test_skill_extraction_list_names_kept_test_strategy_subsections() -> None:
 
 def test_skill_extraction_list_describes_acs_nested_under_frs() -> None:
     text = _text(PLAN_SKILL)
-    extract_match = re.search(
-        r"^### Extract key information$(.*?)(?=^### |\Z)",
-        text,
-        re.MULTILINE | re.DOTALL,
-    )
-    assert extract_match is not None
-    extract_section = extract_match.group(1)
+    extract_section = _section(text, "Extract key information", level=3)
+    assert extract_section is not None
     assert re.search(r"nested under", extract_section) is not None, (
         "SKILL.md's extraction list must describe ACs as nested under their FRs"
     )
@@ -377,13 +341,10 @@ def test_skill_extraction_list_describes_acs_nested_under_frs() -> None:
 # template's Content Rules for design-doc targets.
 def test_challenge_inline_resolution_references_design_template_content_rules() -> None:
     text = _text(CHALLENGE_FINDINGS_PROTOCOL)
-    flow_match = re.search(
-        r"^## Inline Resolution Flow$(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL
-    )
-    assert flow_match is not None, (
+    flow = _section(text, "Inline Resolution Flow")
+    assert flow is not None, (
         f"{CHALLENGE_FINDINGS_PROTOCOL} has no '## Inline Resolution Flow' section"
     )
-    flow = flow_match.group(1)
     assert re.search(r"design-doc", flow) is not None
     assert re.search(r"Content Rules", flow) is not None
     assert re.search(r"mine-sketch/design-template\.md", flow) is not None
@@ -395,13 +356,10 @@ def test_challenge_inline_resolution_references_design_template_content_rules() 
 # ACs as a place tests are named, alongside Test Strategy.
 def test_implementation_review_missing_test_check_names_acs() -> None:
     text = _text(IMPLEMENTATION_REVIEW_PROMPT)
-    section_match = re.search(
-        r"^### 7\. Test coverage$(.*?)(?=^### |\Z)", text, re.MULTILINE | re.DOTALL
-    )
-    assert section_match is not None, (
+    section = _section(text, "7. Test coverage", level=3)
+    assert section is not None, (
         f"{IMPLEMENTATION_REVIEW_PROMPT} has no '### 7. Test coverage' section"
     )
-    section = section_match.group(1)
     assert re.search(r"Acceptance Criteria", section) is not None, (
         "missing-test check must name the design's Acceptance Criteria as a place tests "
         "are named"
