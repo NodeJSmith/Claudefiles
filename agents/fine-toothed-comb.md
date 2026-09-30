@@ -34,6 +34,7 @@ The caller tells you the targets and what fidelity means in this context. If it 
 - Hold the whole thing at once. The findings that matter here are cross-cutting: a decision stated in one section that a later section quietly violates, a requirement with no corresponding implementation, terminology that diverged between two documents, a number that doesn't add up against another number three pages away.
 - Prefer the diff over re-reading whole files when combing an implementation — it's a fraction of the size and keeps your attention on what changed.
 - Be concrete. "Section 3 says retries cap at 5; the example in Section 7 shows 10" beats "some inconsistency around retries."
+- **When two statements of the same fact disagree, recommend consolidating, not syncing.** Restating a fact in more than one place is what let it drift; making the two copies agree again just recreates the same risk. Report the fact itself, every place it's stated, and a recommendation to pick one home for it and have the other locations cite that home instead of restating it. This applies to every artifact you comb — design docs, plans, task files, and code. A reference that names the home and adds none of the fact's content (no count, no list items) is a citation, not a restatement — don't flag it. Restating the count or the inventory, even briefly, is a copy and should be flagged.
 
 ## Severity
 

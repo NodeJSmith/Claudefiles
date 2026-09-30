@@ -66,7 +66,7 @@ Does the test suite actually cover the implementation? Unit tests ship with the 
 
 **FAIL-level findings (blocking — rate these FAIL, not WARN):**
 - New module (`.py`, `.ts`, `.js`, etc.) containing public functions or classes with no corresponding test file (excluding items exempt per the Test Co-location rule in `testing.md`: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic)
-- Test Strategy names specific tests that don't exist in the codebase
+- The design's Acceptance Criteria or Test Strategy name specific tests that don't exist in the codebase
 - Core business logic paths with zero test coverage
 
 **WARN-level findings:**

@@ -16,8 +16,13 @@ import yaml
 import cfl.output as output_module
 from cfl.run import task_id_sort_key
 
-_FR_PATTERN = re.compile(r"\*\*FR#(\d+)\*\*\s+(.*)")
-_AC_PATTERN = re.compile(r"\*\*AC#(\d+)\*\*\s+(.*)")
+# Canonical FR/AC definition rule: ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md
+# (FR/AC Definition). A bolded ID counts only when it starts a hyphen-bulleted
+# Markdown list item and is followed by whitespace and text; that doc's example
+# blocks are run through these patterns by tests/test_snapshot.py. Any other
+# design-doc parser must apply this same rule.
+_FR_PATTERN = re.compile(r"^\s*-\s+\*\*FR#(\d+)\*\*\s+(.*)")
+_AC_PATTERN = re.compile(r"^\s*-\s+\*\*AC#(\d+)\*\*\s+(.*)")
 _SCOPE_MODE_PATTERN = re.compile(r"\*\*Scope-mode:\*\*\s*(\S+)", re.IGNORECASE)
 _COMPLEXITY_PATTERN = re.compile(
     r"\*\*Complexity:\*\*\s*(trivial|moderate|complex)", re.IGNORECASE
@@ -38,22 +43,26 @@ def _parse_requirements(design_path: Path) -> dict:
     complexity_tier = None
 
     for line in content.splitlines():
-        m = _FR_PATTERN.search(line)
-        if m:
-            frs.append({"id": f"FR#{m.group(1)}", "text": m.group(2).strip()})
+        fr_match = _FR_PATTERN.search(line)
+        if fr_match:
+            frs.append(
+                {"id": f"FR#{fr_match.group(1)}", "text": fr_match.group(2).strip()}
+            )
             continue
-        m = _AC_PATTERN.search(line)
-        if m:
-            acs.append({"id": f"AC#{m.group(1)}", "text": m.group(2).strip()})
+        ac_match = _AC_PATTERN.search(line)
+        if ac_match:
+            acs.append(
+                {"id": f"AC#{ac_match.group(1)}", "text": ac_match.group(2).strip()}
+            )
             continue
         if scope_mode is None:
-            m = _SCOPE_MODE_PATTERN.search(line)
-            if m:
-                scope_mode = m.group(1).lower()
+            scope_mode_match = _SCOPE_MODE_PATTERN.search(line)
+            if scope_mode_match:
+                scope_mode = scope_mode_match.group(1).lower()
         if complexity_tier is None:
-            m = _COMPLEXITY_PATTERN.search(line)
-            if m:
-                complexity_tier = m.group(1).lower()
+            complexity_match = _COMPLEXITY_PATTERN.search(line)
+            if complexity_match:
+                complexity_tier = complexity_match.group(1).lower()
 
     return {
         "frs": frs,
@@ -102,9 +111,14 @@ def _parse_task_file(task_path: Path) -> dict | None:
             continue
 
         if in_target_files:
-            m = _TARGET_FILE_PATTERN.match(stripped)
-            if m:
-                target_files.append({"verb": m.group(1), "path": m.group(2)})
+            target_file_match = _TARGET_FILE_PATTERN.match(stripped)
+            if target_file_match:
+                target_files.append(
+                    {
+                        "verb": target_file_match.group(1),
+                        "path": target_file_match.group(2),
+                    }
+                )
 
         if in_verify and _VERIFY_PATTERN.match(stripped):
             verify_count += 1

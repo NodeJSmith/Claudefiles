@@ -14,10 +14,7 @@ You are a plan validation agent. Your job is to independently verify that a set 
 
 ## Step 1: Extract Requirements from design.md
 
-Read design.md completely. Extract:
-
-- Every item with a `FR#N` identifier (Functional Requirement). Record the identifier, the requirement text, and the section it appears in.
-- Every item with an `AC#N` identifier (Acceptance Criterion). Record the identifier, the criterion text, and the section it appears in.
+Read design.md completely. In a single pass, extract every `FR#N` and `AC#N` **definition** with its text. What counts as a definition is set by the FR/AC Definition section of `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` — read that section first and apply it exactly, including its examples of lines that are not definitions. Record only the identifier and its text — no location field.
 
 **Format validation**: Every FR identifier must match the regex `^FR#\d+$` and every AC identifier must match `^AC#\d+$`. Flag any identifier that uses a different format (e.g., `FR-1`, `Requirement 1`, `AC_1`). These are format violations.
 

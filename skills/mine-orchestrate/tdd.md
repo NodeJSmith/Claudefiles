@@ -12,7 +12,7 @@ continue. If a required command file is missing, empty, or another command is un
 
 ## Test Co-location
 
-**Unit tests must ship in the same WP as the code they test.** Do not defer unit tests to a later WP. If the WP's Test Strategy names specific tests, those tests must exist when the WP is complete. Integration tests may follow in a subsequent WP.
+**Unit tests must ship in the same WP as the code they test.** Do not defer unit tests to a later WP. If the design's Acceptance Criteria for the FRs this WP implements, or its Test Strategy, name specific tests (per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md`, "Where Tests Are Named"), those tests must exist when the WP is complete. Integration tests may follow in a subsequent WP.
 
 ## TDD Cycle
 

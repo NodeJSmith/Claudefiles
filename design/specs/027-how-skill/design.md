@@ -1,7 +1,7 @@
 # Design: mine.how — Interactive Subsystem Explanation
 
 **Date:** 2026-06-07
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 
 ## Problem
