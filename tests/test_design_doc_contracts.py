@@ -374,9 +374,7 @@ def test_fine_toothed_comb_recommends_consolidate_not_sync() -> None:
     text = _text(FINE_TOOTHED_COMB_AGENT)
     assert re.search(r"consolidat", text, re.IGNORECASE) is not None
     assert re.search(r"every place it'?s stated", text) is not None
-    assert (
-        re.search(r"not syncing|instead of restating|not\b.*\bsync", text) is not None
-    )
+    assert re.search(r"consolidating, not syncing", text) is not None
 
 
 # AC#12: comb-gate.md's intro names exactly the skills under `skills/` that
