@@ -14,7 +14,6 @@ aligning the patterns cosmetically; the original finding mischaracterized a code
 as a functional inconsistency.
 Run: 147
 Source: clean-code
-Reason not fixed now: behavior-change
 Observed in: commit b72a220
 Affected files:
 - packages/cfl/src/cfl/snapshot.py
@@ -26,24 +25,6 @@ structurally similar patterns beside them — `_TARGET_FILE_PATTERN` (line 29,
 `^-\s+`) and `_VERIFY_PATTERN` (line 30, `^- \[[ x]\] `) — still require zero
 leading whitespace. All four patterns answer "does this line start a Markdown
 list item of a given shape," but only two of the four tolerate indentation.
-
-Why deferred:
-This diff's scope was fixing FR/AC anchoring specifically (per the design
-doc's FR/AC Definition rule). Extending the same tolerance to
-`_TARGET_FILE_PATTERN`/`_VERIFY_PATTERN` would change what indented Target
-Files/Verify list items parse as in task files — a behavior change beyond
-what this run's design or tasks called for, and not provably safe without
-checking whether any task file actually nests those items today.
-
-Recommended follow-up:
-Decide whether Target Files/Verify list items are ever expected to nest
-(matching the FR/AC precedent), and if so, apply the same `^\s*` tolerance to
-`_TARGET_FILE_PATTERN`/`_VERIFY_PATTERN` with a characterization test proving
-flat vs. nested parity, mirroring `test_snapshot_nested_format_matches_flat`.
-
-Acceptance criteria:
-- All four list-item patterns in snapshot.py apply the same indentation
-  tolerance, or a comment explains why they intentionally differ.
 
 ## KI-002: Single-letter `m` reused across five distinct regex matches in snapshot.py
 
