@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-30
+
+### Changed
+
+- `mine-define` and `mine-sketch` design templates now nest each requirement's acceptance criteria directly under it instead of listing them in a separate top-level section, and drop the `New Test Coverage` subsection in favor of naming tests on each AC — removing the parallel restatements that were the largest source of fine-toothed-comb findings. Both templates add a "one fact, one home" rule so any inventory (file list, coverage table) is written once and cited elsewhere. `cfl`'s FR/AC parser is anchored to list-item start so nested ACs parse correctly and mid-sentence citations no longer count as definitions. (#601)
+
 ## 2026-09-27
 
 ### Added
