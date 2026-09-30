@@ -9,24 +9,41 @@ rules from a specific template or consumer.
 ## FR/AC Definition
 
 An `FR#N` or `AC#N` is a **definition** only when its bolded ID is the first thing in a Markdown
-list item, at any indentation:
+list item, at any indentation, immediately followed by whitespace and then the requirement text.
+
+**Definitions:**
 
 ```
-- **FR#1** <text>
-  - **AC#1** <text>
+- **FR#1** Users can create widgets
+  - **AC#1** Widget list shows all widgets
 ```
 
-The following do **not** count as definitions:
+**Not definitions:**
 
-- A bolded ID cited mid-sentence (e.g., `This depends on **FR#1** being done first.`)
-- An `(also FR#N)` citation inside an AC bullet — it names a secondary FR the AC also verifies, not a new definition of that FR
-- A struck-through removal (`- ~~**FR#N**~~ **Removed** — dropped.`)
+```
+- This depends on **FR#1** being done first.
+- **AC#2** Widget can be removed (also FR#2)
+- ~~**FR#9**~~ **Removed** — dropped.
+- **FR#3**: Users can archive widgets
+- **FR#4**
+```
 
-`packages/cfl/src/cfl/snapshot.py`'s `_FR_PATTERN`/`_AC_PATTERN` enforce this with
-`^\s*-\s+\*\*FR#(\d+)\*\*` (and the AC equivalent). Any other extraction of `FR#N`/`AC#N` content
-from a design doc — the `mine-plan` validator's LLM-driven extraction included — must apply the
-same definition, not a looser or stricter one, or the two extraction paths can disagree on the
-same document.
+- Line 1 cites `**FR#1**` mid-sentence — the bolded ID isn't the first thing in the list item.
+- Line 2 defines `AC#2` (its own bolded ID starts the item, followed by whitespace and text) — the
+  `(also FR#2)` suffix names a secondary FR the AC also verifies, not a new definition of `FR#2`.
+- Line 3 is a struck-through removal of `FR#9`.
+- Line 4's bolded ID is followed directly by punctuation (`:`), not whitespace.
+- Line 5's bolded ID is followed by nothing.
+
+`packages/cfl/src/cfl/snapshot.py`'s `_FR_PATTERN`/`_AC_PATTERN` enforce this rule. Any
+other extraction of `FR#N`/`AC#N` content from a design doc — the `mine-plan` validator's
+LLM-driven extraction included — must apply the same definition, not a looser or stricter one, or
+the two extraction paths can disagree on the same document.
+
+The two example blocks above are test input: `packages/cfl/tests/test_snapshot.py` reads each
+block from under its `**Definitions:**` / `**Not definitions:**` label and runs it through that
+parser. Keep each block directly under its label, and when you add or change an example, update
+the IDs that test expects.
 
 ## Nested ACs and Numbering Rules
 
