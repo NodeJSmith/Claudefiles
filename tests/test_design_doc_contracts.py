@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFINE_TEMPLATE = "skills/mine-define/design-template.md"
 SKETCH_TEMPLATE = "skills/mine-sketch/design-template.md"
+BOTH_TEMPLATES = [DEFINE_TEMPLATE, SKETCH_TEMPLATE]
 DESIGN_DOC_FORMAT = "skills/mine-define/design-doc-format.md"
 PLAN_VALIDATOR_PROMPT = "skills/mine-plan/validator-prompt.md"
 PLAN_SKILL = "skills/mine-plan/SKILL.md"
@@ -49,7 +50,7 @@ def _section(text: str, heading: str, level: int = 2) -> str | None:
 # Requirements placeholder nests an indented AC bullet under an FR bullet.
 @pytest.mark.parametrize(
     "relative_path",
-    [DEFINE_TEMPLATE, SKETCH_TEMPLATE],
+    BOTH_TEMPLATES,
 )
 def test_no_standalone_acceptance_criteria_section(relative_path: str) -> None:
     text = _text(relative_path)
@@ -60,7 +61,7 @@ def test_no_standalone_acceptance_criteria_section(relative_path: str) -> None:
 
 @pytest.mark.parametrize(
     "relative_path",
-    [DEFINE_TEMPLATE, SKETCH_TEMPLATE],
+    BOTH_TEMPLATES,
 )
 def test_no_text_names_acceptance_criteria_as_a_section(relative_path: str) -> None:
     """No remaining text may name Acceptance Criteria as a section.
@@ -81,7 +82,7 @@ def test_no_text_names_acceptance_criteria_as_a_section(relative_path: str) -> N
 
 @pytest.mark.parametrize(
     "relative_path",
-    [DEFINE_TEMPLATE, SKETCH_TEMPLATE],
+    BOTH_TEMPLATES,
 )
 def test_functional_requirements_placeholder_nests_acs(relative_path: str) -> None:
     text = _text(relative_path)
@@ -164,16 +165,16 @@ def test_design_doc_format_file_exists_with_canonical_rules() -> None:
 @pytest.mark.parametrize(
     ("relative_path", "section_heading"),
     [
-        (DEFINE_TEMPLATE, "## Section Rules"),
-        (SKETCH_TEMPLATE, "## Content Rules"),
+        (DEFINE_TEMPLATE, "Section Rules"),
+        (SKETCH_TEMPLATE, "Content Rules"),
     ],
 )
 def test_numbering_and_citation_rules_cite_shared_file(
     relative_path: str, section_heading: str
 ) -> None:
     text = _text(relative_path)
-    section = _section(text, section_heading.removeprefix("## "))
-    assert section is not None, f"{relative_path} has no '{section_heading}' section"
+    section = _section(text, section_heading)
+    assert section is not None, f"{relative_path} has no '## {section_heading}' section"
     assert re.search(r"design-doc-format\.md", section)
     assert re.search(r"Nested ACs and Numbering Rules", section)
     # the rule text itself must not be duplicated here anymore
@@ -182,7 +183,7 @@ def test_numbering_and_citation_rules_cite_shared_file(
 
 @pytest.mark.parametrize(
     "relative_path",
-    [DEFINE_TEMPLATE, SKETCH_TEMPLATE],
+    BOTH_TEMPLATES,
 )
 def test_one_fact_one_home_cites_shared_file(relative_path: str) -> None:
     text = _text(relative_path)
