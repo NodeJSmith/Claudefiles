@@ -28,7 +28,7 @@ Assert the same `fr_count`, `ac_count`, and requirement IDs and texts as a flat 
 
 ## Focus
 - `_parse_requirements` (snapshot.py:29–63) checks the FR pattern before the AC pattern and `continue`s on a match; keep that order.
-- The only production caller is `cfl.cli` (`snapshot_plan` at run start). Of 579 bolded-ID lines across existing `design/specs/*/design.md`, the only 3 that stop matching are struck-through removals — an intended correction, not a regression.
+- The only production caller is `cfl.cli` (`snapshot_plan` at run start). Of 555 bolded-ID lines across pre-existing `design/specs/*/design.md` (excluding this spec's own), the only 3 that stop matching are struck-through removals — an intended correction, not a regression.
 - Run tests the way CI/prek does: `mise run test:cfl` (runs `uv run --group dev pytest` inside `packages/cfl`). For the single test: from `packages/cfl`, `uv run --group dev pytest tests/test_snapshot.py -k nested`.
 - Commit type for the parser change is `fix:`; the test ships in the same commit.
 

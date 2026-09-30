@@ -47,6 +47,9 @@ every other section cites it by ID or name instead of re-listing it. A count or 
 of a fact is a copy of it, so it cites the home too. When several requirements depend on the same mapping,
 write the mapping once — usually a table — and have the requirements cite it.
 
+A reference that names the home and adds none of the fact's content — no count, no list items — is
+a citation and is allowed. Restating the count or the inventory, even briefly, is a copy and is not.
+
 ## Where Tests Are Named
 
 A design's testing intent is named in two places, and only these two:
