@@ -9,31 +9,38 @@ rules from a specific template or consumer.
 ## FR/AC Definition
 
 An `FR#N` or `AC#N` is a **definition** only when its bolded ID is the first thing in a Markdown
-list item, at any indentation, immediately followed by whitespace and then the requirement text.
+list item that uses a hyphen bullet (`- `), at any indentation, immediately followed by whitespace
+and then the requirement text.
 
 **Definitions:**
 
 ```
 - **FR#1** Users can create widgets
   - **AC#1** Widget list shows all widgets
+  - **AC#2** Widget can be removed (also FR#2)
 ```
+
+The last line defines `AC#2` and nothing else: its `(also FR#2)` suffix names a secondary FR the AC
+also verifies, and is not a definition of `FR#2`.
 
 **Not definitions:**
 
 ```
 - This depends on **FR#1** being done first.
-- **AC#2** Widget can be removed (also FR#2)
 - ~~**FR#9**~~ **Removed** — dropped.
 - **FR#3**: Users can archive widgets
 - **FR#4**
+* **FR#5** Users can rename widgets
+1. **FR#6** Users can share widgets
++ **FR#7** Users can tag widgets
 ```
 
 - Line 1 cites `**FR#1**` mid-sentence — the bolded ID isn't the first thing in the list item.
-- Line 2 defines `AC#2` (its own bolded ID starts the item, followed by whitespace and text) — the
-  `(also FR#2)` suffix names a secondary FR the AC also verifies, not a new definition of `FR#2`.
-- Line 3 is a struck-through removal of `FR#9`.
-- Line 4's bolded ID is followed directly by punctuation (`:`), not whitespace.
-- Line 5's bolded ID is followed by nothing.
+- Line 2 is a struck-through removal of `FR#9`.
+- Line 3's bolded ID is followed directly by punctuation (`:`), not whitespace.
+- Line 4's bolded ID is followed by nothing.
+- Lines 5, 6 and 7 use a `*` bullet, an ordered-list marker and a `+` bullet. Only a hyphen bullet
+  counts.
 
 `packages/cfl/src/cfl/snapshot.py`'s `_FR_PATTERN`/`_AC_PATTERN` enforce this rule. Any
 other extraction of `FR#N`/`AC#N` content from a design doc — the `mine-plan` validator's

@@ -286,19 +286,15 @@ def test_design_doc_format_examples_match_cfl_parser(tmp_path):
         "design-doc-format.md's 'Definitions' examples no longer parse as the "
         "FR definitions the doc claims they are"
     )
-    assert [ac["id"] for ac in reqs["acs"]] == ["AC#1"], (
+    assert [ac["id"] for ac in reqs["acs"]] == ["AC#1", "AC#2"], (
         "design-doc-format.md's 'Definitions' examples no longer parse as the "
         "AC definitions the doc claims they are"
     )
 
     design_path.write_text(not_definitions_block)
     reqs = _parse_requirements(design_path)
-    assert reqs["frs"] == [], (
+    assert reqs["frs"] == [] and reqs["acs"] == [], (
         "a line in design-doc-format.md's 'Not definitions' examples was parsed "
-        "as an FR definition by the real cfl extractor — the doc's rule and the "
+        "as a definition by the real cfl extractor — the doc's rule and the "
         "parser have drifted apart"
-    )
-    assert [ac["id"] for ac in reqs["acs"]] == ["AC#2"], (
-        "the '(also FR#N)' example must still define its own AC (AC#2), and "
-        "only that AC — the cited FR must not be extracted as a definition"
     )
