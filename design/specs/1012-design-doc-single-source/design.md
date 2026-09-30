@@ -1,7 +1,7 @@
 # Design: One fact, one home in design docs
 
 **Date:** 2026-09-29
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Research:** design/research/2026-09-29-design-doc-single-source/research.md
 
