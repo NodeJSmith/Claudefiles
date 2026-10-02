@@ -34,8 +34,9 @@ block or as a prose menu of options, call the `AskUserQuestion` tool.
    in your reply; the user must see the interactive prompt.
 2. **Labels are keys; the rest is yours.** Keep option labels as the skill
    wrote them: "On 'X'" sections, `cfl` recordings, and verdict mappings match
-   on them. The " (Recommended)" suffix is not part of the key; add or move it
-   freely, and strip it from `cfl --answer`/`--recommended` values. Within
+   on them. The " (Recommended)" suffix is display-only, not part of the key:
+   add or move it freely, and strip it before matching a choice to a
+   handler, a verdict mapping, or a `cfl --answer`/`--recommended` value. Within
    that, adapt to what you found. Ask what you know now that the skill author
    couldn't (the findings, their severity, open questions, repo conventions),
    and let that decide which options apply and which you recommend; say in the
