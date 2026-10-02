@@ -84,8 +84,9 @@ before choosing the recommendation, and they are not written to cfl.
 
 ## Convergence Findings
 
-When several distinct findings land on one mechanism, synthesis adds a
-convergence finding (`synthesis-procedure.md` step 8). It uses the standard
+When one change to a mechanism would make several findings' local fixes
+unnecessary, synthesis adds a convergence finding (`synthesis-procedure.md`
+step 8 has the full test). It uses the standard
 format with `**Raised-by:** Synthesis`, `**Type:** Structural`,
 `**Design-level:** Yes`, `**Classification:** User-directed`, and one extra
 field after `**Raised-by:**`:
