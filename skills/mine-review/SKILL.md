@@ -79,9 +79,9 @@ Findings in severity-grouped tables (`### Critical / High`, `### Medium`, `### L
 
 ### Next steps
 
-If no finding is actionable (every reviewer passed, or everything left is likely-invalid), say so and stop. There is nothing to ask.
+If nothing is worth fixing (every reviewer passed, everything left is likely-invalid, or only medium and low findings remain and they aren't worth the churn), say so and stop. There is nothing to ask.
 
-Otherwise ask what to do with the findings. This is a major gate (review/challenge finding walkthrough, see `interaction.md`), so run `context-pct` and prepend the result to the question (`"[Context: N%] What would you like to do with these findings?"`, header `Next steps`). Build the options from the severity mix, put the finding count in each description, and recommend the one that fits. Drop "Fix critical/high only" when there are no critical or high findings, and drop "Fix all" in favor of it when the medium and low findings aren't worth the churn.
+Otherwise ask what to do with the findings. This is a major gate (review/challenge finding walkthrough, see `interaction.md`), so run `context-pct` and prepend the result to the question (`"[Context: N%] What would you like to do with these findings?"`, header `Next steps`). Build the options from the severity mix, put the finding count in each description, and recommend the one that fits. Drop "Fix critical/high only" when there are no critical or high findings. When there are critical or high findings but the medium and low ones aren't worth the churn, drop "Fix all" and recommend "Fix critical/high only".
 
 - **Fix all**: apply the proposed fixes, highest severity down, then re-read the modified content
 - **Fix critical/high only**: address blockers, leave medium/low for later

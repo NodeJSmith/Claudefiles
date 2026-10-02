@@ -257,7 +257,7 @@ If the combined findings total fewer than 3 issues, say so plainly: "The UI is i
 
 This skill uses a custom resolution gate (not the standard inline resolution flow) because resolution paths include non-fix actions.
 
-Build the options from the findings. When you said the UI is in good shape (fewer than 3 issues), don't mark "Fix issues now" as recommended; there is little to fix, so recommend reading a report or stopping, and drop the fix option entirely if no finding is actionable. Otherwise mark "Fix issues now" recommended and, if most findings are judgment calls rather than unambiguous fixes, say so in its description.
+Build the options from the findings. Recommend "Fix issues now" whenever any finding is actionable, however few there are, and if most findings are judgment calls rather than unambiguous fixes, say so in its description. When no finding is actionable, drop "Fix issues now" and put a recommended "Done" option (stop here, no further action) in its place; if the user picks it alongside other options, do those and then stop.
 
 ```
 AskUserQuestion:

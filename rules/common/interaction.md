@@ -40,8 +40,16 @@ block or as a prose menu of options, call the `AskUserQuestion` tool.
    couldn't (the findings, their severity, open questions, repo conventions),
    and let that decide which options apply and which you recommend; say in the
    recommended option's description what decided it. The failure to avoid is a
-   menu offering an option the findings make meaningless, or a pinned
-   "(Recommended)" the situation contradicts. Max 4 options per question.
+   menu offering an option the findings make meaningless, a pinned
+   "(Recommended)" the situation contradicts, or no option for the outcome the
+   findings call for. When that outcome isn't among the skill's labels (stop
+   here, hand off to another skill, pick from a different list), add it as a
+   new option whose label and description say what will happen. The skill
+   has no handler for it, so if it's chosen, carry it out yourself. If the
+   menu is already full, it replaces the option the findings make least
+   relevant. Don't add an outcome the skill deliberately leaves out, such as
+   a "proceed anyway" on a gate that blocks until findings are fixed. Max 4
+   options per question.
    Skip or collapse a question only when the user's request or your findings
    already settle the answer (if one option is left, say so and act). Never
    skip a confirmation for an irreversible action or a gate a rule marks
