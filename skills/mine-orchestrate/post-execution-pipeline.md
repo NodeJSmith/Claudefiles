@@ -503,7 +503,7 @@ AskUserQuestion:
 
 Include "Address open issues first" only when open known issues or skipped CRITICAL/HIGH findings exist.
 
-**On "Address open issues first":** work through the named items with the user (fix now, file, or accept), update `known-issues.md`, then re-run this step. Do not record the shipping gate result yet.
+**On "Address open issues first":** work through the named items with the user (fix now, file, or accept). A known issue the user wants fixed goes through Step 5.6's "Fix now" path. A skipped CRITICAL/HIGH challenge finding gets the same sequence: a `standard-worker` fixer scoped to the files the finding names, `code-reviewer`, test/lint retest, then the full Step 5 final-review gate on the refreshed branch; if any of those fails, tell the user and leave the finding skipped. A fix that skips those checks would ship on the stale PASS results this gate reports. Update `known-issues.md`. For a challenge finding, update its `disposition:` in the challenge findings file to match what the user chose, then rewrite `<dir>/challenge-summary.md` by Step 3.5's `<post_resolution>` rule so its Verdict reflects the change. Then re-run this step, which re-reads every summary. Do not record the shipping gate result yet.
 
 After the user selects "Ship via /mine-ship" or "Stop here", record the shipping gate result:
 
