@@ -162,7 +162,7 @@ Before changing any UI, screenshot the affected pages and sibling pages. After i
 **Defined in:** `references/common/frontend.md`
 
 #### Instruction Quality Checks
-When writing rules or skill files, apply proportionally: diagnostic questions over thresholds, named failure modes, AI-specific bias acknowledgment, a generative value, and "why" before "what."
+When writing rules or skill files, apply proportionally: diagnostic questions over thresholds, named failure modes, AI-specific bias acknowledgment, a generative value, "why" before "what," and room for judgment.
 **Defined in:** `references/common/instruction-quality.md`
 
 ## Domain References

@@ -4,7 +4,7 @@ Quality criteria for writing rules and skills that shape agent behavior. These a
 
 The difference between instructions that get followed and instructions that get skimmed is not length or formatting. It is whether the instructions teach the agent to recognize the problem in the moment, or merely describe the desired end state.
 
-## The Five Checks
+## The Checks
 
 Apply these when writing or editing any instruction file.
 
@@ -38,10 +38,16 @@ Does each major rule explain the trap it guards against before stating the rule?
 
 Understanding why the rule exists lets agents apply the spirit in edge cases rather than following the letter and missing the point. "Never claim work is done without evidence" is a rule. "Indirect verification feels cheaper than direct observation, but acting on a wrong inference costs far more than checking the source" is the reasoning that makes the rule stick.
 
+### 6. Room for Judgment
+
+Does the instruction state the goal and why, and leave the agent to decide how?
+
+Current models apply a stated goal well; a script of steps or a hard rule gets followed literally into cases where it is wrong. The usual offender is a user prompt fired straight from a script or lookup result, with no step where the agent judges whether the result matters. Keep hard rules for real invariants. This doesn't conflict with check 2: name the trap, not the steps.
+
 ## Applying the Checks
 
 These are not hard requirements for every line. A simple factual rule ("use `X | None`, not `Optional[X]`") does not need a generative value or an AI bias acknowledgment. Apply the checks proportionally:
 
-- **Simple factual rules** (syntax, naming, tool usage): state the rule, maybe a brief "why." Checks 1-5 are optional.
+- **Simple factual rules** (syntax, naming, tool usage): state the rule, maybe a brief "why." The checks are optional.
 - **Behavioral rules** (how to approach debugging, when to refactor, how to verify): checks 2 and 5 are the minimum. The agent needs to understand the trap to follow the spirit.
-- **Principles** (laziness protocol, reader load, experience first): all five checks matter. These are the rules that shape judgment, and judgment requires understanding.
+- **Principles** (laziness protocol, reader load, experience first): all the checks matter. These are the rules that shape judgment, and judgment requires understanding.
