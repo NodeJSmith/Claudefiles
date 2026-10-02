@@ -284,6 +284,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<gate_type>`**: `ship-challenge`
 - **`<target>`**: `<dir>/challenge-changed-files.txt`
 - **`<critic_flag>`**: (empty — use triage default 1–3)
+- **`<focus_flag>`**: (empty)
 - **`<re_challenge_flag>`**: (empty — first challenge in this run)
 - **`<post_resolution>`**: After the resolve loop in the challenge-gate recipe (its own step 6) completes, read the findings file and write `<dir>/challenge-summary.md`:
   - `**Verdict:** PASS` if the findings file has zero `## Finding N:` entries; `WARN` if it has findings but none CRITICAL/HIGH are left with `disposition: skipped`; `FAIL` if any CRITICAL/HIGH finding is left with `disposition: skipped`.

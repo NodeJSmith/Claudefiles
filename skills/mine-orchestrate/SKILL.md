@@ -31,7 +31,7 @@ Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts
 
 ### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol auto-resumes at Phase 2. If an active run exists in `define`, `plan`, or `sketch` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol auto-resumes at Phase 2. If an active run exists in `define` or `plan` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. A `sketch`-phase run belongs to mine-sketch, so the protocol points the user there and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
@@ -129,7 +129,7 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define`, `plan`, or `sketch` phase and the user chose to advance to orchestrate):
+**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define` or `plan` phase and the user chose to advance to orchestrate):
 
 ```bash
 cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server>] [--dev-server-url <url>]

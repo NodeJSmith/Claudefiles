@@ -67,15 +67,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"Lint baseline from prior session is gone.*not classified as a regression without a valid baseline",
                 ),
                 (
-                    "sketch stop choice",
-                    r"spec remains in sketch phase",
+                    "sketch run redirect",
+                    r"phase is `\"sketch\"`[^\n]*Use `/mine-sketch <feature_dir>`[^\n]*exit without changing the run",
                 ),
             ],
         ),
         (
             "skills/mine-orchestrate/SKILL.md",
             [
-                ("sketch phase advance", r"define`, `plan`, or `sketch` phase"),
+                ("prior phase advance", r"`define` or `plan` phase"),
+                ("sketch run redirect", r"`sketch`-phase run belongs to mine-sketch"),
                 ("prior phase flag", r"advance_from_prior_phase"),
                 (
                     "unspecified target fallback",

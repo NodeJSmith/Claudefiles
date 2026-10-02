@@ -1,6 +1,6 @@
-# Sketch Design Template
+# Sketch Ledger Template
 
-Write the design doc to `<feature_dir>/design.md` using this template:
+Write the ledger to `<feature_dir>/design.md` using this template:
 
 ```markdown
 # Design: <Topic>
@@ -9,58 +9,63 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 **Status:** draft
 **Mode:** sketch
 
-## Problem
+## Summary
 
-[1-2 sentences. What is broken, missing, or suboptimal — and why it matters now.]
+[The problem, the change, what's in scope and what's out. A few sentences. A fresh session that has
+never seen this conversation builds from this ledger alone, so name the files and modules involved.]
 
-## Goals
+## Decisions
 
-[What success looks like. Keep it tight — 2-4 bullets max.]
+### D1: <the question, phrased as a choice>
 
-[Optional "## Non-Goals" section — only include if the user explicitly named exclusions.]
+**Deciding factor:** [what the recommendation optimizes, e.g. "no breaking change"]
 
-## Functional Requirements
+| | A: <option> | B: <option> | C: <option> |
+|---|---|---|---|
+| <criterion> | | | |
+| <criterion> | | | |
 
-- **FR#1** [One testable behavior — state what the system must do, not how]
-  - **AC#1** [Measurable, observable outcome — verifiable by running a local command]
-- **FR#2** [Each entry describes exactly one behavior]
-  - **AC#2** [Each entry tests one outcome, verifiable by running a local command. An AC that verifies more than one FR sits under its primary FR and cites the others as (also FR#N)]
+**Recommendation:** A, because [reason tied to the deciding factor].
+**Pick B instead if** [condition]. **Pick C instead if** [condition].
+**Reversibility:** easy | hard ([why])
+**Ratified:** pending
 
-[Each AC must be verifiable by an executor running commands in the local repo.]
+## Assumed
 
-## Operational Lifecycle
+- [A fact or inherited constraint the build relies on.] Evidence: [file:line, issue, or doc].
 
-[Conditional section — include only when the feature owns resumable work state across invocations, such as a background worker, batch/backfill, scheduler, queue consumer, or persistent retry state. Define completion, retry eligibility and bounds, states requiring user action and their recovery path, repeated-run convergence, visible progress/failure accounting, and a realistic local validation scenario. Omit otherwise. This section explains the model, not the requirements themselves — every applicable lifecycle outcome is its own FR#N with ACs above, so planning can trace and verify it.]
+## Build
 
-## Approach
+[Written by build mode only. Leave the checklist unticked and the calls line empty at sketch time.]
 
-[The recommended approach with rationale. Reference specific files, patterns, and existing code. Key architecture decisions go here. This replaces the full Architecture, Implementation Preferences, and Alternatives Considered sections from a full design doc — keep it focused on what matters for execution. Cite `## Changed Files` for the file list rather than repeating it here.]
+- [ ] Implementation and tests committed
+- [ ] Docs
+- [ ] Ship-time challenge
 
-## Dependencies and Assumptions
-
-[Conditional section — include only when the sketch accepts an external dependency or an explicit verification gap. State the accepted risk and mitigation. For an Operational Lifecycle with no local test infrastructure, record that limitation here; otherwise omit this section.]
-
-## Changed Files
-
-[List each file with its change verb (create / modify / delete) and a one-line note on what changes.]
+**Calls made during the build:**
 
 ## Addendum
 
-[Never written at creation time — appended later, only once `**Status:**` reaches a terminal value (`archived` or `abandoned`). Once terminal, treat the sections above as settled — what was approved, and for `archived`, what got built. Don't rewrite them to match reality that changed after the fact. Append a dated entry instead:
+[Never written at creation time. Appended only once `**Status:**` is `built` (or `archived` /
+`abandoned`). From then on the sections above are settled: they record what was ratified and built.
+Don't rewrite them to match later reality. Append a dated entry instead:
 
 ### YYYY-MM-DD: <one-line summary of what changed>
-<What diverged from the design above, and why.>
+<What diverged from the ledger above, and why.>
 
-Drift against a terminal-status design doc is expected, not a finding — reviewers, challenge, and comb should never propose editing the sections above to "correct" them.]
+Drift against a settled ledger is expected, not a finding. Reviewers, challenge, and comb should
+never propose editing the sections above to "correct" it.]
 ```
 
 ## Content Rules
 
-- Functional Requirements use canonical identifier format `FR#N` (e.g., `FR#1`, `FR#2`). Each describes exactly one testable behavior.
-- Acceptance Criteria use canonical identifier format `AC#N` (e.g., `AC#1`, `AC#2`). Each must be verifiable by running a local command.
-- AC numbering, citation, and whole-suite-check rules follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` (Nested ACs and Numbering Rules)
-- When `## Operational Lifecycle` applies, the numbered requirements must cover repeated failure, retry bounds/termination, recovery or deliberately terminal behavior, and visible accounting; isolated one-transition tests are insufficient.
-- The Approach section should reference actual file paths, class names, and patterns found during investigation.
-- **One fact, one home** — follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md` (One Fact, One Home)
-- No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing.
-- Once `**Status:**` is terminal (`archived` or `abandoned`), never edit body sections to reflect later reality — append a dated entry to `## Addendum` instead.
+- **One home per decision.** A decision's options, reasoning, and answer all live in its `### D<n>` block. There is no separate table of ratified answers, and no other section restates a decision.
+- **Every judgment call that would change the code is a decision.** If it has more than one reasonable answer, it gets a `### D<n>` block, not a line in Assumed or a silent pick.
+- **Each decision block follows the rubric** in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
+- **A small decision may collapse.** One with a single obvious answer and easy reversibility can drop the table. It keeps the deciding factor, the recommendation, and "Pick X instead if".
+- **`**Ratified:**` is a state marker.** Every decision is created as `**Ratified:** pending`, matched literally on resume. Ratifying replaces `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D."
+- **Behavior, not technique.** Decisions and assumptions state what behavior a test must pin, never how to test it: no fixtures, no capture mechanisms, no test-file layout.
+- **Assumed holds facts and inherited constraints only**, each with evidence. It is not an implementation plan.
+- **`## Build` belongs to build mode.** Sketch mode writes the empty checklist and never ticks it.
+- No `[NEEDS CLARIFICATION]` markers. If you don't know, it's a decision or a question to ask.
+- Once `**Status:**` is `built`, `archived`, or `abandoned`, never edit the body sections to reflect later reality. Append a dated entry to `## Addendum` instead.

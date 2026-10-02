@@ -268,6 +268,7 @@ Run the mandatory design-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<gate_type>`**: `define-challenge`
 - **`<target>`**: `<design_doc_path>`
 - **`<critic_flag>`**: (empty — use triage default 1–3)
+- **`<focus_flag>`**: (empty)
 - **`<re_challenge_flag>`**: (empty — first challenge in this run)
 - **`<post_resolution>`**: if any finding was applied to `design.md` (`disposition: applied` with `design-level: Yes`, including a TENSION finding's chosen side), re-run Phase 5 (the comb) against the now-edited doc, then return to this point — do not re-run the challenge. If no finding touched `design.md` (all skipped, filed, design-level: No, or zero findings), proceed to Phase 6 directly.
 

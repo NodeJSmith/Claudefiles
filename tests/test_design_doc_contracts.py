@@ -1,29 +1,30 @@
-"""Contract guards for the "one fact, one home" design-doc template changes.
+"""Contract guards for the design-doc templates.
 
-Guards spec 1012's FR#1-FR#5: the `mine-define` and `mine-sketch` design
-templates nest acceptance criteria (AC#N) directly under their functional
-requirements (FR#N) instead of listing them in a separate top-level
-`## Acceptance Criteria` section, `mine-define`'s Test Strategy drops
-`### New Test Coverage`, and both templates carry the AC numbering/citation
-rules and the "One fact, one home" content rule. Later tasks in this feature
-append their own parametrized cases or test functions here as they land the
-remaining FR/AC pairs (FR#6-FR#12).
+The `mine-define` half guards spec 1012: ACs nest under their FRs instead of
+a top-level `## Acceptance Criteria` section, Test Strategy drops
+`### New Test Coverage`, and the template cites the shared numbering and
+"one fact, one home" rules instead of restating them.
+
+The `mine-sketch` half guards the decision-ledger template (issue #605): no
+FR/AC content, one `### D<n>` block per decision carrying the recommendation
+rubric and a literal `**Ratified:** pending` marker, a `## Build` checklist
+for build mode, and a citation of the shared rubric rather than a copy.
 """
 
 import re
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFINE_TEMPLATE = "skills/mine-define/design-template.md"
 SKETCH_TEMPLATE = "skills/mine-sketch/design-template.md"
-BOTH_TEMPLATES = [DEFINE_TEMPLATE, SKETCH_TEMPLATE]
+PRESENTING_DECISIONS = "references/common/presenting-decisions.md"
+CITES_PRESENTING_DECISIONS = re.escape(Path(PRESENTING_DECISIONS).name)
 DESIGN_DOC_FORMAT = "skills/mine-define/design-doc-format.md"
 PLAN_VALIDATOR_PROMPT = "skills/mine-plan/validator-prompt.md"
 PLAN_SKILL = "skills/mine-plan/SKILL.md"
 CHALLENGE_FINDINGS_PROTOCOL = "skills/mine-challenge/findings-protocol.md"
+CHALLENGE_SYNTHESIS_PROCEDURE = "skills/mine-challenge/synthesis-procedure.md"
 IMPLEMENTATION_REVIEW_PROMPT = "skills/mine-implementation-review/reviewer-prompt.md"
 ORCHESTRATE_TDD = "skills/mine-orchestrate/tdd.md"
 FINE_TOOTHED_COMB_AGENT = "agents/fine-toothed-comb.md"
@@ -48,22 +49,14 @@ def _section(text: str, heading: str, level: int = 2) -> str | None:
 # AC#1 (also FR#1, FR#5): no top-level "## Acceptance Criteria" heading, no
 # remaining text naming Acceptance Criteria as a section, and the Functional
 # Requirements placeholder nests an indented AC bullet under an FR bullet.
-@pytest.mark.parametrize(
-    "relative_path",
-    BOTH_TEMPLATES,
-)
-def test_no_standalone_acceptance_criteria_section(relative_path: str) -> None:
-    text = _text(relative_path)
+def test_no_standalone_acceptance_criteria_section() -> None:
+    text = _text(DEFINE_TEMPLATE)
     assert re.search(r"^## Acceptance Criteria$", text, re.MULTILINE) is None, (
-        f"{relative_path} still has a standalone '## Acceptance Criteria' heading"
+        f"{DEFINE_TEMPLATE} still has a standalone '## Acceptance Criteria' heading"
     )
 
 
-@pytest.mark.parametrize(
-    "relative_path",
-    BOTH_TEMPLATES,
-)
-def test_no_text_names_acceptance_criteria_as_a_section(relative_path: str) -> None:
+def test_no_text_names_acceptance_criteria_as_a_section() -> None:
     """No remaining text may name Acceptance Criteria as a section.
 
     Text describing ACs as a concept (e.g. the AC#N identifier-format rule)
@@ -72,7 +65,7 @@ def test_no_text_names_acceptance_criteria_as_a_section(relative_path: str) -> N
     "## Acceptance Criteria" heading, or a content-rules list that still
     enumerates it alongside other section names).
     """
-    text = _text(relative_path)
+    text = _text(DEFINE_TEMPLATE)
     assert re.search(r"Acceptance Criteria section", text) is None
     assert (
         re.search(r"Functional Requirements,\s*Edge Cases,\s*Acceptance Criteria", text)
@@ -80,15 +73,11 @@ def test_no_text_names_acceptance_criteria_as_a_section(relative_path: str) -> N
     )
 
 
-@pytest.mark.parametrize(
-    "relative_path",
-    BOTH_TEMPLATES,
-)
-def test_functional_requirements_placeholder_nests_acs(relative_path: str) -> None:
-    text = _text(relative_path)
+def test_functional_requirements_placeholder_nests_acs() -> None:
+    text = _text(DEFINE_TEMPLATE)
     fr_section = _section(text, "Functional Requirements")
     assert fr_section is not None, (
-        f"{relative_path} has no '## Functional Requirements' section"
+        f"{DEFINE_TEMPLATE} has no '## Functional Requirements' section"
     )
     assert re.search(r"^- \*\*FR#\d+\*\*", fr_section, re.MULTILINE) is not None
     assert re.search(r"^\s+- \*\*AC#\d+\*\*", fr_section, re.MULTILINE) is not None
@@ -129,7 +118,7 @@ def test_define_required_test_types_carries_moved_guidance() -> None:
     assert re.search(r"completion/status accounting", required_types)
 
 
-# Shared format-contract file: both templates cite
+# Shared format-contract file: the define template cites
 # skills/mine-define/design-doc-format.md for the AC numbering/citation rules
 # and "one fact, one home" instead of each carrying its own copy of the rule
 # text — a byte-identical copy would silently drift from the source.
@@ -160,33 +149,20 @@ def test_design_doc_format_file_exists_with_canonical_rules() -> None:
     assert re.search(r"struck-through", flat)
 
 
-# AC#3/AC#4: both templates cite the shared file instead of restating the
-# rules inline.
-@pytest.mark.parametrize(
-    ("relative_path", "section_heading"),
-    [
-        (DEFINE_TEMPLATE, "Section Rules"),
-        (SKETCH_TEMPLATE, "Content Rules"),
-    ],
-)
-def test_numbering_and_citation_rules_cite_shared_file(
-    relative_path: str, section_heading: str
-) -> None:
-    text = _text(relative_path)
-    section = _section(text, section_heading)
-    assert section is not None, f"{relative_path} has no '## {section_heading}' section"
+# AC#3/AC#4: the define template cites the shared file instead of restating
+# the rules inline.
+def test_numbering_and_citation_rules_cite_shared_file() -> None:
+    text = _text(DEFINE_TEMPLATE)
+    section = _section(text, "Section Rules")
+    assert section is not None, f"{DEFINE_TEMPLATE} has no '## Section Rules' section"
     assert re.search(r"design-doc-format\.md", section)
     assert re.search(r"Nested ACs and Numbering Rules", section)
     # the rule text itself must not be duplicated here anymore
     assert re.search(r"global and sequential", section) is None
 
 
-@pytest.mark.parametrize(
-    "relative_path",
-    BOTH_TEMPLATES,
-)
-def test_one_fact_one_home_cites_shared_file(relative_path: str) -> None:
-    text = _text(relative_path)
+def test_one_fact_one_home_cites_shared_file() -> None:
+    text = _text(DEFINE_TEMPLATE)
     content_rules = _section(text, "Content Rules")
     assert content_rules is not None
     assert re.search(r"One fact, one home", content_rules)
@@ -231,16 +207,15 @@ def test_tdd_and_reviewer_prompt_agree_on_test_naming_location() -> None:
 def test_operational_lifecycle_placeholder_reframes_outcomes_as_fr_ac() -> None:
     """FR#4: the Operational Lifecycle placeholder's closing line says the
     section explains the model and each outcome is its own FR with ACs,
-    in both templates.
+    in the define template.
     """
-    for relative_path in (DEFINE_TEMPLATE, SKETCH_TEMPLATE):
-        text = _text(relative_path)
-        lifecycle = _section(text, "Operational Lifecycle")
-        assert lifecycle is not None, (
-            f"{relative_path} has no '## Operational Lifecycle' section"
-        )
-        assert re.search(r"explains the model", lifecycle)
-        assert re.search(r"its own FR#N with ACs", lifecycle)
+    text = _text(DEFINE_TEMPLATE)
+    lifecycle = _section(text, "Operational Lifecycle")
+    assert lifecycle is not None, (
+        f"{DEFINE_TEMPLATE} has no '## Operational Lifecycle' section"
+    )
+    assert re.search(r"explains the model", lifecycle)
+    assert re.search(r"its own FR#N with ACs", lifecycle)
 
 
 def test_define_edge_cases_placeholder_holds_context_only() -> None:
@@ -261,20 +236,22 @@ def test_define_architecture_and_replacement_targets_cite_changed_files() -> Non
     assert re.search(r"### Changed Files", replacement_targets)
 
 
-def test_sketch_approach_cites_changed_files() -> None:
+def test_sketch_ledger_has_no_fr_ac_content() -> None:
+    """The ledger records decisions, not FR/AC lists, so no FR#N or AC#N
+    identifier appears anywhere in the template."""
     text = _text(SKETCH_TEMPLATE)
-    approach = _section(text, "Approach")
-    assert approach is not None
-    assert re.search(r"## Changed Files", approach)
+    assert re.search(r"\b(FR|AC)#", text) is None
 
 
-# AC#5: the FR#1/AC#1 nested-AC check, run against the mine-sketch template.
 def test_sketch_excludes_define_only_sections() -> None:
-    """FR#5: mine-sketch has no Section Rules, Edge Cases, Architecture,
-    Replacement Targets, or Test Strategy sections — those are mine-define-only.
-    """
+    """The ledger has none of mine-define's requirement or architecture
+    sections."""
     text = _text(SKETCH_TEMPLATE)
     for heading in (
+        "## Functional Requirements",
+        "## Operational Lifecycle",
+        "## Approach",
+        "## Changed Files",
         "## Acceptance Criteria",
         "## Section Rules",
         "## Edge Cases",
@@ -285,6 +262,90 @@ def test_sketch_excludes_define_only_sections() -> None:
         assert re.search(rf"^{re.escape(heading)}$", text, re.MULTILINE) is None, (
             f"mine-sketch template unexpectedly has a '{heading}' section"
         )
+
+
+def test_sketch_ledger_header_and_section_order() -> None:
+    """Resume, the findings protocol, and the Addendum convention key on the
+    `**Mode:** sketch` header and a `**Status:**` that starts as `draft`."""
+    text = _text(SKETCH_TEMPLATE)
+    assert re.search(r"^\*\*Mode:\*\* sketch$", text, re.MULTILINE)
+    assert re.search(r"^\*\*Status:\*\* draft$", text, re.MULTILINE)
+    headings = re.findall(r"^## (.+)$", text, re.MULTILINE)
+    ledger = [
+        h
+        for h in headings
+        if h in ("Summary", "Decisions", "Assumed", "Build", "Addendum")
+    ]
+    assert ledger == ["Summary", "Decisions", "Assumed", "Build", "Addendum"]
+
+
+def test_sketch_decision_block_carries_the_rubric_and_pending_marker() -> None:
+    """Each decision holds its own options, reasoning, and answer, and is
+    created with the literal `**Ratified:** pending` marker resume matches.
+
+    The ledger spells its fields as prose labels ("Deciding factor", "Pick B
+    instead if"); the challenge findings format uses hyphenated keys
+    ("Deciding-factor", "Pick-instead-if"). Both follow their own file's
+    field convention, so the tests below pin each spelling separately."""
+    text = _text(SKETCH_TEMPLATE)
+    decisions = _section(text, "Decisions")
+    assert decisions is not None
+    assert re.search(r"^### D1: ", decisions, re.MULTILINE)
+    for field in (
+        r"\*\*Deciding factor:\*\*",
+        r"^\| \| A: ",
+        r"\*\*Recommendation:\*\*",
+        r"\*\*Pick B instead if\*\*",
+        r"\*\*Reversibility:\*\*",
+        r"^\*\*Ratified:\*\* pending$",
+    ):
+        assert re.search(field, decisions, re.MULTILINE), field
+
+
+def test_sketch_build_section_has_the_build_checklist() -> None:
+    text = _text(SKETCH_TEMPLATE)
+    build = _section(text, "Build")
+    assert build is not None
+    items = re.findall(r"^- \[ \] (.+)$", build, re.MULTILINE)
+    assert items == [
+        "Implementation and tests committed",
+        "Docs",
+        "Ship-time challenge",
+    ]
+    assert re.search(r"\*\*Calls made during the build:\*\*", build)
+
+
+def test_sketch_content_rules_cite_the_rubric_without_restating_it() -> None:
+    text = _text(SKETCH_TEMPLATE)
+    content_rules = _section(text, "Content Rules")
+    assert content_rules is not None
+    assert re.search(CITES_PRESENTING_DECISIONS, content_rules)
+    assert re.search(r"Behavior, not technique", content_rules)
+    assert "Fill in the table before choosing" not in text
+
+
+def test_challenge_questions_cite_the_rubric() -> None:
+    """The rubric's second consumer: every User-directed and TENSION question
+    in the challenge walkthrough shows the reasoning first."""
+    assert (REPO_ROOT / PRESENTING_DECISIONS).is_file()
+    flow = _section(_text(CHALLENGE_FINDINGS_PROTOCOL), "Inline Resolution Flow")
+    assert flow is not None
+    assert re.search(CITES_PRESENTING_DECISIONS, _text(CHALLENGE_FINDINGS_PROTOCOL))
+    assert re.search(r"\*\*Criteria:\*\*", flow)
+    assert re.search(r"TENSION", flow)
+
+
+def test_challenge_synthesis_fills_the_table_before_recommending() -> None:
+    """The table has to exist before the recommendation is chosen; synthesis
+    is the only place that can do it in that order."""
+    text = _text(CHALLENGE_SYNTHESIS_PROCEDURE)
+    assert re.search(CITES_PRESENTING_DECISIONS, text)
+    criteria = text.index("`criteria` table")
+    recommendation = text.index("`recommendation`")
+    assert criteria < recommendation
+    protocol = _text(CHALLENGE_FINDINGS_PROTOCOL)
+    for field in ("**Deciding-factor:**", "**Criteria:**", "**Pick-instead-if:**"):
+        assert field in protocol, field
 
 
 # AC#7: validator-prompt.md Step 1 describes a single extraction pass for FR

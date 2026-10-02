@@ -48,7 +48,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "domain model", "glossary", "sharpen terminology", "define this term", "what does X mean in this codebase", "ubiquitous language", "record an architectural decision" | `/mine-domain-model` |
 | "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine-define` |
 | "specify this feature", "write a spec", "define requirements" | `/mine-define` |
-| "sketch this out", "sketch this feature", "lightweight plan", "quick design and tasks", "structured but lightweight" | `/mine-sketch` |
+| "sketch this out", "sketch this feature", "lightweight plan", "structured but lightweight", "decision ledger", "build the ratified ledger" | `/mine-sketch` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine-build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine-define` |
 | "wayfinder", "chart this effort", "too big for one session", "multi-session plan", "foggy effort", "progressive discovery" | `/mine-wayfinder` |

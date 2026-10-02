@@ -16,13 +16,13 @@ cfl run status
 Set `feature_dir` to the status response's stored `feature_dir` and carry that value into Phase 0.
 If `$ARGUMENTS` resolved to a different directory, stop and report the active-run mismatch rather
 than bypassing or replacing that run. Do not perform most-recent-task discovery. An active
-`orchestrate` run uses the stored directory during resume; a prior `define`, `plan`, or `sketch` run
+`orchestrate` run uses the stored directory during resume; a prior `define` or `plan` run
 uses it after the user chooses to continue/advance. If the stored value is missing, stop and report
 that the run state cannot identify its feature directory rather than guessing from task files.
 
 ### Phase check
 
-When the user chooses to continue a prior `define`, `plan`, or `sketch` run, preserve the status-derived `feature_dir`, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0 using that directory. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
+When the user chooses to continue a prior `define` or `plan` run, preserve the status-derived `feature_dir`, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0 using that directory. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
 
 **If phase is `"define"`** (no task files exist yet — mine-plan has not run):
 
@@ -43,22 +43,7 @@ AskUserQuestion:
 - **"Stop the run"**: Call `cfl run stop --reason "user chose stop — needs mine-plan"` and exit.
 - **"I already have task files"**: Set `advance_from_prior_phase = true` and continue Phase 0.
 
-**If phase is `"sketch"`** (task files should exist from mine-sketch):
-
-```
-AskUserQuestion:
-  question: "An active run exists in sketch phase (from mine-sketch). Advance to orchestrate to begin task execution?"
-  header: "Advance?"
-  multiSelect: false
-  options:
-    - label: "Advance to orchestrate"
-      description: "Load task files and begin execution"
-    - label: "Stop the run"
-      description: "Stop this run; the spec remains in sketch phase"
-```
-
-- **"Advance to orchestrate"**: Set `advance_from_prior_phase = true` and continue Phase 0.
-- **"Stop the run"**: Call `cfl run stop --reason "user chose stop at phase advance"` and exit.
+**If phase is `"sketch"`**: the directory holds a decision ledger, which mine-sketch builds itself. Tell the user: "This is a sketch ledger — mine-orchestrate doesn't run it. Use `/mine-sketch <feature_dir>` to continue or build it." and exit without changing the run.
 
 **If phase is `"plan"`** (task files should exist from mine-plan):
 

@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-02
+
+### Changed
+
+- `mine-sketch` no longer produces FR/AC lists and task files for `mine-orchestrate`; it produces a decision ledger ratified one decision at a time (deciding factor, criteria × options table, recommendation, "pick X instead if"), challenged with 2 critics and combed once. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, gated by a ship-time challenge against the ledger. The recommendation rubric is shared at `references/common/presenting-decisions.md`; `mine-challenge`'s synthesis now fills in the rubric fields before choosing a recommendation, and the findings walkthrough shows them for every user-directed and TENSION finding, repo-wide. `mine-define`, `mine-plan`, and `mine-orchestrate` are otherwise unchanged. (#606)
+
 ## 2026-09-30
 
 ### Changed
