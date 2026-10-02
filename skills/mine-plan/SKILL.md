@@ -171,7 +171,7 @@ cfl question mine-plan open-question --status asked --disposition <resolved|acce
     --answer "<selected option>" [--recommended "<recommended option label>"] --spec <spec_number>
 ```
 
-Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. `--recommended` carries the option the agent marked as recommended (the `(Recommended)` label), if any — omit when no option was explicitly recommended. (`skipped` means a question was never put to them; this phase always asks.)
+Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. `--recommended` carries the label of the option the agent marked as recommended, without the ` (Recommended)` suffix, if any — omit when no option was explicitly recommended. (`skipped` means a question was never put to them; this phase always asks.)
 
 `--disposition` is the separate question of which file the answer went into, so it must name the edit you just made: `resolved` for a decision written into a design section, `accepted` for a risk written into Dependencies and Assumptions, `deferred` for an entry left marked in Open Questions for Phase 3. Record it in the same step as the edit rather than from memory afterward — the disposition is a claim about the doc, and the two disagreeing is worse than no record at all.
 
@@ -480,7 +480,7 @@ This is the only enforcement point for the invariant, which is why it re-reads t
 
 ### Approval options
 
-Build the options from the review result. When the reviewer left non-blocking suggestions, the approve options apply them first: say so in their descriptions and name the suggestions. Recommend "Approve — start execution" on a clean review or one with only suggestions, and "Revise the plan" when the review found problems the suggestions don't cover. When invoked inline by `mine-build`, omit "Approve — start later" (the build flow continues on its own).
+Build the options from the review result. When the reviewer left non-blocking suggestions, the approve options apply them first: say so in their descriptions and name the suggestions. Recommend "Approve — start execution" on a clean review or one with only cosmetic suggestions, and "Revise the plan" when the review found problems the suggestions don't cover or a suggestion would change what a task must do (a new or altered FR/AC, or a design section tasks implement), since the task files were generated without it; name that suggestion in its description. When invoked inline by `mine-build`, omit "Approve — start later" (the build flow continues on its own).
 
 ```
 AskUserQuestion:
