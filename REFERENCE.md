@@ -112,7 +112,7 @@ Conversation memory (recall, resume) now ships as the external
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
 | `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis and the `mine-address-pr-issues` review ledger. The caller supplies the full task methodology in its prompt |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
-| `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against five quality dimensions |
+| `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against quality dimensions |
 | `integration-reviewer` | Codebase integration reviewer — duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `lazy-checker` | Deferred-debt reviewer — flags lazy code patterns, deferred decisions, and shortcuts that accumulate into real debt |

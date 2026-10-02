@@ -2,7 +2,7 @@
 name: instruction-quality-reviewer
 model: sonnet
 effort: medium
-description: Instruction quality reviewer — assesses skill files, rules, and agent prompts against five quality dimensions. Use for instruction-file reviews in mine-review instruction mode.
+description: Instruction quality reviewer — assesses skill files, rules, and agent prompts against quality dimensions. Use for instruction-file reviews in mine-review instruction mode.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
 ---
@@ -49,6 +49,7 @@ For each file, assess proportionally (simple factual rules need less; behavioral
 3. **AI-specific bias acknowledgment** — does it account for how an AI agent will systematically misapply the instruction?
 4. **Generative value** — does the instruction generate better output than the agent's default behavior?
 5. **"Why" before "what"** — does the reader understand the purpose before the prescription?
+6. **Room for judgment** — does it prescribe steps or hard rules where a goal and a reason would do (real invariants and safety gates are exempt)? Flag any user prompt fired straight from a script or lookup result with no step where the agent judges whether the result matters.
 
 Report every finding with its severity; the severity, not omission, is how a finding that would barely change behavior is marked.
 

@@ -10,7 +10,7 @@ Post-execution quality gate. After `/mine-orchestrate` finishes, this reviews th
 
 ## Arguments
 
-$ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a `design.md` file. The caller may append `--test-command-file <path>` to provide a previously confirmed canonical test command. If empty, find the most recently modified `design/specs/*/design.md` and confirm before proceeding.
+$ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a `design.md` file. The caller may append `--test-command-file <path>` to provide a previously confirmed canonical test command. If empty, find the most recently modified `design/specs/*/design.md`; confirm only when that choice is a guess.
 
 ---
 
@@ -30,7 +30,7 @@ If `<feature_path>` is empty:
 Glob: design/specs/*/design.md
 ```
 
-Sort by modification time, take the most recent. The feature directory is one level up. Confirm:
+Sort by modification time, take the most recent. The feature directory is one level up. If it's the only candidate or the conversation already points at it, use it and say which one. Confirm only when the choice is a guess:
 
 ```
 AskUserQuestion:

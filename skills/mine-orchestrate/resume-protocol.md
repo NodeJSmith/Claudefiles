@@ -17,50 +17,14 @@ Set `feature_dir` to the status response's stored `feature_dir` and carry that v
 If `$ARGUMENTS` resolved to a different directory, stop and report the active-run mismatch rather
 than bypassing or replacing that run. Do not perform most-recent-task discovery. An active
 `orchestrate` run uses the stored directory during resume; a prior `define` or `plan` run
-uses it after the user chooses to continue/advance. If the stored value is missing, stop and report
+uses it when the phase check below continues the run. If the stored value is missing, stop and report
 that the run state cannot identify its feature directory rather than guessing from task files.
 
 ### Phase check
 
-When the user chooses to continue a prior `define` or `plan` run, preserve the status-derived `feature_dir`, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0 using that directory. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
-
-**If phase is `"define"`** (no task files exist yet — mine-plan has not run):
-
-Do not auto-resume — there are no tasks to resume from, and advancing to orchestrate would fail (`no_tasks` error).
-
-```
-AskUserQuestion:
-  question: "An active run exists in define phase (from mine-define). Task files don't exist yet — run /mine-plan first to generate them, or stop the run."
-  header: "No tasks"
-  multiSelect: false
-  options:
-    - label: "Stop the run"
-      description: "Stop this run so I can run /mine-plan first"
-    - label: "I already have task files"
-      description: "Task files exist on disk — advance to orchestrate"
-```
-
-- **"Stop the run"**: Call `cfl run stop --reason "user chose stop — needs mine-plan"` and exit.
-- **"I already have task files"**: Set `advance_from_prior_phase = true` and continue Phase 0.
+**If phase is `"define"` or `"plan"`**: invoking mine-orchestrate on the spec is the request to execute it, so don't ask. If `<feature_dir>/tasks/` has `T*.md` files, set `advance_from_prior_phase = true` and fall through to the rest of SKILL.md Phase 0 with the status-derived `feature_dir`. Do **not** call `cfl run advance-phase` yet; act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved. If there are no task files, advancing would fail with `no_tasks`: tell the user to run `/mine-plan <feature_dir>` first and exit without changing the run. mine-plan advances the run itself.
 
 **If phase is `"sketch"`**: the directory holds a decision ledger, which mine-sketch builds itself. Tell the user: "This is a sketch ledger — mine-orchestrate doesn't run it. Use `/mine-sketch <feature_dir>` to continue or build it." and exit without changing the run.
-
-**If phase is `"plan"`** (task files should exist from mine-plan):
-
-```
-AskUserQuestion:
-  question: "An active run exists in plan phase (from mine-plan). Advance to orchestrate to begin task execution?"
-  header: "Advance?"
-  multiSelect: false
-  options:
-    - label: "Advance to orchestrate"
-      description: "Load task files and begin execution"
-    - label: "Stop the run"
-      description: "Stop this run; the spec remains in plan phase"
-```
-
-- **"Advance to orchestrate"**: Set `advance_from_prior_phase = true` and continue Phase 0.
-- **"Stop the run"**: Call `cfl run stop --reason "user chose stop at phase advance"` and exit.
 
 **If phase is `"orchestrate"`** — auto-resume below.
 
@@ -107,7 +71,7 @@ Report this to the user instead of silently continuing.
 - **Stale verdict check**: For each task that has a PASS verdict in the `tasks` array, resolve its real task file path from the task files read above before invoking `git log`. Then check whether it was modified after the run's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <resolved_task_file_path>`. If the file was modified, surface a warning: "<task_id> was edited since its PASS verdict — the verdict may no longer be valid." Skip tasks with no verdict yet (unstarted) — edits to unstarted tasks are expected between sessions. This does not require a hard stop, just visibility before proceeding.
 - **Test baseline check**: If `<dir>/test-baseline.md` is missing (tmpdir was cleared), persist `<dir>/test-baseline-unavailable`, warn: "Test baseline from prior session is gone — regression detection will be unavailable for resumed tasks. Baseline test failures cannot be distinguished from regressions." Do not re-capture (the codebase has changed since baseline). Phase 2 records `NO BASELINE` while this marker exists.
 - **Lint baseline check**: If `<dir>/lint-baseline.md` is missing, persist `<dir>/lint-baseline-unavailable`, warn: "Lint baseline from prior session is gone — regression detection will be unavailable for resumed tasks. Baseline lint failures cannot be distinguished from regressions." Do not re-capture. Phase 2 records `NO BASELINE` while this marker exists; a nonzero result alone is not classified as a regression without a valid baseline.
-- **Dev server re-verify**: If `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → user prompt). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
+- **Dev server re-verify**: Skip this if every task in `tasks` has `status: "done"`; only Phase 2 uses the server. Otherwise, if `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → start one yourself → ask only if that fails). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
 - Skip the rest of Phase 0; feature discovery/design/task reads are handled by the restore, and dev server state was re-verified above.
 - **Determine start point**: If `current_task` is set, resume from that task. Otherwise, skip
   through `last_completed` and start from the next task. If every task in the `tasks` array has
