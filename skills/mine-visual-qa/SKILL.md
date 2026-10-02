@@ -264,7 +264,7 @@ AskUserQuestion:
   question: "What would you like to do with these findings?"
   multiSelect: true
   options:
-    - label: "Fix issues now (Recommended)"
+    - label: "Fix issues now"
       description: "Auto-apply unambiguous fixes; ask per-finding for judgment calls"
     - label: "Read a specific agent's full report"
       description: "See unfiltered findings from one of the analysis agents"
