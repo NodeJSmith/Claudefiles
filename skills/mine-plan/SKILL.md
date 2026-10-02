@@ -498,7 +498,7 @@ AskUserQuestion:
       description: "Mark the design as abandoned and stop"
 ```
 
-When suggestions exist, both approve descriptions should say they'll be applied first and name them. A user who wants to approve without them can say so through "Other"; honor that and skip them.
+When suggestions exist, both approve descriptions should say they'll be applied first and name them. A user who wants to approve without them can say so through "Other"; per `interaction.md`, that counts as the approve option they mean, with the suggestions declined.
 
 ### Record approval question and gate
 

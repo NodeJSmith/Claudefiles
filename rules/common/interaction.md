@@ -54,7 +54,11 @@ block or as a prose menu of options, call the `AskUserQuestion` tool.
    Skip or collapse a question only when the user's request or your findings
    already settle the answer (if one option is left, say so and act). Never
    skip a confirmation for an irreversible action or a gate a rule marks
-   mandatory.
+   mandatory. An "Other" answer that means one of the options (with a
+   tweak, like "approve but skip the suggestions") counts as that option:
+   carry it out, honoring the tweak, and record it under that label so
+   handlers and verdict mappings apply. Ask if it's ambiguous which option
+   it means.
 3. **Respect `multiSelect`.** If the skill says `multiSelect: true`, pass it
    through. Do not downgrade to single-select.
 4. **Use previews for concrete format comparisons.** The `preview` field on options renders multi-line markdown in a side-by-side layout next to the option list. Use previews for format comparisons (code snippets, ASCII mockups, diagram variations, manifest samples) where the user needs to *see* the option before choosing. Previews only work on single-select questions (`multiSelect: false`). Do not use previews for simple preference questions — labels and descriptions suffice there.
