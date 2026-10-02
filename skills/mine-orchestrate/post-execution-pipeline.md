@@ -452,19 +452,22 @@ AskUserQuestion:
 - **Leave deferred:** no change; `Status: open` stands.
 
 **Backlog entries:** do not walk through these individually every run — that trains the user
-to reflexively dismiss the prompt. Instead, ask once. Same major-gate rule applies — prepend
-the `context-pct` result:
+to reflexively dismiss the prompt. First compare each entry's `Affected files` with this run's
+diff (`<base_commit>..HEAD`). An entry in code this run just touched is cheapest to fix now. If none
+overlap, say how many backlog entries are open in one line and move on; the shipping gate's known
+issues count keeps them visible. Otherwise ask once, naming the overlapping entries. Same
+major-gate rule applies — prepend the `context-pct` result:
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] <N> known issues from earlier runs on this feature are still open: <KI-001 title>, <KI-002 title>, ... . Review them now?"
+  question: "[Context: N%] <N> known issues from earlier runs on this feature are still open: <KI-001 title>, <KI-002 title>, ... . <Which of them sit in code this run touched.> Review them now?"
   header: "Known issues backlog"
   multiSelect: false
   options:
+    - label: "Review them (Recommended)"
+      description: "Walk through each backlog entry the same way as new-this-run entries"
     - label: "Not now"
       description: "Leave the backlog as-is; it stays visible in the shipping gate's known issues count"
-    - label: "Review them"
-      description: "Walk through each backlog entry the same way as new-this-run entries"
 ```
 
 If "Review them," walk through each backlog entry with the same three-option AskUserQuestion used for new-this-run entries above.

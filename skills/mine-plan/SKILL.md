@@ -11,7 +11,7 @@ Turn an approved design doc into a set of task files, validate them against a tr
 
 ## Arguments
 
-$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-<slug>/`). If empty, find the most recently modified `design/specs/*/design.md` and confirm with the user before proceeding.
+$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-<slug>/`). If empty, find the most recently modified `design/specs/*/design.md`; confirm with the user only when that choice is a guess.
 
 ---
 
@@ -35,7 +35,7 @@ If $ARGUMENTS is empty:
 Glob: design/specs/*/design.md
 ```
 
-Sort by modification time, take the most recent. Then confirm (topic: `design-doc`):
+Sort by modification time, take the most recent. If it's the only candidate or the conversation already points at it, use it and say which one. Confirm only when the choice is a guess (topic: `design-doc`):
 
 ```
 AskUserQuestion:
@@ -101,7 +101,7 @@ cfl event plan.started --spec <spec_number>
 
 ### Record design doc selection
 
-Record (skip if $ARGUMENTS was provided directly, or if cfl tracking is inactive): `cfl question mine-plan design-doc --status <asked|skipped> --answer "<selected option>" --spec <spec_number>`
+Record (skip if $ARGUMENTS was provided directly, or if cfl tracking is inactive): `cfl question mine-plan design-doc --status <asked|skipped> --answer "<selected option, or the path you picked without asking>" --spec <spec_number>` — `skipped` when you picked without asking.
 
 ---
 

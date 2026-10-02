@@ -31,7 +31,7 @@ Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts
 
 ### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol auto-resumes at Phase 2. If an active run exists in `define` or `plan` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. A `sketch`-phase run belongs to mine-sketch, so the protocol points the user there and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol auto-resumes at Phase 2. If an active run exists in `define` or `plan` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or (no task files yet) points the user to `/mine-plan` and exits without changing the run. A `sketch`-phase run belongs to mine-sketch, so the protocol points the user there and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
@@ -54,7 +54,7 @@ Otherwise, if $ARGUMENTS is empty:
 Glob: design/specs/*/tasks/T*.md
 ```
 
-Sort by modification time, take the most recent. The feature directory is two levels up from that file. Confirm:
+Sort by modification time, take the most recent. The feature directory is two levels up from that file. If it's the only candidate or the conversation already points at it, use it and say which one. Confirm only when the choice is a guess:
 
 ```
 AskUserQuestion:
@@ -100,10 +100,13 @@ lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(3000|3001|3002|3003|4173|42
 
 If a server is found, derive the URL from the matched port (e.g., `http://localhost:3000`). If multiple ports match, prefer the first one and note the others.
 
-If no server is found:
+If no server is found, start one yourself. Find the project's dev command (a `dev`/`start` script in `package.json`, a mise or Makefile task, the README or CLAUDE.md), run it with `run_in_background: true`, and take the URL from its output. You own that process. Only Phase 2 tasks use it, so stop it once Phase 2 finishes, or earlier if you stop or exit on failure. A dev server left running outlives the session, and resume starts a fresh one.
+
+Ask only if you can't find a dev command or the server fails to come up:
+
 ```
 AskUserQuestion:
-  question: "<N> tasks have visual verification scenarios but no dev server was detected. Visual checks require a running app."
+  question: "<N> tasks have visual verification scenarios, but I couldn't start a dev server: <what you tried and what happened>."
   header: "Dev server"
   multiSelect: false
   options:
@@ -113,7 +116,7 @@ AskUserQuestion:
       description: "Execute tasks without visual checks — Visual line will show SKIPPED"
 ```
 
-If the user starts the server, announce "Checking for dev server..." and re-probe (up to 3 attempts with a 5-second pause between). If found, confirm the URL. If still not found after 3 attempts, present the same two options again. If skipping, set `visual_mode` to `skipped_no_server` for the run — executors will skip all visual capture and report SKIPPED.
+If the user starts the server, it's theirs to manage, not yours to stop. Announce "Checking for dev server..." and re-probe (up to 3 attempts with a 5-second pause between). If found, confirm the URL. If still not found after 3 attempts, present the same two options again. If skipping, set `visual_mode` to `skipped_no_server` for the run — executors will skip all visual capture and report SKIPPED.
 
 ### Initialize orchestration run via cfl
 
@@ -129,7 +132,7 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define` or `plan` phase and the user chose to advance to orchestrate):
+**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define` or `plan` phase with task files on disk):
 
 ```bash
 cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server>] [--dev-server-url <url>]
