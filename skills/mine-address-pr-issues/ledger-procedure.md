@@ -86,7 +86,7 @@ A **convergence** is a set of distinct findings that land on the same mechanism,
 - Several fixes that **add** state, guards, special cases, or mirrored fields to the same mechanism.
 - Distinct findings from **different reviewers** on one mechanism.
 
-Findings that only touch the same file are not a convergence. Several unrelated small findings are not a convergence either. One concern restated by several reviewers (rows that list each other in `related`) counts as a single finding: a convergence needs at least two findings that are distinct after collapsing restatements.
+Findings that only touch the same file are not a convergence. Several unrelated small findings are not a convergence either. A real convergence names one specific change to the mechanism that would make at least two members' local fixes unnecessary; findings that share a subject but would each still need their own fix are not one. One concern restated by several reviewers (rows that list each other in `related`) counts as a single finding: a convergence needs at least two findings that are distinct after collapsing restatements.
 
 For each convergence, record:
 - `mechanism`: the shared mechanism string.
