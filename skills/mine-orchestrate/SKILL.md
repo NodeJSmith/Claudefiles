@@ -100,7 +100,7 @@ lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(3000|3001|3002|3003|4173|42
 
 If a server is found, derive the URL from the matched port (e.g., `http://localhost:3000`). If multiple ports match, prefer the first one and note the others.
 
-If no server is found, start one yourself. Find the project's dev command (a `dev`/`start` script in `package.json`, a mise or Makefile task, the README or CLAUDE.md), run it with `run_in_background: true`, and take the URL from its output. You own that process. Only Phase 2 tasks use it, so stop it once Phase 2 finishes, or earlier if you stop or exit on failure. A dev server left running outlives the session, and resume starts a fresh one.
+If no server is found, start one yourself. Find the project's dev command (a `dev`/`start` script in `package.json`, a mise or Makefile task, the README or CLAUDE.md), run it with `run_in_background: true`, and take the URL from its output. Record its PID in `<tmpdir>/dev-server.pid`. That file is what marks the server as yours, including after compaction or a resume, which restore only the URL. Only Phase 2 tasks use it, so once Phase 2 finishes (or earlier if you stop or exit on failure), stop that process and its children and delete the file. A dev server left running outlives the session. Without the file, the server isn't yours to stop.
 
 Ask only if you can't find a dev command or the server fails to come up:
 

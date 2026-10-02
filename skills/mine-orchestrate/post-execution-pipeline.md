@@ -452,8 +452,8 @@ AskUserQuestion:
 - **Leave deferred:** no change; `Status: open` stands.
 
 **Backlog entries:** do not walk through these individually every run — that trains the user
-to reflexively dismiss the prompt. First compare each entry's `Affected files` with this run's
-diff (`<base_commit>..HEAD`). An entry in code this run just touched is cheapest to fix now. If none
+to reflexively dismiss the prompt. First compare each entry's `Affected files` with the full-branch
+scope (the three-list union above, so uncommitted Phase 3 fixes count). An entry in code this run just touched is cheapest to fix now. If none
 overlap, say how many backlog entries are open in one line and move on; the shipping gate's known
 issues count keeps them visible. Otherwise ask once, naming the overlapping entries. Same
 major-gate rule applies — prepend the `context-pct` result:
@@ -470,7 +470,7 @@ AskUserQuestion:
       description: "Leave the backlog as-is; it stays visible in the shipping gate's known issues count"
 ```
 
-If "Review them," walk through each backlog entry with the same three-option AskUserQuestion used for new-this-run entries above.
+If "Review them," walk through the overlapping entries named in the question with the same three-option AskUserQuestion used for new-this-run entries above. The rest stay in the backlog.
 
 After the new-this-run and backlog handling above complete, record the gate result so
 `pipeline_step` advances past `final-review`:
