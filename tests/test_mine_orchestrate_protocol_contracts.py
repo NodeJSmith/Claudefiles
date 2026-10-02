@@ -37,7 +37,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
             [
                 ("protocol heading", r"^# Resume Protocol \(Phase 0\)$"),
                 ("run status command", r"^\s*cfl run status\s*$"),
-                ("phase advance branch", r"Advance to orchestrate"),
+                (
+                    "phase advance branch",
+                    r"phase is `\"define\"` or `\"plan\"`.*advance_from_prior_phase = true",
+                ),
                 (
                     "resume status report",
                     r"Picking up from <next task ID after last_completed>",
