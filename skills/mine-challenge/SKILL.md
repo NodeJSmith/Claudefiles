@@ -215,7 +215,7 @@ Standalone callers (full inline resolution flow):
 
 Orchestration callers (mandatory, via challenge-gate.md):
 - `skills/mine-define/SKILL.md` (Phase 5.5 — design-time challenge)
-- `skills/mine-sketch/SKILL.md` (Phase 4.5 — sketch-time challenge with --critics=2)
+- `skills/mine-sketch/SKILL.md` (Phase 4 — sketch-time challenge with --critics=2; Build Mode Step 3 — ship-time challenge against the ledger)
 - `skills/mine-orchestrate/post-execution-pipeline.md` (Step 3.5 — ship-time challenge)
 
 Inline-revision callers (invoke challenge, read findings in-context, revise own proposal):

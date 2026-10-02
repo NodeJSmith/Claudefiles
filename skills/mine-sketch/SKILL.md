@@ -1,96 +1,58 @@
 ---
 name: mine-sketch
-description: "Use when the user says: \"sketch this out\", \"sketch this feature\", \"lightweight plan\", \"quick design and tasks\", or wants structured planning without full caliper ceremony. Produces a lightweight design.md + task files for mine-orchestrate."
+description: "Use when the user says: \"sketch this out\", \"sketch this feature\", \"lightweight plan\", \"structured but lightweight\", or wants structured design without full caliper ceremony. Produces a decision ledger (design.md) the user ratifies one decision at a time; `/mine-sketch <dir>` on a ratified ledger builds it in one session."
 user-invocable: true
 opencode-command: true
 ---
 
 # Sketch
 
-Lightweight structured planning — produces a design.md with FRs/ACs and task files for mine-orchestrate, without the full ceremony of mine-define + mine-plan. For tasks that need structure but not rigor: multiple files, real design decisions, well-understood territory.
+Structured design without the full caliper ceremony. Sketch mode surfaces every decision a change needs into a **decision ledger** (`design.md`) and has the user ratify each one, then challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge.
+
+The value is in the decisions. A judgment call made silently is the failure this skill exists to prevent, so every choice that would change the code gets surfaced, reasoned, and ratified before any code is written. There are no task files and no per-task executors: one session builds the whole change, gated by the normal pre-commit reviewers.
 
 ## Arguments
 
 $ARGUMENTS — a description of what to build, or a feature directory path. Can be:
-- A feature idea: `/mine-sketch "add webhook support to notifications"`
-- A feature directory path: `/mine-sketch design/specs/005-webhooks/` (resumes existing sketch)
-- Empty: ask the user what they want to build
+- A feature idea: `/mine-sketch "add webhook support to notifications"` (sketch mode)
+- A feature directory: `/mine-sketch design/specs/005-webhooks/` (resumes or builds, by the ledger's status)
+- Empty: ask "What would you like to build or change?" and continue in sketch mode
+
+## Routing
+
+If $ARGUMENTS points to a directory containing `design.md`, read its header and route by the first row that matches. Check the rows in order: an old-format sketch can still say `draft`.
+
+| Ledger | Do |
+|---|---|
+| `**Mode:** sketch` with a `tasks/` directory, or `**Status:** approved` | An old-format sketch with task files. Tell the user to run `/mine-orchestrate <dir>` and stop. |
+| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Run Phase 1's cfl setup but not its scan or escalation check, then continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
+| `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
+| `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
+| `**Status:** archived` or `abandoned` | Report the status and stop. |
+| No `**Mode:** sketch` | A `mine-define` design. Tell the user to continue with `/mine-plan <dir>` and stop. |
+
+Otherwise, treat $ARGUMENTS as a new request and start at Phase 1.
 
 ---
 
-## Phase 1: Understand & Scope
+## Phase 1: Scope
 
-If $ARGUMENTS is empty, ask:
-
-> What would you like to build or change?
-
-If $ARGUMENTS does not point to an existing spec directory, paraphrase the request in one sentence to confirm understanding.
-
-### Initialize CFL tracking
-
-Derive a `<slug>` from the request (kebab-case, max 40 chars).
-
-If $ARGUMENTS pointed to an existing spec directory, extract its number:
-
-```bash
-cfl spec status --spec <NNN>
-```
-
-If that succeeds, use the existing spec. If it errors with `spec_not_found`, tell the user the directory predates cfl tracking and proceed without it (skip all `cfl` calls for the rest of this run).
-
-Otherwise, create a new spec:
-
-```bash
-cfl spec init <slug>
-```
-
-Record `dir` as the feature directory and `number` as `<spec_number>`.
-
-### Start run
-
-Skip this section if cfl tracking was disabled above (no `<spec_number>` set).
-
-```bash
-cfl run status --spec <spec_number>
-```
-
-- If the output has `"exists": true` — an active run exists. Record the `run_id` and continue (no new run needed).
-- If the output has `"exists": false` — try resuming a stopped run:
-
-```bash
-cfl run resume --spec <spec_number>
-```
-
-If this succeeds, the stopped run is now active. If it errors with `no_stopped_run`, create a new run:
-
-```bash
-cfl run start --phase sketch --base-commit $(git rev-parse --short HEAD) --spec <spec_number>
-cfl event sketch.started --spec <spec_number>
-```
-
-### Check for resume
-
-If $ARGUMENTS pointed to an existing spec directory, check that directory for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it before skipping Phase 2. If the feature owns resumable work state across invocations but the design lacks `## Operational Lifecycle` or any required lifecycle decision, run Phase 2's mandatory lifecycle clarification and update the design first. Otherwise skip directly to Phase 3 (task breakdown); `<spec_number>` and `run_id` are already set from the sections above, so `cfl` calls in Phases 3-5 work normally. Skip the rest of Phase 1 and all remaining Phase 2 work.
-
-Otherwise, continue to the codebase scan below.
+For a new request, paraphrase it in one sentence to confirm understanding.
 
 ### Quick codebase scan
 
-Read 3-8 files relevant to the change. Focus on:
-- Files that will be modified (understand current structure)
+Read 3-8 files relevant to the change:
+- Files that will be modified (current structure)
 - Adjacent files that establish conventions
 - Test files that cover the area
 
-This replaces the full researcher dispatch. Keep it fast — you're looking for conventions and constraints, not doing deep investigation.
+Keep it fast. You're looking for conventions, constraints, and the decisions the change will force, not doing a deep investigation.
 
 ### Escalation check
 
-If the scan reveals more than expected, stop and ask before designing. Concrete signals:
-- The change touches more services/packages than the request implied (cross-system dependencies you didn't expect).
-- It requires modifying a shared or foundational module with many callers.
-- It surfaces an architectural question with no single obvious answer (unclear interfaces, competing approaches).
+Two signals stop the sketch before anything is written.
 
-If any apply:
+**The change needs investigation, not a sketch.** It touches more services or packages than the request implied, modifies a shared or foundational module with many callers, or raises an architectural question with no obvious answer:
 
 ```
 AskUserQuestion:
@@ -106,164 +68,121 @@ AskUserQuestion:
 
 On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop.
 
-On "Continue with sketch": proceed to Phase 2 as normal.
+**The build won't fit one session.** The whole change has to be implemented, tested, and reviewed in one fresh session. If the scan shows it won't (several independent areas that each need their own design, or a diff too large to review as one PR), say so with the evidence and ask:
+
+```
+AskUserQuestion:
+  question: "This looks too big to build in one session — <one-sentence evidence>. How should we proceed?"
+  header: "Too big?"
+  multiSelect: false
+  options:
+    - label: "Stop here"
+      description: "Don't write a ledger; I'll rescope the request"
+    - label: "Continue anyway — I understand the risk"
+      description: "Write the ledger for the whole change; the build may not finish in one session"
+```
+
+On "Stop here": stop. On "Continue anyway": proceed, and carry the accepted risk into Phase 2, which records it in the ledger's Summary.
+
+### Initialize CFL tracking
+
+For a new request, derive a `<slug>` (kebab-case, max 40 chars) and create the spec:
+
+```bash
+cfl spec init <slug>
+```
+
+Record `dir` as `<feature_dir>` and `number` as `<spec_number>`.
+
+On resume, extract the number from the directory name and run `cfl spec status --spec <NNN>`. If it errors with `spec_not_found`, the directory predates cfl tracking: tell the user, and skip every `cfl` call for the rest of this run.
+
+### Start run
+
+Skip if cfl tracking is disabled.
+
+```bash
+cfl run status --spec <spec_number>
+```
+
+- `"exists": true`: an active run exists. Record its `run_id` and continue.
+- `"exists": false`: try `cfl run resume --spec <spec_number>`. If that errors with `no_stopped_run`, or with `run_completed` (the ledger was ratified, then reopened), start a new run:
+
+```bash
+cfl run start --phase sketch --base-commit $(git rev-parse --short HEAD) --spec <spec_number>
+cfl event sketch.started --spec <spec_number>
+```
+
+Record the `run_id`.
 
 ---
 
-## Phase 2: Design
+## Phase 2: Draft the Ledger
 
-### Clarify (if needed)
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` and `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`. Write `<feature_dir>/design.md` from the template, following both.
 
-Ask 1-2 questions **only** if something is genuinely uncertain and would change the design. Skip if the approach is obvious from the codebase scan.
+- **Find every decision.** Walk the change from entry point to tests and list each place where more than one reasonable answer exists and the answer changes the code: behavior at edge cases, error and retry handling, what gets exposed or logged, compatibility, naming that callers will see. None is resolved silently. When unsure whether something is a decision, make it one; collapsing a small decision costs less than missing one.
+- **Resumable work state.** When the change owns work state across invocations (a background worker, batch job, queue consumer, scheduler, or persistent retry state), its lifecycle is a set of decisions: completion, retry eligibility and bounds, recovery from states that need user action, repeated-run convergence, and visible progress and failure accounting.
+- **Fill each table before recommending.** Ground the criteria in what the scan found, and cite files.
+- **Assumed** gets the facts the build relies on, each with evidence.
+- **Accepted risk.** If the user chose "Continue anyway" at the escalation check, say so in the Summary.
+- **Self-sufficient.** The build runs in a fresh session with only this file and the repo. Name the files and modules; don't refer to "as discussed".
 
-One clarification is mandatory when the change owns resumable work state across invocations. Propose and confirm: completion, retry eligibility and bounds, user-action recovery or deliberately terminal states, repeated-run convergence, visible accounting, and a realistic local validation scenario. If those decisions cannot stay lightweight, upgrade to `/mine-define` rather than guessing.
+Every decision starts as `**Ratified:** pending`.
 
-### Write design.md
+---
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` and use it as the template.
+## Phase 3: Ratify
 
-Populate from the codebase scan and the user's request. Be specific — reference actual file paths and patterns found.
+Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 
-Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
+1. Show the decision's rubric as text: the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if". This is the user's chance to push back on the reasoning, so show it in full, not summarized.
+2. Ask:
+
+   ```
+   AskUserQuestion:
+     question: "Decision <N> of <M>: <the decision's question>"
+     header: "D<n>"
+     multiSelect: false
+     options:
+       - label: "<recommended option> (Recommended)"
+         description: "<one line: what it means for the change>"
+       - label: "<other option>"
+         description: "<one line>"
+   ```
+
+   One option per column of the decision's table, recommended first, at most 4. When `<M>` has grown since the interview started, say so in the question ("Decision 5 of 7, 2 new").
+3. Replace `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D." If the user answered with something not in the table, add it as a column, score it, and ratify that.
+4. When an answer surfaces a new decision, add a `### D<n>` block with `**Ratified:** pending` and ratify it in turn.
+
+When no decision is pending, record that the ledger changed (skip if cfl tracking is disabled):
 
 ```bash
 cfl event sketch.design-written --spec <spec_number>
 ```
 
----
-
-## Phase 3: Task Breakdown
-
-### Write context.md
-
-Write `<feature_dir>/tasks/context.md`:
-
-```markdown
-# Context: <Feature Name>
-
-## Problem & Motivation
-<From the design doc's Problem section. 2-4 sentences.>
-
-## Key Decisions
-<Architecture decisions from the Approach section. Numbered list.>
-
-## Constraints
-<Things the executor must NOT do. Non-goals. Patterns to avoid.>
-```
-
-### Write task files
-
-Write each task to `<feature_dir>/tasks/T{NN}-{slug}.md` using this format:
-
-```markdown
----
-task_id: "T01"
-title: "<imperative description>"
-status: "planned"
-depends_on: []
-implements: ["FR#1", "AC#1"]
----
-
-## Target Files
-
-- create: `path/to/new_file.py`
-- modify: `path/to/existing.py`
-
-## Prompt
-
-<Self-contained build instructions. Name exact file paths. Reference design doc sections by heading. Must work for a fresh executor subagent with only context.md and this task file.>
-
-## Verify
-
-- [ ] FR#1: <concrete observable criterion>
-- [ ] AC#1: <verifiable by running a local command>
-```
-
-### Task file rules
-
-- **Minimum tasks: 1.** Let the work's complexity determine the count. Single-task sketches are fine for focused changes.
-- **Every FR and AC** from the design doc must appear in at least one task's `implements` field and have a corresponding Verify criterion.
-- **Operational lifecycle verification**: When the design contains `## Operational Lifecycle`, responsible tasks must verify repeated failure, bounded retry/termination, user-action recovery or deliberately terminal behavior, and visible population accounting through assembled repeated-run tests. Isolated status-transition tests are insufficient.
-- **Target Files are required** — they drive the orchestrator's scope boundaries and reviewer injection.
-- **Prompt must be self-contained** — a fresh subagent with only context.md and the task file must be able to execute it.
-- **Task ordering**: foundational types before consumers. No task may depend on outputs from a higher-numbered task.
-
-Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
-
-```bash
-cfl event sketch.tasks-written --spec <spec_number>
-```
+Phase 4's resume check compares against this event, so emit it on every pass through this phase, including re-ratification after the challenge and after Revise.
 
 ---
 
-## Phase 4: Comb
-
-Run the fine-toothed comb on the design doc and task files together.
-
-Skip the cfl dispatch/gate calls below if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The comb itself still runs regardless.
-
-```bash
-cfl dispatch sketch-comb --agent-type fine-toothed-comb --spec <spec_number>
-```
-
-Record the `dispatch_id`.
-
-```
-Agent:
-  subagent_type: fine-toothed-comb
-  prompt: |
-    Read this design file and its task files:
-    - Design: <design_doc_path>
-    - Tasks: <feature_dir>/tasks/
-
-    Go over them with a fine-toothed comb. Check:
-    - Design and tasks are consistent (no contradictions, no drift)
-    - Every FR/AC is covered by at least one task's implements + Verify
-    - When Operational Lifecycle is present, tasks verify assembled repeated-run behavior, retry bounds/termination, recovery or deliberately terminal states, and visible accounting
-    - Target Files are complete (no file referenced in Prompt but missing from Target Files)
-    - Prompts are self-contained (no "as discussed" or assumed context)
-
-    Define blocking as: a direct inconsistency, missing coverage, or an error that would mislead execution. A section that could be more detailed is minor, not blocking.
-```
-
-After the comb completes:
-
-```bash
-cfl dispatch end <dispatch_id>
-cfl gate sketch-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
-```
-
-Verdict: `blocking` = 0 → PASS, `blocking` > 0 → FAIL.
-
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
-- **`<header>`**: `Sketch comb`
-- **`minor_blocks`**: `false`
-- **`<re_review_instructions>`**: fix the findings in the design doc and/or task files, then re-run this phase
-
----
-
-## Phase 4.5: Challenge
+## Phase 4: Challenge
 
 Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
 
 - **`<header>`**: `Challenge`
 - **`<gate_type>`**: `sketch-challenge`
-- **`<target>`**: `<design_doc_path>`
+- **`<target>`**: `<feature_dir>/design.md`
 - **`<critic_flag>`**: `--critics=2`
-- **`<re_challenge_flag>`**: (empty — first challenge in this run)
-- **`<post_resolution>`**: If any finding was applied to `design.md` (`disposition: applied` with `design-level: Yes`, including a TENSION finding's chosen side), re-run Phase 4 (the comb) against the now-edited design doc and task files together, then return to this point — do not re-run the challenge. Then, if any CRITICAL finding was produced (check the findings file), offer the upgrade-to-caliper choice before proceeding to Phase 5. See below.
+- **`<focus_flag>`**: (empty)
+- **`<re_challenge_flag>`**: `--re-challenge` when Phase 6's Revise sent you here, otherwise empty
+- **`<post_resolution>`**: A resolved finding that added or changed a decision has set it back to `**Ratified:** pending` (the findings protocol's rule for sketch ledgers). Run Phase 3 for those decisions. Then return here and continue to the CRITICAL escalation below, which runs once per challenge.
 
-Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
+Skip the cfl calls inside the gate if cfl tracking is disabled. The challenge itself always runs.
 
-Skip this resume check too if cfl tracking was disabled in Phase 1 (no `<spec_number>`/`run_id` set) — the challenge itself still runs unconditionally in that case, same as a first run. Otherwise: if this is a resume and the challenge already ran in a prior session, skip this phase. Check via: `cfl event list --event challenge.findings-persisted --run <run_id>` — if any row's data contains `"gate_type": "sketch-challenge"`, the challenge already ran and its findings were persisted for this run. Do not use `review.gated` for this check — that event fires when the gate is recorded (`challenge-gate.md` step 4), which happens *before* findings are persisted and resolved (steps 5–6); a run interrupted between those steps would otherwise look "already ran" on resume and skip re-persisting its findings. `challenge.findings-persisted` fires only after persistence *and* `<post_resolution>` (the comb re-run and upgrade-to-caliper offer) complete (`challenge-gate.md` step 8) — a run interrupted before then re-enters the whole phase on resume rather than skipping `<post_resolution>`'s work.
-
-### Re-comb after design-doc edits
-
-If Phase 4.5 resolution edited `design.md`, re-running Phase 4 catches inconsistency the edit may have introduced between the doc and the task files — the same reasoning `mine-define`'s Phase 5.5 applies to its own comb. Skip this step entirely if no finding touched `design.md`.
+**Resume check.** When entering this phase on resume, skip it only if the challenge already covers the current ledger: run `cfl event list --event challenge.findings-persisted --run <run_id>` and `cfl event list --event sketch.design-written --run <run_id>`. Skip when the newest `challenge.findings-persisted` row whose data has `"gate_type": "sketch-challenge"` has a higher `id` than the newest `sketch.design-written` row. Otherwise the ledger changed since the last challenge, so run it. With cfl tracking disabled, always run it.
 
 ### CRITICAL escalation
 
-If any CRITICAL finding was produced by the challenge (regardless of its disposition — even if applied), present the gate below. This is a major gate (challenge finding walkthrough, see `interaction.md`) — run `context-pct` and prepend the result to the question:
+If the challenge produced any CRITICAL finding, whatever its disposition, ask. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:
@@ -279,47 +198,163 @@ AskUserQuestion:
 
 On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop. The resolved findings have already improved `design.md`, which `/mine-define` picks up.
 
-On "Continue with sketch": proceed to Phase 5 (Handoff) as normal.
-
-Phase 5 does not begin until the challenge (and any escalation prompt) completes.
+On "Continue with sketch": continue to Phase 5.
 
 ---
 
-## Phase 5: Handoff
+## Phase 5: Comb
 
-Present the design doc and task file paths to the user, then ask. This is a completion
-gate (see `interaction.md`) — run `context-pct` and prepend the result to the question:
+Comb the ledger once, after the challenge, so the comb also catches inconsistencies the challenge's edits introduced.
+
+Skip the cfl calls if cfl tracking is disabled. The comb itself always runs.
+
+```bash
+cfl dispatch sketch-comb --agent-type fine-toothed-comb --spec <spec_number>
+```
+
+Record the `dispatch_id`.
+
+```
+Agent:
+  subagent_type: fine-toothed-comb
+  prompt: |
+    Read this decision ledger: <feature_dir>/design.md
+    Its format and content rules: ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md
+
+    Go over it with a fine-toothed comb. Check:
+    - Decisions, assumptions, and the summary are consistent: no contradictions, no decision restated elsewhere
+    - Each ratified sentence matches an option in its table, and the table scores every option on every criterion
+    - Every judgment call the change needs is a decision; nothing with more than one reasonable answer hides in Assumed or the summary
+    - Each assumption has evidence
+    - Decisions state behavior a test must pin, not test technique
+    - A fresh session with only this file and the repo could build the change
+
+    Define blocking as: a direct inconsistency, a missing decision, or an error that would mislead the build. A section that could be more detailed is minor, not blocking.
+```
+
+After the comb completes:
+
+```bash
+cfl dispatch end <dispatch_id>
+cfl gate sketch-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
+```
+
+Verdict: `blocking` = 0 → PASS, `blocking` > 0 → FAIL.
+
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
+- **`<header>`**: `Sketch comb`
+- **`minor_blocks`**: `false`
+- **`<re_review_instructions>`**: fix the findings in `design.md`, then re-run this phase. A fix that adds or changes a decision sets it back to `**Ratified:** pending` and runs it through Phase 3 first.
+
+---
+
+## Phase 6: Ledger Gate
+
+Present the full ledger as text, with its path. This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] Sketch complete — design.md and task files are ready. What next?"
-  header: "Handoff"
+  question: "[Context: N%] The ledger is ready. Ratify it for the build?"
+  header: "Ledger"
   multiSelect: false
   options:
-    - label: "Execute via /mine-orchestrate"
-      description: "Advance to orchestrate phase — run tasks with full execution gates"
-    - label: "Revise — I have changes"
-      description: "Tell me what to change"
+    - label: "Ratify"
+      description: "Lock the ledger; build it in a fresh session"
+    - label: "Revise a decision"
+      description: "Reopen a decision, or add one"
     - label: "Save and stop"
-      description: "Keep the sketch on disk; pick it up later"
+      description: "Keep the draft on disk; pick it up later"
 ```
 
-### On "Execute"
+### On "Ratify"
 
-Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
+Set `**Status:** ratified` in `design.md`. Then, unless cfl tracking is disabled:
 
 ```bash
 cfl event sketch.approved --spec <spec_number>
+cfl run complete --spec <spec_number>
 ```
 
-Update design.md `**Status:**` from `draft` to `approved`.
+Tell the user: "Ledger ratified at `<feature_dir>/design.md`. Start a fresh session and run `/mine-sketch <feature_dir>` to build it."
 
-Invoke `/mine-orchestrate <feature_dir>` directly — auto-continue, don't stop for the user. mine-orchestrate's resume-protocol handles the phase advance to `orchestrate` internally (with correct `--base-commit`, `--tmpdir` resolution). Do NOT call `cfl run advance-phase` here.
+Stop. The build always runs in a fresh session, so this session never continues into build mode.
 
-### On "Revise"
+### On "Revise a decision"
 
-Ask what to change. Apply edits to design and/or tasks. Re-run Phase 4 (Comb). Present the handoff gate again.
+Ask which decision to reopen, or what new decision to add, and what should change. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
 
 ### On "Save and stop"
 
-Confirm: "Sketch saved at `<feature_dir>`. Resume with `/mine-sketch <feature_dir>` later."
+Leave `**Status:** draft` and the cfl run open. Don't call `cfl run stop`, which would mark the spec approved. Confirm: "Ledger saved at `<feature_dir>`. Resume with `/mine-sketch <feature_dir>`."
+
+---
+
+## Build Mode
+
+Runs when `/mine-sketch <dir>` finds `**Status:** ratified`. Building doesn't touch cfl: the sketch's run closed at Ratify, so skip every cfl call in Steps 2-4, including those inside `challenge-gate.md`. Only reopening a decision (Step 1) returns to sketch mode, where cfl applies again.
+
+### Step 1: Orient
+
+Read the whole ledger and the files it names. Check git state (branch, uncommitted changes, recent commits) and raise anything surprising, such as being on the default branch or unrelated uncommitted work, before writing code.
+
+Read the `## Build` checklist. If no step is ticked, this is a fresh build. If some are, resume after the last ticked step, using the branch's commits to see where the work stands.
+
+Name the ledger being built and offer the one way out:
+
+```
+AskUserQuestion:
+  question: "Building <feature_dir>/design.md: <topic>, <M> ratified decisions. Start the build?"
+  header: "Build"
+  multiSelect: false
+  options:
+    - label: "Build it"
+      description: "Implement the ratified ledger in this session"
+    - label: "Reopen a decision"
+      description: "Change a ratified decision before building"
+```
+
+On "Reopen a decision": ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then follow the sketch-mode flow from Phase 1's cfl setup, as a draft resume.
+
+### Step 2: Implement
+
+Implement the change with its tests and docs. The ledger is the spec:
+
+- Every ratified decision and every assumption holds in the code.
+- Tests pin the behavior each decision specifies. The ledger says what to pin; choosing how is yours.
+- When the ledger doesn't settle something, make the call and record it under `**Calls made during the build:**` as `- <the call>: <one line of why>`. The ship-time challenge checks each one against the code. A call that contradicts a ratified decision isn't a build-time call: stop and ask the user whether to reopen the decision.
+
+Commit as you judge best. Every repo squash-merges, so there's no required commit sequence. The pre-commit reviewers in `git-workflow.md` gate each commit. Tick each `## Build` step, and add each build-time call, in the same commit as the work it describes. When the change needs no doc updates, tick Docs and note "none needed".
+
+### Step 3: Ship-time Challenge
+
+Write the branch's changed files to a list: the union of `git-branch-diff-files`, `git diff --name-only HEAD`, and `git ls-files --others --exclude-standard`, deduplicated. Make sure `<feature_dir>/design.md` is in it. Write the list to `<tmpdir>/challenge-changed-files.txt`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch`.
+
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+
+- **`<header>`**: `Challenge`
+- **`<gate_type>`**: `ship-challenge`
+- **`<target>`**: `<tmpdir>/challenge-changed-files.txt`
+- **`<critic_flag>`**: (empty — use triage default 1–3)
+- **`<focus_flag>`**: `--focus="The ledger at <feature_dir>/design.md is the reference. (A) Does what landed match its ratified decisions and assumptions, with tests pinning the behavior each one specifies? (B) Where the code diverges, does the ledger's Build section give a sound reason? Check each stated reason against the code. (C) What unintended consequences are there beyond what the ledger covered?"`
+- **`<re_challenge_flag>`**: (empty)
+- **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. Note any CRITICAL or HIGH finding left with `disposition: skipped` for Step 4's report.
+
+Findings resolve inline, as in any challenge. The `## Build` record is the build's stated reasoning, not evidence: the challenge checks it against the code rather than taking it on its word.
+
+### Step 4: Finish
+
+Tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger. Report what was built, any build-time calls, and any CRITICAL or HIGH finding left skipped. This is a completion gate: run `context-pct` and prepend the result.
+
+```
+AskUserQuestion:
+  question: "[Context: N%] Build complete and challenged. Ship it?"
+  header: "Ship?"
+  multiSelect: false
+  options:
+    - label: "Ship via /mine-ship"
+      description: "Push and open a PR"
+    - label: "Stop here"
+      description: "Leave the branch as is"
+```
+
+On "Ship via /mine-ship": invoke `/mine-ship`.

@@ -75,8 +75,8 @@ AskUserQuestion:
   options:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
-    - label: "Structured — sketch + orchestrate"
-      description: "Lightweight design.md + task files → orchestrate with full execution gates (includes mandatory challenge at sketch and ship time)"
+    - label: "Structured — sketch ledger, then build"
+      description: "Ratify a decision ledger one decision at a time, then build it in a fresh session (includes mandatory challenge at sketch and ship time)"
     - label: "Complex — full caliper workflow"
       description: "define → plan → orchestrate → ship (includes mandatory challenge at design and ship time)"
 ```
@@ -91,8 +91,8 @@ AskUserQuestion:
   options:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
-    - label: "Structured — sketch + orchestrate"
-      description: "Lightweight design.md + task files → orchestrate with full execution gates (includes mandatory challenge at sketch and ship time)"
+    - label: "Structured — sketch ledger, then build"
+      description: "Ratify a decision ledger one decision at a time, then build it in a fresh session (includes mandatory challenge at sketch and ship time)"
     - label: "Accelerated — lightweight define phase"
       description: "Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship (includes mandatory challenge)"
     - label: "Full caliper workflow"
@@ -151,15 +151,15 @@ If "Ship via /mine-ship": invoke `/mine-ship`.
 
 ---
 
-### Path D — Structured: Sketch + Orchestrate
+### Path D — Structured: Sketch Ledger, Then Build
 
 Tell the user:
 
-> Starting structured workflow — lightweight design + task files, then orchestrate with full execution gates.
+> Starting structured workflow — a decision ledger you ratify one decision at a time, then a build in a fresh session.
 
-**Auto-continue between steps.** Execute mine-sketch's phases inline. The user is only interrupted for mine-sketch's own clarification questions (asked when something is genuinely uncertain), its escalation check (if the codebase scan surfaces unexpected complexity), and the handoff gate (approve / revise / stop).
+**Auto-continue between steps.** Execute mine-sketch's phases inline. The user is interrupted only by mine-sketch's own gates: its escalation check, one question per decision, challenge findings, and the ledger gate (ratify / revise / save and stop).
 
-Follow `/mine-sketch` phases for this request. Pass the change description as the argument. mine-sketch handles design.md, task file creation, comb review, and the handoff to mine-orchestrate internally.
+Follow `/mine-sketch` phases for this request. Pass the change description as the argument. mine-sketch writes the ledger, ratifies, challenges, and combs it. On Ratify it stops and tells the user to build the ledger in a fresh session with `/mine-sketch <dir>`; don't continue into the build here.
 
 ---
 

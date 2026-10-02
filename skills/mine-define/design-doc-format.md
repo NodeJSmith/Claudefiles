@@ -1,10 +1,11 @@
 # Design Doc Format
 
-The shared contract for how a `design.md` written by `mine-define` or `mine-sketch` encodes
+The shared contract for how a `design.md` written by `mine-define` encodes
 requirements — cited by the templates that produce it, the tools that parse it, and the skills
 that review it, instead of each restating the rules independently. Consult this file whenever
 you write, parse, or review `FR#N`/`AC#N` content in a design doc, rather than re-deriving the
-rules from a specific template or consumer.
+rules from a specific template or consumer. `mine-sketch` writes a decision ledger instead, with no
+FR/AC content; its format lives in `skills/mine-sketch/design-template.md`.
 
 ## FR/AC Definition
 

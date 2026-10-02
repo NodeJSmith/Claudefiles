@@ -144,7 +144,7 @@ When code review findings arrive, verify each against the actual code before imp
 **Defined in:** `references/common/receiving-code-review.md`
 
 #### Mandatory Challenge in Orchestration
-Challenge runs at design-time (`mine-define`), sketch-time (`mine-sketch`), and ship-time (`mine-orchestrate`) in orchestration workflows. It is not offered as an option and cannot be skipped.
+Challenge runs at design-time (`mine-define`), sketch-time (`mine-sketch`), and ship-time (`mine-orchestrate`, and `mine-sketch`'s build mode) in orchestration workflows. It is not offered as an option and cannot be skipped.
 **Defined in:** `rules/common/git-workflow.md`
 
 ### Consider
@@ -179,6 +179,7 @@ When writing rules or skill files, apply proportionally: diagnostic questions ov
 | Subagent orchestration, parallel executors | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/agents.md` |
 | Processing code review findings | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/receiving-code-review.md` |
 | Writing rules or skill files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/instruction-quality.md` |
+| Asking the user to pick among options with a recommendation | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md` |
 | API endpoints, auth handlers, user input | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/security.md` |
 | User-facing CLI tools: commands with flags, subcommands, help text, output design | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/cli-ux.md` |
 | Authoring `REVIEW.md` review-question files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/review-questions.md` |

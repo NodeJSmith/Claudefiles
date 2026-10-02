@@ -10,6 +10,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 - **`<gate_type>`** — the cfl gate type: `define-challenge`, `sketch-challenge`, or `ship-challenge`.
 - **`<target>`** — what to pass to `/mine-challenge`: a design doc path or a changed-files list file.
 - **`<critic_flag>`** — `--critics=N` if pinned, or empty string if using triage default.
+- **`<focus_flag>`** — `--focus="<text>"` to steer the critics, or empty string. Callers that don't name it pass empty.
 - **`<re_challenge_flag>`** — `--re-challenge` if this is a re-challenge, or empty string.
 - **`<post_resolution>`** — caller-specific handling after step 6 completes (e.g., sketch's upgrade-to-caliper check, ship-time's unresolved-finding summary).
 
@@ -23,7 +24,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 
    Capture `dispatch_id`. Note: `--spec` is not included here — callers thread it per their own convention (mine-define and mine-plan pass `--spec <spec_number>`; mine-orchestrate uses CWD-based resolution, matching the rest of `post-execution-pipeline.md`).
 
-2. Invoke `/mine-challenge <critic_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
+2. Invoke `/mine-challenge <critic_flag> <focus_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
 
 3. Record dispatch end (skip if cfl tracking inactive):
 

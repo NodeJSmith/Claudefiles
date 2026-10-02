@@ -12,7 +12,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
 | `mine-beats` | Writing exploit (beat-by-beat) — assemble raw material into a journey of beats with choose-your-own-adventure branching and grounding discipline |
 | `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
-| `mine-build` | Single entry point — routes between direct implementation, structured sketch (sketch → orchestrate), and the full caliper workflow (define → plan → orchestrate → ship) |
+| `mine-build` | Single entry point — routes between direct implementation, structured sketch (ratified decision ledger → one-session build), and the full caliper workflow (define → plan → orchestrate → ship) |
 | `mine-challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
 | `mine-clean-code` | Stylistic quality review — dispatches llm-checker, lazy-checker, and nitpicker in parallel; flags LLM-bias patterns, deferred debt, and hyper-critical style issues |
 | `mine-commit-push` | Commit and push changes to the current branch |
@@ -43,7 +43,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-shape` | Writing exploit (paragraph-by-paragraph) — shape raw material into an article with grounding discipline and collaborative construction |
 | `mine-ship` | Commit, push, and create a PR in one step |
 | `mine-simplify` | Codebase-scoped structural simplification — fans out parallel `code-judo-reviewer` agents over a file/dir/repo, consolidates dramatic simplification moves into one impact-ranked report. On-demand alternative to baking structural review into every orchestrate run |
-| `mine-sketch` | Lightweight structured planning — produces design.md (with FRs/ACs) + task files in one pass, then hands off to mine-orchestrate. Bridges the gap between direct implementation and full caliper ceremony |
+| `mine-sketch` | Lightweight structured design — surfaces every decision a change needs into a decision ledger (design.md), ratified one decision at a time, then challenged and combed. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, with a ship-time challenge against the ledger |
 | `mine-teach` | Structured learning — stateful workspace with mission, lessons, learning records, reference docs, and zone-of-proximal-development tracking |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine-visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |

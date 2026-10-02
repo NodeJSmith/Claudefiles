@@ -43,7 +43,7 @@ AskUserQuestion:
 - **"Stop the run"**: Call `cfl run stop --reason "user chose stop — needs mine-plan"` and exit.
 - **"I already have task files"**: Set `advance_from_prior_phase = true` and continue Phase 0.
 
-**If phase is `"sketch"`** (task files should exist from mine-sketch):
+**If phase is `"sketch"`**: check `feature_dir` for `tasks/T*.md` first. If there are none, the directory holds a decision ledger, which mine-sketch builds itself. Tell the user: "This is a sketch ledger — mine-orchestrate doesn't run it. Use `/mine-sketch <feature_dir>` to continue or build it." and exit without changing the run. Otherwise it's an older sketch with task files:
 
 ```
 AskUserQuestion:

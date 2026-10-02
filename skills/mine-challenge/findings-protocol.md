@@ -46,21 +46,41 @@ Each finding is a top-level section:
 **Better-approach:** <specific change to apply>
 
 <!-- For User-directed findings: -->
+**Deciding-factor:** <what the recommendation optimizes>
+
+**Criteria:**
+| | A | B |
+|---|---|---|
+| <criterion> | <how A fares> | <how B fares> |
+
 **Options:**
 - **A** *(recommended)*: <first option>
 - **B**: <second option>
 
 **Recommendation:** <which option and why>
+**Pick-instead-if:** B: <condition under which B is the right call>
 
 <!-- For TENSION findings: -->
 **Side-a:** <argument for side A>
 **Side-b:** <argument for side B>
 **Deciding-factor:** <question or data point that resolves the tension>
+
+**Criteria:**
+| | Side A | Side B |
+|---|---|---|
+| <criterion> | <how side A fares> | <how side B fares> |
+
+**Pick-instead-if:** Side A: <condition>. Side B: <condition>.
 **Chosen:** side-a | side-b   <!-- set during inline resolution; absent until resolved -->
 ```
 
 Finding IDs are sequential starting from 1. `## Finding N:` headings must
 match 1:1 with findings — no gaps.
+
+`**Deciding-factor:**`, `**Criteria:**`, and `**Pick-instead-if:**` follow
+`${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
+They are presentation fields, like `**Evidence:**`: synthesis fills them in
+before choosing the recommendation, and they are not written to cfl.
 
 ## Convergence Findings
 
@@ -190,8 +210,22 @@ the template that produced the doc:
 `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` when
 the doc's header has `**Mode:** sketch`, otherwise
 `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-template.md`. In
-particular, keep ACs nested under their FR and don't restate a fact that
-already lives elsewhere in the doc — cite its existing home instead.
+particular, don't restate a fact that already lives elsewhere in the doc —
+cite its existing home instead. In a `mine-define` doc, keep ACs nested under
+their FR. In a sketch ledger, a finding that adds or changes a decision edits
+that decision's `### D<n>` block and sets its `**Ratified:**` line back to
+`pending`, so the sketch re-ratifies it.
+
+**Show the reasoning before every question.** Before each User-directed and
+TENSION `AskUserQuestion` below, show the finding's `**Deciding-factor:**`,
+`**Criteria:**` table, and `**Pick-instead-if:**` as text, copied from the
+findings file. Synthesis wrote them before it chose the recommendation, so
+they are the reasoning behind it, not a justification written afterwards.
+When a finding lacks them (an older findings file, or a producer that doesn't
+write them), show what it has. Don't build a table at this point: one written
+after the recommendation exists only argues for it. The recommendation is
+taken as-is more often than any other answer here, so the user needs the
+trade-offs in view to push back on it.
 
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
