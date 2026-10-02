@@ -130,7 +130,7 @@ AskUserQuestion:
       description: "Display in the conversation, don't save a file"
 ```
 
-Create the `design/research/` directory if it doesn't exist.
+Create the destination directory if it doesn't exist (nothing to create for "Just show me").
 
 **Copy** (never move) the brief from the temp file to the user's chosen location, or display it inline if they chose "Just show me". The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
 
