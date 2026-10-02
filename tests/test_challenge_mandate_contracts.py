@@ -20,6 +20,11 @@ ORCHESTRATE_PIPELINE = "skills/mine-orchestrate/post-execution-pipeline.md"
 CHALLENGE_GATE = "skills/mine-challenge/challenge-gate.md"
 CHALLENGE_SKILL = "skills/mine-challenge/SKILL.md"
 
+SKETCH_RATIFY_HEADING = "## Phase 3: Ratify"
+SKETCH_CHALLENGE_HEADING = "## Phase 4: Challenge"
+SKETCH_COMB_HEADING = "## Phase 5: Comb"
+SKETCH_GATE_HEADING = "## Phase 6:"
+
 
 @pytest.mark.parametrize(
     ("relative_path", "required_anchors"),
@@ -37,7 +42,10 @@ CHALLENGE_SKILL = "skills/mine-challenge/SKILL.md"
             SKETCH_SKILL,
             [
                 # FR#4: challenge phase between ratify and comb
-                ("sketch challenge phase heading", r"^## Phase 4: Challenge$"),
+                (
+                    "sketch challenge phase heading",
+                    rf"^{re.escape(SKETCH_CHALLENGE_HEADING)}$",
+                ),
                 ("sketch challenge gate reference", r"challenge-gate\.md"),
                 ("sketch challenge gate type", r"sketch-challenge"),
                 # FR#5: --critics=2
@@ -131,7 +139,7 @@ def test_define_challenge_between_comb_and_signoff() -> None:
     text = (REPO_ROOT / DEFINE_SKILL).read_text()
     comb_pos = text.index("## Phase 5:")
     challenge_pos = text.index("## Phase 5.5: Challenge")
-    signoff_pos = text.index("## Phase 6:")
+    signoff_pos = text.index(SKETCH_GATE_HEADING)
     assert comb_pos < challenge_pos < signoff_pos
 
 
@@ -140,10 +148,10 @@ def test_sketch_challenge_between_ratify_and_comb() -> None:
     comb, which runs once so it also catches inconsistency the challenge's
     edits introduced. The ledger gate comes last."""
     text = (REPO_ROOT / SKETCH_SKILL).read_text()
-    ratify_pos = text.index("## Phase 3: Ratify")
-    challenge_pos = text.index("## Phase 4: Challenge")
-    comb_pos = text.index("## Phase 5: Comb")
-    gate_pos = text.index("## Phase 6:")
+    ratify_pos = text.index(SKETCH_RATIFY_HEADING)
+    challenge_pos = text.index(SKETCH_CHALLENGE_HEADING)
+    comb_pos = text.index(SKETCH_COMB_HEADING)
+    gate_pos = text.index(SKETCH_GATE_HEADING)
     assert ratify_pos < challenge_pos < comb_pos < gate_pos
 
 
@@ -176,7 +184,7 @@ def test_sketch_upgrade_between_challenge_and_ledger_gate() -> None:
     the first occurrence in the file.
     """
     text = (REPO_ROOT / SKETCH_SKILL).read_text()
-    challenge_pos = text.index("## Phase 4: Challenge")
+    challenge_pos = text.index(SKETCH_CHALLENGE_HEADING)
     upgrade_pos = text.index("Upgrade to full caliper", challenge_pos)
-    gate_pos = text.index("## Phase 6:")
+    gate_pos = text.index(SKETCH_GATE_HEADING)
     assert challenge_pos < upgrade_pos < gate_pos

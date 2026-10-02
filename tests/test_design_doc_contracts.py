@@ -14,12 +14,12 @@ for build mode, and a citation of the shared rubric rather than a copy.
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFINE_TEMPLATE = "skills/mine-define/design-template.md"
 SKETCH_TEMPLATE = "skills/mine-sketch/design-template.md"
 PRESENTING_DECISIONS = "references/common/presenting-decisions.md"
+CITES_PRESENTING_DECISIONS = re.escape(Path(PRESENTING_DECISIONS).name)
 DESIGN_DOC_FORMAT = "skills/mine-define/design-doc-format.md"
 PLAN_VALIDATOR_PROMPT = "skills/mine-plan/validator-prompt.md"
 PLAN_SKILL = "skills/mine-plan/SKILL.md"
@@ -281,7 +281,12 @@ def test_sketch_ledger_header_and_section_order() -> None:
 
 def test_sketch_decision_block_carries_the_rubric_and_pending_marker() -> None:
     """Each decision holds its own options, reasoning, and answer, and is
-    created with the literal `**Ratified:** pending` marker resume matches."""
+    created with the literal `**Ratified:** pending` marker resume matches.
+
+    The ledger spells its fields as prose labels ("Deciding factor", "Pick B
+    instead if"); the challenge findings format uses hyphenated keys
+    ("Deciding-factor", "Pick-instead-if"). Both follow their own file's
+    field convention, so the tests below pin each spelling separately."""
     text = _text(SKETCH_TEMPLATE)
     decisions = _section(text, "Decisions")
     assert decisions is not None
@@ -314,7 +319,7 @@ def test_sketch_content_rules_cite_the_rubric_without_restating_it() -> None:
     text = _text(SKETCH_TEMPLATE)
     content_rules = _section(text, "Content Rules")
     assert content_rules is not None
-    assert re.search(r"presenting-decisions\.md", content_rules)
+    assert re.search(CITES_PRESENTING_DECISIONS, content_rules)
     assert re.search(r"Behavior, not technique", content_rules)
     assert "Fill in the table before choosing" not in text
 
@@ -325,7 +330,7 @@ def test_challenge_questions_cite_the_rubric() -> None:
     assert (REPO_ROOT / PRESENTING_DECISIONS).is_file()
     flow = _section(_text(CHALLENGE_FINDINGS_PROTOCOL), "Inline Resolution Flow")
     assert flow is not None
-    assert re.search(r"presenting-decisions\.md", _text(CHALLENGE_FINDINGS_PROTOCOL))
+    assert re.search(CITES_PRESENTING_DECISIONS, _text(CHALLENGE_FINDINGS_PROTOCOL))
     assert re.search(r"\*\*Criteria:\*\*", flow)
     assert re.search(r"TENSION", flow)
 
@@ -334,7 +339,7 @@ def test_challenge_synthesis_fills_the_table_before_recommending() -> None:
     """The table has to exist before the recommendation is chosen; synthesis
     is the only place that can do it in that order."""
     text = _text(CHALLENGE_SYNTHESIS_PROCEDURE)
-    assert re.search(r"presenting-decisions\.md", text)
+    assert re.search(CITES_PRESENTING_DECISIONS, text)
     criteria = text.index("`criteria` table")
     recommendation = text.index("`recommendation`")
     assert criteria < recommendation
