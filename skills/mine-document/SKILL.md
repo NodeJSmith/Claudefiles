@@ -48,7 +48,7 @@ AskUserQuestion:
 
 If "Suggest a subject": scan the codebase for documentation candidates — look at directory structure, recently modified files (`git log -n 20 --diff-filter=M --name-only --format=`), and large files. Identify 2-3 subsystems that are complex enough to benefit from a durable explanation. Present them via `AskUserQuestion` with a brief rationale for each.
 
-Then ask where the output should go:
+Then decide where the output goes. If the repo already has one of `docs/` or `design/` with existing documents, use it and tell the user the path; if both exist, use the one holding similar documents. Ask only when there is no convention:
 
 ```
 AskUserQuestion:

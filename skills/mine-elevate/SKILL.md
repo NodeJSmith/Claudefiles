@@ -70,7 +70,7 @@ It receives: all three candidate files, the subsystem files, the judge prompt fr
 
 ## Phase 4: Render and offer next steps
 
-Read `<tmpdir>/annotated.md`. Render the report inline using the template in REFERENCE.md. Sort candidates by their lens tag into the fixed tier order **Friction → Latent → Maximalist**, regardless of the order they appear in `annotated.md` (high signal first; the reader stops when they lose interest — this ordering is the volume control, not a filter). Then:
+Read `<tmpdir>/annotated.md`. Render the report inline using the template in REFERENCE.md. Sort candidates by their lens tag into the fixed tier order **Friction → Latent → Maximalist**, regardless of the order they appear in `annotated.md` (high signal first; the reader stops when they lose interest — this ordering is the volume control, not a filter). If there are no candidates at all, say so and stop. Otherwise ask with the block below, even when the judge rates every candidate weak, since whether they're worth it is the user's call. Recommend from the candidates: "Note and move on" when every candidate is weak or its case against dominates (this wins over the other two), "Implement some" when Friction candidates are cheap and independently landable, "File as issues" when the strong ones are Latent or Maximalist and need design first. Name the candidates in the descriptions. Then ask:
 
 ```
 AskUserQuestion:

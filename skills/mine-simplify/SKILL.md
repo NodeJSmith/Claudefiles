@@ -135,7 +135,7 @@ If every agent returned a clean-exit assessment (no HIGH/MEDIUM), report that th
 
 ### Step 4: Offer next steps
 
-Otherwise:
+Otherwise ask what to do with the moves. Build the options from the findings: offer "Apply HIGH moves" only when HIGH moves exist (name the count), and put the move count in each description. Recommend "Apply HIGH moves" when they are self-contained and test-covered, and "Pick which to apply" when the moves interact, cut across many files, or only MEDIUM moves exist.
 
 ```
 AskUserQuestion:

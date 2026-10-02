@@ -36,6 +36,8 @@ Add these only if present in the resume:
 
 ## Step 3: Ask
 
+Offer "Yes, continue" only when there is a pending todo or a last prompt with unfinished work; if there's nothing to pick up, drop that option and lead with "Different session" or "Something else".
+
 ```text
 AskUserQuestion:
   question: "Want to pick up where you left off?"

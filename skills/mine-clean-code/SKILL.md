@@ -105,7 +105,7 @@ building anything:
   unset/empty, or you have no tools for it, use the third gate.
 
 This is a major gate (clean code gate result, see `interaction.md`) — run `context-pct` and
-prepend the result to the question in whichever gate you use.
+prepend the result to the question in whichever gate you use. In each, put the finding counts in the descriptions and recommend from the findings: fix-all when they are mostly mechanical, a single checker's findings when one checker produced most of them, and "Note and move on" when only trivial nitpicks remain. Drop "Fix one checker's findings" when only one checker has findings.
 
 **No out-of-scope findings, or path mode:**
 

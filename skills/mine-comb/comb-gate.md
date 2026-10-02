@@ -65,7 +65,8 @@ Build `<summary>` below from what's actually left — exclude every design-decis
 **Only minor findings:**
 - If `minor_blocks` is `false`: note the minor findings for the downstream summary and proceed. No prompt.
 - If `minor_blocks` is `true` (a major gate — comb pass/fix/escalate decision, see
-  `interaction.md` — so run `context-pct` and prepend the result to the question):
+  `interaction.md` — so run `context-pct` and prepend the result to the question).
+  You've read the findings, so recommend: "Fix and re-review" when the fixes are substantive enough that they could introduce new problems, `<proceed_label>` when they're polish. On a 2nd+ run where the findings are only wording-level, lean toward `<proceed_label>`.
 
 ```
 AskUserQuestion:

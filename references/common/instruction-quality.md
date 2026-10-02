@@ -42,7 +42,7 @@ Understanding why the rule exists lets agents apply the spirit in edge cases rat
 
 Does the instruction state the goal and why, and leave the agent to decide how?
 
-Current models apply a stated goal well; a script of steps or a hard rule gets followed literally into cases where it is wrong. The usual offender is a user prompt fired straight from a script or lookup result, with no step where the agent judges whether the result matters. Keep hard rules for real invariants. This doesn't conflict with check 2: name the trap, not the steps.
+Current models apply a stated goal well; a script of steps or a hard rule gets followed literally into cases where it is wrong. The usual offenders are user prompts. One is a prompt fired straight from a script or lookup result, with no step where the agent judges whether the result matters. The other is a fixed option menu whose right options depend on what the agent just found: it omits the obvious next step, offers a meaningless one, or pins a "(Recommended)" the situation contradicts. A close cousin is prose around the menu that recommends an outcome none of its options express ("recommend stopping" with no stop option); point at the outcome and let the agent add the option, per `rules/common/interaction.md`. To tell a menu from a legitimately fixed set, ask whether two plausible outcomes of the skill would call for different options or a different recommendation. If not (approve or abandon a plan), a fixed block is fine. Keep hard rules for real invariants. This doesn't conflict with check 2: name the trap, not the steps.
 
 ## Applying the Checks
 

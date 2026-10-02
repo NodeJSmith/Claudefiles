@@ -194,26 +194,13 @@ Present findings ranked by priority, then use AskUserQuestion to get decisions.
 
 Permission friction findings should only appear here when there is a clear batch/multi-call pattern in the archaeology. If the permission prompt has no corresponding workaround pattern, omit it — it belongs in `mine-permissions-audit`, not here.
 
-Then ask which gaps to address and how (custom gate — tool gaps have implement/issue/skip paths that don't fit the standard inline resolution flow):
+If no gap is worth acting on, say so and stop.
 
-```
-AskUserQuestion:
-  question: "Which gaps are worth addressing?"
-  header: "Gaps to fix"
-  multiSelect: true
-  options:
-    - label: "<gap name> — implement now"
-      description: "<1-line summary, effort estimate>"
-    - label: "<gap name> — create issue"
-      description: "File it and come back later"
-    - label: "<gap name> — skip"
-      description: "Not worth automating"
-```
+Otherwise ask about the gaps worth acting on, one question per gap (header `Gaps to fix`, label the question with the gap name), batched up to 4 questions per `AskUserQuestion` call; with more than 4 gaps, make another call for the next batch in priority order. Each question offers "Implement now", "Create issue", and "Skip". Recommend implement-now for small, well-evidenced gaps (a flag addition, a few lines), an issue for larger ones (a new script or subcommand needing design), and skip for weakly evidenced ones. Put the effort estimate in the descriptions. (This is a custom gate: tool gaps have implement/issue/skip paths that don't fit the standard inline resolution flow.)
 
-For each selected gap, confirm the action:
+Then act on each:
 - **Implement now** → hand off to `/mine-build`
 - **Create an issue** → file a tracked issue with the gap description (see below)
-- **Note it** → acknowledged, no action
 
 ## Phase 5: Act
 

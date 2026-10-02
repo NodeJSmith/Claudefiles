@@ -209,14 +209,14 @@ If "Adjust items": ask which numbered items to skip or change. For items the use
 
 ### Merge conflict strategy
 
-If conflicts exist, ask the user:
+If conflicts exist, ask the user. Mark your recommendation from the repo's convention rather than a default: check whether the PR branch already has merge commits from the base, whether recent history on the base is linear (rebase/squash style), and whether the repo requires linear history or the PR is already shared (rebasing means a force-push). Recommend rebase when the branch is private and the repo keeps linear history; otherwise recommend merge. Say which signal decided it.
 
 ```
 AskUserQuestion:
   question: "Merge conflicts detected. How should I resolve them?"
   header: "Conflicts"
   options:
-    - label: "Merge (Recommended)"
+    - label: "Merge"
       description: "git merge origin/<base> — creates a merge commit, preserves history"
     - label: "Rebase"
       description: "git rebase origin/<base> — rewrites history, requires force-push"

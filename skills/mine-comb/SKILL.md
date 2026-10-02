@@ -68,4 +68,6 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 - **`<proceed_label>` / `<proceed_description>`**: `Fix and finish` / "Fix the findings but skip the next comb — I'm done here"
 - **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings — don't expand scope), then re-comb from the top
 
+When the target was a sweep across many files rather than one artifact, the findings are a worklist of independent items. The gate still applies as written; only `<re_review_instructions>` changes: fix the findings in batches, root causes first (the ones that would keep producing the defect), and re-comb only the files you changed rather than the whole sweep.
+
 On a clean comb (or once findings are fixed), report the final result to the user: the summary and any remaining minor findings.

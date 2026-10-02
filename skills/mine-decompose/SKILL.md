@@ -118,6 +118,10 @@ Present the top findings inline — lead with HIGH priority, include the key sig
 
 ### Step 3: Offer next steps
 
+If no opportunity survived the Anti-Pattern Guard, say the code is already well decomposed and stop.
+
+Otherwise build the options from the findings: lead with "Build top opportunity" (recommended) when the top finding is HIGH and self-contained, and with "File as issues" when the opportunities are many, MEDIUM, or need splitting across several PRs. Name the top opportunity and the finding count in the descriptions.
+
 ```
 AskUserQuestion:
   question: "What would you like to do with these findings?"

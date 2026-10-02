@@ -258,6 +258,7 @@ Diagnostic/analytical skills (audit, research, gap analysis, review, triage) mus
 - Options must be mutually exclusive unless `multiSelect: true`
 - Maximum 4 options per question
 - `header` field ≤12 characters
+- Flag a fixed option list whose right options depend on the skill's results (findings, open questions, nothing to fix) — e.g. "Fix issues" offered when nothing was found, a pinned "(Recommended)", no option for the obvious next step, or surrounding prose that recommends an outcome none of the options express ("recommend stopping" with no stop option). Those should be a menu the agent builds and recommends from, per `references/common/instruction-quality.md` check 6. Don't flag a fixed set whose options would be the same whatever the skill found.
 
 ### Cross-Reference Integrity (MEDIUM)
 

@@ -125,11 +125,13 @@ Entries in settings.local.json not yet in portable settings — these survived a
 
 ## Step 4: Offer to Apply
 
-After presenting the report, use AskUserQuestion:
+After presenting the report, ask which entries to add. The question covers the "Recommend" section when it has entries. When it's empty, say so and ask about the "Consider" and "Local settings drift" entries instead. When all three are empty, say so and stop.
 
-- "Which recommendations should I add to your settings?" with options:
-  - **All recommended** — add everything from the "Recommend" section
-  - **Let me pick** — presents a follow-up AskUserQuestion with `multiSelect: true`, listing each recommended pattern as an option
+Use AskUserQuestion and put the entry count in the "All" description:
+
+- "Which of these should I add to your settings?" with options:
+  - **All recommended** (or **All listed** for Consider/drift entries) — add every entry in the section being asked about
+  - **Let me pick** — follow-up AskUserQuestion with `multiSelect: true`, listing the entries as options, 4 per question, in as many questions as needed
   - **None for now** — just the report, no changes
 
 If the user chooses to apply:

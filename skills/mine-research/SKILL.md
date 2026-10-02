@@ -114,6 +114,8 @@ design/research/
     └── ...                   Additional artifacts
 ```
 
+If the repo already has a research location (an existing `design/research/` or `docs/research/` directory), save there without asking and tell the user the path; they can ask to move it or to just show it instead. Ask only when there is no convention:
+
 ```
 AskUserQuestion:
   question: "Where should I save the research brief?"
@@ -128,7 +130,7 @@ AskUserQuestion:
       description: "Display in the conversation, don't save a file"
 ```
 
-Create the `design/research/` directory if it doesn't exist. If the project already has research in `docs/`, follow the existing convention.
+Create the destination directory if it doesn't exist (nothing to create for "Just show me").
 
 **Copy** (never move) the brief from the temp file to the user's chosen location, or display it inline if they chose "Just show me". The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
 
@@ -136,25 +138,33 @@ After the save step, set `<research_brief_path>`:
 - If saved to a permanent location: `<research_brief_path>` = the saved file path
 - If "Just show me": `<research_brief_path>` = `<tmpdir>/brief.md`
 
-Present the key findings conversationally and ask what the user wants to do next.
+Present the key findings conversationally, then ask what the user wants to do next.
 
-```
-AskUserQuestion:
-  question: "Research is done. What would you like to do next?"
-  header: "Next step"
-  multiSelect: false
-  options:
-    - label: "Challenge these findings first"
-      description: "Run /mine-challenge on the research brief before committing to a direction"
-    - label: "Design it (/mine-define)"
-      description: "Formalize findings into a design doc — the research brief will be passed as prior work"
-    - label: "Build it (/mine-build)"
-      description: "Skip design — route straight to implementation"
-    - label: "I need to think about it"
-      description: "The brief has what I need — I'll come back when I'm ready"
-```
+### Choose the next step from the brief's state
 
-If "Challenge these findings first" is selected: invoke `/mine-challenge --mode=passthrough --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
+Before writing the question, read the brief's **Open Questions** and **Recommendation** and decide what the natural next move is. A brief with unresolved open questions usually isn't ready for challenge, design, or build — those steps would either stall on the same questions or bake a guess into the design. In that case, resolving the questions is the next step, and it should be the first, recommended option, not something the user has to type in as "Other". When the open questions are minor or already answered, the downstream options lead instead.
+
+Include the options below that fit this brief, order them by fit, mark your recommendation, and write the descriptions around this brief's actual content (e.g. name the open questions rather than "resolve open questions"). Keep "I need to think about it" available.
+
+- **Resolve the open questions**: work through the brief's Open Questions now (see below)
+- **Challenge these findings**: run `/mine-challenge` on the brief before committing to a direction
+- **Design it (`/mine-define`)**: formalize findings into a design doc, with the brief as prior work
+- **Build it (`/mine-build`)**: skip design, route straight to implementation
+- **I need to think about it**: stop here; the brief is saved for later
+
+### Resolving open questions
+
+Sort the open questions by what it takes to answer each:
+
+- **Needs the user** (preference, priority, intent, facts only they know) — ask them, batched into one `AskUserQuestion` call where possible, with options grounded in what the research found.
+- **Needs more investigation** (more code reading, docs, a library's actual behavior, a read-only command) — investigate directly, or dispatch a `researcher`/`standard-worker` for anything broad. Running read-only commands or a throwaway probe in the tmpdir is fine: a probe observes existing behavior and leaves nothing to keep.
+- **Needs a real prototype** — say so and leave it open; a prototype is build work, not research.
+
+Update the brief at `<research_brief_path>` as answers land: check off each resolved question with its answer, and revise any Feasibility, Options, Concerns, or Recommendation content the answers change. (If the user chose "Just show me", update the tmpdir copy.) Then summarize what changed and return to the next-step gate, rebuilding the options from the updated brief.
+
+### Dispatching the chosen step
+
+If "Challenge these findings" is selected: invoke `/mine-challenge --mode=passthrough --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
 
 If "Design it (/mine-define)" is selected: invoke `/mine-define` and pass `<research_brief_path>` so mine-define can use it as prior work and skip its own researcher dispatch.
 
@@ -179,6 +189,6 @@ If "Build it (/mine-build)" is selected: invoke `/mine-build` with context: "Pri
 
 - **Make decisions** — it informs them. Use `/mine-define` to formalize decisions.
 - **Plan implementations** — it assesses feasibility. Use `/mine-build` to route to the right implementation workflow.
-- **Write code** — it's pure investigation. No prototypes, no scaffolding, no "let me just try it."
+- **Write code** — it's pure investigation. No prototypes or scaffolding; a throwaway probe in the tmpdir to observe behavior is as far as it goes.
 - **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine-challenge` for general health assessment.
 - **Benchmark or profile** — it can identify likely performance concerns from code reading, but won't run benchmarks.

@@ -51,7 +51,7 @@ Keep it fast. You're looking for conventions, constraints, and the decisions the
 
 Two signals stop the sketch before anything is written.
 
-**The change needs investigation, not a sketch.** It touches more services or packages than the request implied, modifies a shared or foundational module with many callers, or raises an architectural question with no obvious answer:
+**The change needs investigation, not a sketch.** It touches more services or packages than the request implied, modifies a shared or foundational module with many callers, or raises an architectural question with no obvious answer. Recommend upgrading when the finding is an unresolved architectural question or touches many callers, and continuing when it is mostly breadth that the sketch's decisions can still settle:
 
 ```
 AskUserQuestion:
@@ -67,7 +67,7 @@ AskUserQuestion:
 
 On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop.
 
-**The build won't fit one session.** The whole change has to be implemented, tested, and reviewed in one fresh session. If the scan shows it won't (several independent areas that each need their own design, or a diff too large to review as one PR), say so with the evidence and ask:
+**The build won't fit one session.** The whole change has to be implemented, tested, and reviewed in one fresh session. If the scan shows it won't (several independent areas that each need their own design, or a diff too large to review as one PR), say so with the evidence and ask. Recommend stopping to rescope when the evidence shows independent areas or an unreviewable diff, and continuing only when the overrun is marginal:
 
 ```
 AskUserQuestion:
@@ -181,7 +181,7 @@ Skip the cfl calls inside the gate if cfl tracking is disabled. The challenge it
 
 ### CRITICAL escalation
 
-If the challenge produced any CRITICAL finding, whatever its disposition, ask. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result.
+If the challenge produced any CRITICAL finding, whatever its disposition, ask. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result. Recommend from the finding you just read: upgrade when it shows the change's structure or scope is wrong (not just one decision), continue when it was a local flaw already fixed by the resolution.
 
 ```
 AskUserQuestion:
@@ -298,21 +298,9 @@ Read the whole ledger and the files it names. Check git state (branch, uncommitt
 
 Read the `## Build` checklist. If no step is ticked, this is a fresh build. If some are, resume after the last ticked step, using the branch's commits to see where the work stands.
 
-Name the ledger being built and offer the one way out:
+The user ran `/mine-sketch <dir>` on a ratified ledger, so the request to build is already explicit. If Orient raised something surprising, resolve that with the user first. Otherwise name the ledger being built (`<feature_dir>/design.md`, `<M>` ratified decisions), note they can say so to reopen a decision before you start, and begin.
 
-```
-AskUserQuestion:
-  question: "Building <feature_dir>/design.md: <topic>, <M> ratified decisions. Start the build?"
-  header: "Build"
-  multiSelect: false
-  options:
-    - label: "Build it"
-      description: "Implement the ratified ledger in this session"
-    - label: "Reopen a decision"
-      description: "Change a ratified decision before building"
-```
-
-On "Reopen a decision": ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then follow the sketch-mode flow from Phase 1's cfl setup, as a draft resume.
+If they ask to reopen a decision: ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then follow the sketch-mode flow from Phase 1's cfl setup, as a draft resume.
 
 ### Step 2: Implement
 

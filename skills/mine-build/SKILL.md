@@ -65,6 +65,8 @@ If prior analysis exists, the specify and research steps are likely already cove
 
 ### Present routing options
 
+Mark the option that matches your complexity signal as `(Recommended)`.
+
 If **no prior analysis** detected:
 
 ```
@@ -129,23 +131,18 @@ Launch a `code-reviewer` subagent to review the implementation. When the Token c
 
 Present the code-reviewer's findings to the user (CRITICAL, HIGH, MEDIUM findings highlighted).
 
-Then gate:
+Then ask `"Implementation complete. What next?"` (header `Ship or fix?`), with options built from what the reviewer returned:
 
-```
-AskUserQuestion:
-  question: "Implementation complete. What next?"
-  header: "Ship or fix?"
-  multiSelect: false
-  options:
-    - label: "Ship via /mine-ship"
-      description: "Commit, push, and open a PR"
-    - label: "Fix issues and re-review"
-      description: "Address the reviewer's findings, then re-run the code-reviewer"
-    - label: "Stop here"
-      description: "Leave the changes uncommitted for now"
-```
+- **No CRITICAL or HIGH findings:** offer "Ship via /mine-ship" (recommended) and "Stop here". Offer fixing only if a MEDIUM finding is worth addressing, and name it.
+- **CRITICAL or HIGH findings:** lead with "Fix issues and re-review" (recommended) and name the findings in its description. Shipping stays available but should say what it would ship with.
 
-If "Fix issues and re-review": address CRITICAL and HIGH issues, then re-launch the code-reviewer subagent and present findings again. Offer the same gate.
+The options, whichever apply:
+
+- **Ship via /mine-ship**: commit, push, and open a PR
+- **Fix issues and re-review**: address the reviewer's findings, then re-run the code-reviewer
+- **Stop here**: leave the changes uncommitted for now
+
+If "Fix issues and re-review": address the findings named in the option, then re-launch the code-reviewer subagent, present findings again, and rebuild the gate from the new results.
 
 If "Ship via /mine-ship": invoke `/mine-ship`.
 
@@ -176,7 +173,7 @@ Chain the following skills in sequence. Do not duplicate their logic — follow 
 1. **Follow `/mine-define` phases** for this request. Pass the change description as the argument. Wait for the user to approve the design doc, then continue.
 
 2. **Follow `/mine-plan` phases** using the feature directory produced by mine-define.
-   - If "Approve as-is" or "Approve with suggestions": continue to step 3.
+   - If "Approve — start execution": continue to step 3.
    - If "Revise the plan": mine-plan loops internally. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
@@ -204,7 +201,7 @@ Then chain the following steps:
    - **Phase 5-6 (Quality Validation and Sign-Off Gate)**: Run normally — gate on user approval.
 
 2. **Follow `/mine-plan` phases** using the feature directory from step 1.
-   - If "Approve as-is" or "Approve with suggestions": continue to step 3.
+   - If "Approve — start execution": continue to step 3.
    - If "Revise the plan": mine-plan loops internally. Repeat until approved or abandoned.
    - If "Abandon": stop.
 

@@ -45,7 +45,7 @@ Write out findings to the user, grouped by severity. For each finding: file and 
 2. **Gaps** — missing output capabilities users will expect
 3. **Improvements** — polish that would make the tool more pleasant to use
 
-Then confirm:
+Then confirm. If the assessment found nothing (no risks, gaps, or improvements), say so and stop. Otherwise build the options from the findings: drop "Risks only" when there are no risks, and put the counts per tier in the descriptions. Recommend the narrowest option that still covers what the user would regret leaving unfixed, and say what decided it. When only improvements were found, "Let me pick" is the way to act on them.
 
 ```
 AskUserQuestion:

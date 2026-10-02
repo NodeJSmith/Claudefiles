@@ -40,9 +40,10 @@ $ARGUMENTS — <what arguments it accepts, or "none">
 - `opencode-command: true` adds a thin OpenCode slash-command bridge, built in memory by the OpenCode plugin at session start — not a generated file. Use it only when users should routinely invoke the skill by name; otherwise omit it or set it to `false` and rely on native skill discovery.
 - Description: starts with "Use when..." trigger phrases, ends with a summary of what it produces
 - Phases are numbered with descriptive names
-- Use `AskUserQuestion` for every user interaction point — explicit header and options
+- Use `AskUserQuestion` for every user interaction point
   - `header` ≤12 characters
   - Maximum 4 options per question
+  - When the right options depend on what the skill just found (findings, open questions, whether anything changed), describe them as a menu the agent builds from: which options exist, when each fits, and what to recommend. Don't hardcode a fixed list with a pinned "(Recommended)". If the agent can already tell the question is pointless, let it skip the question. Example: "Ask what's next (header `Ship or fix?`): offer Ship when there are no CRITICAL/HIGH findings, lead with Fix and re-review (naming the findings) when there are, and always offer Stop." The header, `multiSelect`, and the labels that "On 'X'" handlers match still belong in the prose.
 - Use `cfl`, `get-skill-tmpdir`, and other `bin/` helpers where appropriate — don't reinvent
 - If the skill needs scripts, add them to `bin/` (shared), not inside the skill directory
 

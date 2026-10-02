@@ -63,6 +63,8 @@ Then list all findings grouped by severity (Risk → Gap → Improvement), with 
 
 Run `get-skill-tmpdir cli-audit` and write the full scorecard and findings to `<tmpdir>/audit-YYYY-MM-DD.md`. Tell the user where the file was saved.
 
+If the assessment found nothing (no risks, gaps, or improvements), say so and stop. Otherwise build the options from the findings: drop "One dimension" when only one dimension has findings, and put the counts per tier in the descriptions. Recommend the narrowest option that still covers what the user would regret leaving unfixed, and say what decided it. When only improvements were found, "Let me pick" is the way to act on them.
+
 ```
 AskUserQuestion:
   question: "Here's the audit. How would you like to proceed?"

@@ -257,12 +257,14 @@ If the combined findings total fewer than 3 issues, say so plainly: "The UI is i
 
 This skill uses a custom resolution gate (not the standard inline resolution flow) because resolution paths include non-fix actions.
 
+Build the options from the findings. Recommend "Fix issues now" whenever any finding is actionable, however few there are, and if most findings are judgment calls rather than unambiguous fixes, say so in its description. When no finding is actionable, drop "Fix issues now" and put a recommended "Done" option (stop here, no further action) in its place; if the user picks it alongside other options, do those and then stop.
+
 ```
 AskUserQuestion:
   question: "What would you like to do with these findings?"
   multiSelect: true
   options:
-    - label: "Fix issues now (Recommended)"
+    - label: "Fix issues now"
       description: "Auto-apply unambiguous fixes; ask per-finding for judgment calls"
     - label: "Read a specific agent's full report"
       description: "See unfiltered findings from one of the analysis agents"
