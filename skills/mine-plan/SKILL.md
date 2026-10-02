@@ -480,7 +480,7 @@ This is the only enforcement point for the invariant, which is why it re-reads t
 
 ### Approval options
 
-Build the options from the review result. When the reviewer left non-blocking suggestions, the approve options apply them first: say so in their descriptions and name the suggestions. Recommend "Approve — start execution" on a clean review or one with only cosmetic suggestions, and "Revise the plan" when the review found problems the suggestions don't cover or a suggestion would change what a task must do (a new or altered FR/AC, or a design section tasks implement), since the task files were generated without it; name that suggestion in its description. When invoked inline by `mine-build`, omit "Approve — start later" (the build flow continues on its own).
+Build the options from the review result. When the reviewer left non-blocking suggestions, the approve options apply only the cosmetic ones first; the paragraph after the block says how to word their descriptions. Recommend "Approve — start execution" on a clean review or one with only cosmetic suggestions, and "Revise the plan" when the review found problems the suggestions don't cover or a suggestion would change what a task must do (a new or altered FR/AC, or a design section tasks implement), since the task files were generated without it; name that suggestion in its description. When invoked inline by `mine-build`, omit "Approve — start later" (the build flow continues on its own).
 
 ```
 AskUserQuestion:
@@ -498,7 +498,7 @@ AskUserQuestion:
       description: "Mark the design as abandoned and stop"
 ```
 
-When suggestions exist, both approve descriptions should say they'll be applied first and name them. A user who wants to approve without them can say so through "Other"; per `interaction.md`, that counts as the approve option they mean, with the suggestions declined.
+When suggestions exist, both approve descriptions should say which will be applied first and name them. Only cosmetic ones can be: a suggestion that changes what a task must do is not applied on approval, so name it in the approve descriptions as left out and needing "Revise the plan". A user who wants to approve without them can say so through "Other"; per `interaction.md`, that counts as the approve option they mean, with the suggestions declined.
 
 ### Record approval question and gate
 
@@ -532,7 +532,7 @@ cfl event plan.approved --spec <spec_number>
 
 ### On either "Approve"
 
-If the reviewer left suggestions and the user didn't decline them, apply them to `design.md` and/or `T*.md` files first. Restrict task file edits to cosmetic changes (wording, clarifications, review guidance) — substantive task changes require re-running the task generation phases. Show the user a brief summary of what was changed (absolute file path + one-line description per change).
+If the reviewer left suggestions and the user didn't decline them, apply the cosmetic ones (wording, clarifications, review guidance) to `design.md` and/or `T*.md` files first. Do not apply a suggestion that changes what a task must do: task files were generated without it, and only "Revise the plan" regenerates them. List it in the summary as not applied. Show the user a brief summary of what was changed (absolute file path + one-line description per change).
 
 Update the `design.md` `**Status:**` field from `draft` to `approved`.
 
@@ -542,7 +542,7 @@ On "Approve — start later": confirm "Plan approved at `<feature_dir>`. Run `/m
 
 ### On "Revise the plan"
 
-Surface the reviewer's blocking issues as a numbered list. Loop back to Phase 2 — re-explore the codebase and regenerate task files with the reviewer's notes as context. Tell the user:
+Surface the reviewer's blocking issues, plus any suggestion that changes what a task must do, as a numbered list. Loop back to Phase 2 — re-explore the codebase and regenerate task files with that list and the reviewer's notes as context. Tell the user:
 > Regenerating task files with the reviewer's notes.
 
 ### On "Abandon"
