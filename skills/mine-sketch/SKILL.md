@@ -20,11 +20,10 @@ $ARGUMENTS — a description of what to build, or a feature directory path. Can 
 
 ## Routing
 
-If $ARGUMENTS points to a directory containing `design.md`, read its header and route by the first row that matches. Check the rows in order: an old-format sketch can still say `draft`.
+If $ARGUMENTS points to a directory containing `design.md`, read its header and route by the first row that matches.
 
 | Ledger | Do |
 |---|---|
-| `**Mode:** sketch` with a `tasks/` directory, or `**Status:** approved` | An old-format sketch with task files. Tell the user to run `/mine-orchestrate <dir>` and stop. |
 | `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Run Phase 1's cfl setup but not its scan or escalation check, then continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
 | `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
 | `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
