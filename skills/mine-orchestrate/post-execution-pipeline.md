@@ -424,7 +424,7 @@ Do not treat this as optional bookkeeping — this is the checkpoint that keeps 
 
 **New-this-run entries:** for each one, ask individually (never batch these — see the "new
 this run" list from Step 5.5). This is a major gate (known issues walkthrough, see
-`interaction.md`) — run `context-pct` and prepend the result to the question:
+`interaction.md`) — run `context-pct` and prepend the result to the question. Recommend per entry from its severity, `Affected files`, and `Recommended follow-up`: "Fix now" when the fix is small and sits in files this run changed; "File as issue" when it needs separate design or touches unrelated code; "Leave deferred" only for low-severity, low-value items. Say why in the recommended option's description.
 
 ```
 AskUserQuestion:
@@ -485,7 +485,7 @@ Re-read `<feature_dir>/known-issues.md` (statuses may have changed in Step 5.6) 
 
 Present the final gate with impl-review and cross-file review results. This is a
 shipping/completion gate (see `interaction.md`) — run `context-pct` and prepend the
-result to the question:
+result to the question. When open known issues remain or a CRITICAL/HIGH challenge finding was skipped, shipping is not the obvious next step: add the "Address open issues first" option and recommend it when any of those items is severe or touches code this run changed. Recommend shipping when everything is clean or only minor items are open.
 
 ```
 AskUserQuestion:
@@ -495,11 +495,17 @@ AskUserQuestion:
   options:
     - label: "Ship via /mine-ship"
       description: "Commit, push, and open a PR"
+    - label: "Address open issues first"
+      description: "<name the open known issues / skipped CRITICAL/HIGH findings>: fix or file them, then return to this gate"
     - label: "Stop here"
       description: "Pause; I'll review manually"
 ```
 
-After the user selects, record the shipping gate result:
+Include "Address open issues first" only when open known issues or skipped CRITICAL/HIGH findings exist.
+
+**On "Address open issues first":** work through the named items with the user (fix now, file, or accept), update `known-issues.md`, then re-run this step. Do not record the shipping gate result yet.
+
+After the user selects "Ship via /mine-ship" or "Stop here", record the shipping gate result:
 
 ```bash
 cfl gate shipping-gate --verdict <PASS|FAIL> --data '{"choice": "<ship|stop>"}'

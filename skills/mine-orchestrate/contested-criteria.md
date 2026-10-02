@@ -11,7 +11,7 @@ If there are no matches, proceed to Step 8.
 For each criterion, read its rationale from `<dir>/<task_id>/executor.md` and present it
 individually. This decision gate carries the same weight as the other task-execution gates
 in `interaction.md`'s major-gate list — run `context-pct` and prepend the result to the
-question:
+question. Recommend from the evidence: read the criterion, the rationale, and the code. "Accept" when the rationale shows the criterion's intent is met and its literal wording is the problem; "Reject" when the rationale is a workaround or the criterion's behavior is actually absent. Say which in the description.
 
 ```
 AskUserQuestion:

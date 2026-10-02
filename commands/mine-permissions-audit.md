@@ -125,7 +125,7 @@ Entries in settings.local.json not yet in portable settings — these survived a
 
 ## Step 4: Offer to Apply
 
-After presenting the report, use AskUserQuestion:
+After presenting the report, check the "Recommend" section. If it's empty, say so and don't offer "All recommended". If "Consider" or "Local settings drift" have entries, offer to promote those; otherwise stop. When "Recommend" has entries, use AskUserQuestion and put the recommended-entry count in the "All recommended" description:
 
 - "Which recommendations should I add to your settings?" with options:
   - **All recommended** — add everything from the "Recommend" section

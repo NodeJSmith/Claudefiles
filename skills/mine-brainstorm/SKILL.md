@@ -36,17 +36,7 @@ AskUserQuestion:
   question: "A couple of quick questions before we start:\n1. What's off the table? (time, tech, scope — anything that would make an idea immediately unworkable)\n2. What's already been tried or rejected, and why?"
 ```
 
-Then ask about codebase context:
-
-```
-AskUserQuestion:
-  question: "Should I read the codebase for context, or work from your description alone?"
-  options:
-    - label: "Read relevant code (Recommended for software topics)"
-      description: "Subagents read related files — especially useful for the Pragmatist lens"
-    - label: "Work from my description"
-      description: "Faster, and works for non-code topics too"
-```
+Decide whether to read the codebase for context. For a software topic in a repo, read it: dispatch subagents to read related files, which especially helps the Pragmatist lens. For a non-code topic, work from the description. Ask only when it's unclear which applies, offering "Read relevant code" and "Work from my description".
 
 If reading code: use Glob, Grep, and Read to find files relevant to the topic before launching thinkers. Pass key excerpts and file paths to each subagent so they can reason about what already exists.
 
@@ -210,21 +200,14 @@ If two or more thinkers converged on an idea, note it explicitly — convergence
 
 ## Phase 6: Next Steps
 
-```
-AskUserQuestion:
-  question: "What's the primary next step for the top idea?"
-  header: "Next step"
-  multiSelect: false
-  options:
-    - label: "Challenge the top idea first"
-      description: "Run /mine-challenge before committing to this direction"
-    - label: "Go deeper on the top idea"
-      description: "Hand off to /mine-research for feasibility analysis"
-    - label: "Build it (/mine-build)"
-      description: "Direct implementation or full caliper workflow, depending on complexity"
-    - label: "Keep exploring"
-      description: "Run another round with a different framing or constraint"
-```
+Ask `"What's the primary next step for the top idea?"` (header `Next step`), recommending the option that fits the ranked result. If the top idea's catch is a large risk or open question, challenge it first. If feasibility is the unknown, go deeper via research. If the idea is clear and its catch is small, build. If no idea survived ranking, recommend keeping exploring. Name the top idea and its catch in the descriptions.
+
+- **Challenge the top idea first**: run `/mine-challenge` before committing to this direction
+- **Go deeper on the top idea**: hand off to `/mine-research` for feasibility analysis
+- **Build it (`/mine-build`)**: direct implementation or full caliper workflow, depending on complexity
+- **Keep exploring**: run another round with a different framing or constraint
+
+Then, if anything in the session is worth keeping (a ranked result with ideas worth revisiting, or ideas worth filing), ask about housekeeping. If nothing is, skip the question.
 
 ```
 AskUserQuestion:

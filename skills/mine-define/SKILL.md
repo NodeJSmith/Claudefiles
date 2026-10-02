@@ -283,7 +283,9 @@ Phase 6 does not begin until the challenge completes.
 ## Phase 6: Sign-Off Gate
 
 Present the design doc path, then ask. This is a completion gate (see `interaction.md`) —
-run `context-pct` and prepend the result to the question:
+run `context-pct` and prepend the result to the question.
+
+Recommend from the doc's state: if its Open Questions section still has items that would change the design, recommend "Revise" and name them in its description; otherwise recommend "Approve — proceed to planning". When invoked inline by `mine-build`, omit "Approve — plan later" (the build flow continues on its own).
 
 ```
 AskUserQuestion:
@@ -292,11 +294,13 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Approve — proceed to planning"
-      description: "Hand off to /mine-plan to generate task files"
+      description: "Mark approved and hand off to /mine-plan to generate task files"
+    - label: "Approve — plan later"
+      description: "Mark approved (Status: approved) and stop; run /mine-plan when ready"
     - label: "Revise — I have changes"
       description: "Tell me what to change and I'll update"
     - label: "Save and stop"
-      description: "Design doc saved as draft; pick it up later"
+      description: "Leave it as a draft (Status: draft); pick it up later"
 ```
 
 ### Record sign-off question and gate
@@ -316,7 +320,7 @@ cfl gate define-signoff --verdict <v> --spec <spec_number>
 ```
 
 Verdict mapping:
-- "Approve — proceed to planning" → PASS
+- "Approve — proceed to planning" / "Approve — plan later" → PASS
 - "Revise — I have changes" → WARN (loop continues; re-emit on each revision cycle)
 - "Save and stop" → SKIPPED
 
@@ -334,24 +338,9 @@ Record the sign-off gate with verdict `PASS` and emit `cfl event define.signed-o
 
 Update design.md `**Status:**` from `draft` to `approved`.
 
-**If invoked inline by `mine-build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine-plan <feature_dir>` directly — `mine-build` handles the flow.
+On "Approve — proceed to planning": invoke `/mine-plan <feature_dir>` directly.
 
-**Otherwise**, ask. This is a completion gate (see `interaction.md`) — run `context-pct`
-and prepend the result to the question:
-
-```
-AskUserQuestion:
-  question: "[Context: N%] Design doc approved. Proceed to generate task files?"
-  header: "Next step"
-  multiSelect: false
-  options:
-    - label: "Yes — generate task files"
-      description: "Invoke /mine-plan for this feature"
-    - label: "No — I'll do it later"
-      description: "Stop here; design doc is saved"
-```
-
-If "Yes": invoke `/mine-plan <feature_dir>` directly.
+On "Approve — plan later": confirm "Design approved at `<feature_dir>`. Run `/mine-plan <feature_dir>` when ready." and stop.
 
 ### On "Revise"
 

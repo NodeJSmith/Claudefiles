@@ -118,21 +118,13 @@ Write to `<feature_dir>/brief.md`:
 
 ## Phase 4: Handoff
 
-```
-AskUserQuestion:
-  question: "Brief saved. What next?"
-  header: "Handoff"
-  multiSelect: false
-  options:
-    - label: "Challenge this brief first"
-      description: "Run /mine-challenge — the brief shapes everything downstream, catch issues now"
-    - label: "Specify this feature"
-      description: "Run /mine-define with this brief as input"
-    - label: "Build it directly"
-      description: "Run /mine-build — routes based on complexity"
-    - label: "Done for now"
-      description: "Brief saved; pick it up later"
-```
+Ask `"Brief saved. What next?"` (header `Handoff`), building the options from the brief you just wrote. If its Open Questions would change the scope or approach, resolving them is the natural next step, so lead with that and recommend it. Challenge, define, and build would each stall on those questions or bake in a guess, and build in particular is premature. When the open questions are minor or empty, lead with whichever downstream step fits the size and risk of the feature. Name the actual questions or risks in the descriptions. Keep "Done for now" available.
+
+- **Resolve the open questions**: keep grilling on just those questions, update the brief's Open Questions, Key Decisions, and Scope sections with the answers, then return to this gate
+- **Challenge this brief first**: run `/mine-challenge`; the brief shapes everything downstream
+- **Specify this feature**: run `/mine-define` with this brief as input
+- **Build it directly**: run `/mine-build`, which routes based on complexity
+- **Done for now**: brief saved; pick it up later
 
 ### On "Challenge this brief first"
 

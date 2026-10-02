@@ -44,6 +44,8 @@ Add these only if relevant:
 
 ## Step 3: Ask
 
+Offer "Yes, continue" only when the handoff names a next step; if it doesn't, drop that option and lead with "Different direction". When it does, recommend "Yes, continue" unless the handoff flagged something to resolve first.
+
 ```
 AskUserQuestion:
   question: "Want to pick up where you left off?"

@@ -310,7 +310,7 @@ Skip if cfl tracking is inactive for this run:
 cfl gate plan-validation --verdict <PASS|FAIL> --spec <spec_number>
 ```
 
-If verdict is FAIL, ask the user:
+If verdict is FAIL, ask the user. Mark your recommendation based on the gaps: "Fix and re-validate" when they are cosmetic or local (wording, a missing reference, one unmapped criterion), "Regenerate tasks" when they are structural (many unmapped requirements, contradictions with the design, wrong decomposition), and "Proceed anyway" only when the user already knows and accepts the specific gaps. Name the actual gaps in the descriptions.
 
 ```
 AskUserQuestion:
@@ -452,7 +452,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 - **`<header>`**: `Plan comb`
 - **`minor_blocks`**: `false` — minor findings are noted for the gate but do not block
-- **`<re_review_instructions>`**: apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2.
+- **`<re_review_instructions>`**: apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's approve options — substantive task changes require re-running task generation from Phase 2.
 
 Phase 6 does not begin until the comb gate resolves. The "No findings" path proceeds to Phase 6 silently.
 
@@ -480,9 +480,7 @@ This is the only enforcement point for the invariant, which is why it re-reads t
 
 ### Approval options
 
-If the reviewer's output includes non-blocking suggestions, present "Approve with suggestions" as the first (recommended) option. If there are no suggestions (clean PASS), omit it and show "Approve as-is" first.
-
-**When suggestions exist:**
+Build the options from the review result. When the reviewer left non-blocking suggestions, the approve options apply them first: say so in their descriptions and name the suggestions. Recommend "Approve — start execution" on a clean review or one with only suggestions, and "Revise the plan" when the review found problems the suggestions don't cover. When invoked inline by `mine-build`, omit "Approve — start later" (the build flow continues on its own).
 
 ```
 AskUserQuestion:
@@ -490,31 +488,17 @@ AskUserQuestion:
   header: "Plan verdict"
   multiSelect: false
   options:
-    - label: "Approve with suggestions (Recommended)"
-      description: "Apply the reviewer's non-blocking suggestions, then proceed"
-    - label: "Approve as-is"
-      description: "Skip suggestions; proceed to execution"
+    - label: "Approve — start execution"
+      description: "Mark approved and invoke /mine-orchestrate"
+    - label: "Approve — start later"
+      description: "Mark approved and stop; run /mine-orchestrate when ready"
     - label: "Revise the plan"
-      description: "Blocking issues found — regenerate task files with reviewer notes"
+      description: "Regenerate task files with the reviewer's notes"
     - label: "Abandon"
       description: "Mark the design as abandoned and stop"
 ```
 
-**When no suggestions exist:**
-
-```
-AskUserQuestion:
-  question: "Review complete. What would you like to do?"
-  header: "Plan verdict"
-  multiSelect: false
-  options:
-    - label: "Approve as-is"
-      description: "Plan is good; proceed to execution"
-    - label: "Revise the plan"
-      description: "Blocking issues found — regenerate task files with reviewer notes"
-    - label: "Abandon"
-      description: "Mark the design as abandoned and stop"
-```
+When suggestions exist, both approve descriptions should say they'll be applied first and name them. A user who wants to approve without them can say so through "Other"; honor that and skip them.
 
 ### Record approval question and gate
 
@@ -524,12 +508,10 @@ Record the question (topic: `plan-approval`):
 
 ```bash
 cfl question mine-plan plan-approval --status asked --answer "<selected option>" \
-    [--recommended "Approve with suggestions (Recommended)"] --spec <spec_number>
+    [--recommended "<the option you marked>"] --spec <spec_number>
 ```
 
-Pass `--recommended` only when suggestions existed (the "Approve with suggestions
-(Recommended)" option was actually presented) — omit it for the no-suggestions
-template, which has no recommended option.
+Omit `--recommended` if you didn't mark one.
 
 Record the gate:
 
@@ -538,7 +520,7 @@ cfl gate plan-approval --verdict <v> --spec <spec_number>
 ```
 
 Verdict mapping:
-- "Approve as-is" / "Approve with suggestions" → PASS
+- "Approve — start execution" / "Approve — start later" → PASS
 - "Revise the plan" → WARN (loop continues; re-emit on each revision cycle)
 - "Abandon" → FAIL
 
@@ -548,33 +530,15 @@ Only when the verdict is PASS, also emit:
 cfl event plan.approved --spec <spec_number>
 ```
 
-### On "Approve as-is"
+### On either "Approve"
+
+If the reviewer left suggestions and the user didn't decline them, apply them to `design.md` and/or `T*.md` files first. Restrict task file edits to cosmetic changes (wording, clarifications, review guidance) — substantive task changes require re-running the task generation phases. Show the user a brief summary of what was changed (absolute file path + one-line description per change).
 
 Update the `design.md` `**Status:**` field from `draft` to `approved`.
 
-**If invoked inline by `mine-build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine-orchestrate <feature_dir>` directly — `mine-build` handles the flow.
+On "Approve — start execution": invoke `/mine-orchestrate <feature_dir>` directly.
 
-**Otherwise**, ask:
-
-```
-AskUserQuestion:
-  question: "Plan approved. Begin implementation?"
-  header: "Next step"
-  multiSelect: false
-  options:
-    - label: "Yes — start execution"
-      description: "Invoke /mine-orchestrate for this feature"
-    - label: "No — I'll start later"
-      description: "Stop here; the plan is approved and saved"
-```
-
-If "Yes": invoke `/mine-orchestrate <feature_dir>` directly.
-
-### On "Approve with suggestions"
-
-Apply the reviewer's non-blocking suggestions to `design.md` and/or `T*.md` files. Restrict task file edits to cosmetic changes (wording, clarifications, review guidance) — substantive task changes require re-running the task generation phases. Show the user a brief summary of what was changed (absolute file path + one-line description per change). Update the `design.md` `**Status:**` field from `draft` to `approved`.
-
-Then follow the same gate as "Approve as-is" above (invoke `/mine-orchestrate` on approval).
+On "Approve — start later": confirm "Plan approved at `<feature_dir>`. Run `/mine-orchestrate <feature_dir>` when ready." and stop.
 
 ### On "Revise the plan"
 

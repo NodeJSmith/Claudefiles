@@ -203,6 +203,8 @@ If `design/context.md` already exists and the user chose "Update it" in Step 1, 
 
 ## Step 8: Offer Next Steps
 
+Check whether CLAUDE.md already loads the context (a `## Design Context` section, or an import of `design/context.md`). If it does, leave "Also add to CLAUDE.md" out of the options. If not, include it. Recommend "Generate a mockup" unless a mockup of the current design already exists.
+
 ```
 AskUserQuestion:
   question: "Design context saved. What's next?"

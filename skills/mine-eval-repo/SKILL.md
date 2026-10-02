@@ -157,6 +157,15 @@ Present findings conversationally, then use `AskUserQuestion` to determine next 
 
 ### Ask what to do
 
+Tie the options to the verdict you just wrote and recommend the matching one:
+
+- *Adopt with confidence* → "Adopt it"
+- *Adopt with caution* → "Dig deeper", naming the gaps worth checking
+- *Use for reference only* or *Build your own* → "Look for alternatives"
+- *Avoid* → "Skip it"
+
+Offer "Adopt it" only for the two *Adopt* verdicts, and name the specific concern in each description.
+
 ```
 AskUserQuestion:
   question: "Based on this evaluation, what would you like to do?"

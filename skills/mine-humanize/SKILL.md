@@ -91,6 +91,10 @@ End with a summary: `Found N issues across M files (X vocabulary, Y structural, 
 
 ### Ask how to proceed
 
+If there are zero findings, say "No AI writing patterns found." and stop.
+
+Otherwise recommend a mode from the count and type of issues: surgical edits for a few scattered vocabulary or style issues, a full rewrite when the issues are structural and pervasive (most paragraphs affected), and cherry-pick when some findings look like intentional voice. Say why in the recommended option's description.
+
 ```yaml
 AskUserQuestion:
   question: "Found {N} issues. How should I fix them?"
@@ -106,8 +110,6 @@ AskUserQuestion:
     - label: "Done"
       description: "Report noted, no changes needed"
 ```
-
-If zero findings: "No AI writing patterns found." Stop.
 
 ## Phase 3: Fix
 

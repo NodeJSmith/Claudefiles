@@ -214,7 +214,7 @@ On subsequent tasks and retries, skip — the baselines from the first task appl
 
 #### User confirmation
 
-Present both command sets for confirmation:
+These commands produce the baselines every later gate compares against, so a wrong guess corrupts the whole run. When they came straight from CLAUDE.md or CI config (the project's own statement of how it tests) and the project has a single stack, note them in one line ("Using `<test>` and `<lint>`, from `<source>`") and continue. Otherwise ask, including when the source looks stale (CI config that no longer matches the project layout):
 
 ```
 AskUserQuestion:
@@ -228,7 +228,7 @@ AskUserQuestion:
       description: "I'll provide the right commands"
 ```
 
-If corrected, re-present until confirmed.
+If corrected, re-present until confirmed. If you didn't ask, the commands you noted are the confirmed set.
 
 #### Record and baseline
 
@@ -629,7 +629,7 @@ Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Cod
 
 **FAIL or non-architectural BLOCKED** — ask the user. This is a major gate (task
 failure/blocked decision, see `interaction.md`) — run `context-pct` and prepend the
-result to the question:
+result to the question. Recommend from the reports you just read: "Try again" when the findings are specific and fixable and this is the first or second distinct failure. When the same findings recur after a retry, a retry will fail the same way, so recommend "Mark as blocked and skip" or "Stop here" (and lead with it) rather than keeping "Try again" first. Name the failing findings in the descriptions.
 ```
 AskUserQuestion:
   question: "[Context: N%] <task_id> failed. What next?"

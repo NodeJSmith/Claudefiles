@@ -74,6 +74,8 @@ AskUserQuestion:
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
 
+Recommend "Challenge this first" when the proposal changes shared tokens, styles, or components, or when a reasonable designer could pick differently. Otherwise recommend "Implement".
+
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->

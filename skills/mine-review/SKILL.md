@@ -79,22 +79,13 @@ Findings in severity-grouped tables (`### Critical / High`, `### Medium`, `### L
 
 ### Next steps
 
-This is a major gate (review/challenge finding walkthrough, see `interaction.md`) — run
-`context-pct` and prepend the result to the question:
+If no finding is actionable (every reviewer passed, or everything left is likely-invalid), say so and stop. There is nothing to ask.
 
-```
-AskUserQuestion:
-  question: "[Context: N%] What would you like to do with these findings?"
-  header: "Next steps"
-  multiSelect: false
-  options:
-    - label: "Fix all"
-      description: "Apply the proposed fixes listed above, highest severity down, then re-read the modified content"
-    - label: "Fix critical/high only"
-      description: "Address blockers, leave medium/low for later"
-    - label: "Note and move on"
-      description: "Acknowledged — no fixes this session"
-```
+Otherwise ask what to do with the findings. This is a major gate (review/challenge finding walkthrough, see `interaction.md`), so run `context-pct` and prepend the result to the question (`"[Context: N%] What would you like to do with these findings?"`, header `Next steps`). Build the options from the severity mix, put the finding count in each description, and recommend the one that fits. Drop "Fix critical/high only" when there are no critical or high findings, and drop "Fix all" in favor of it when the medium and low findings aren't worth the churn.
+
+- **Fix all**: apply the proposed fixes, highest severity down, then re-read the modified content
+- **Fix critical/high only**: address blockers, leave medium/low for later
+- **Note and move on**: acknowledged, no fixes this session
 
 If fixing: work through findings top-down by severity, making edits directly. After fixes: "Fixes complete — run `/mine-commit-push` or proceed to commit when ready."
 

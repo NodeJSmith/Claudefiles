@@ -65,7 +65,7 @@ Run this check everywhere a finding is about to be written as a plain deferral.
 
 For call sites with no fixer-loop gate (`post-execution-pipeline.md` Steps 2, 3, and 4), ask
 immediately. This is a major gate (known issues walkthrough, see `interaction.md`) — run
-`context-pct` and prepend the result to the question:
+`context-pct` and prepend the result to the question. Recommend from the finding itself: "Fix now" when the fix is contained to a few files and the fixer can verify it; "Stop here" when it needs a design decision or spans many files; "Ship anyway" only when the risk is real but out of this run's scope. Name the affected files in the descriptions.
 
 ```
 AskUserQuestion:

@@ -14,7 +14,7 @@
 8. **If PASS after retry** → continue to Step 11 (visual reviewer), then Step 12 (review findings fix loop).
 9. **If still FAIL after 1 retry** → escalate to the user. This is a major gate (task
    failure/blocked decision, see `interaction.md`) — run `context-pct` and prepend the
-   result to the question:
+   result to the question. Recommend from the spec reviewer's findings: "Try again" when they are specific and the auto-fix simply missed them; "Mark as blocked and skip" or "Stop here" when they point at the task prompt or design being wrong.
 
 ```
 AskUserQuestion:
@@ -30,7 +30,7 @@ AskUserQuestion:
       description: "Pause the run at this task"
 ```
 
-If the user chose **"Try again"**, run one more executor cycle (Steps 2–9). If the spec reviewer returns FAIL again, re-present the same options (do not narrow to only block/stop — the user may want another attempt).
+If the user chose **"Try again"**, run one more executor cycle (Steps 2–9). If the spec reviewer returns FAIL again, re-present the same options (do not narrow to only block/stop — the user may want another attempt). When the new FAIL repeats the findings from the previous attempt, stop recommending "Try again" and recommend blocking or stopping instead.
 
 If the user chose **"Mark as blocked and skip"**: `cfl task block <task_id> --reason "FAIL persisted after auto-fix"`.
 
