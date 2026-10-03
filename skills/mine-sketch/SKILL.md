@@ -134,7 +134,7 @@ Every decision starts as `**Ratified:** pending`.
 
 Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 
-1. Show the decision's rubric as text: the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if". This is the user's chance to push back on the reasoning, so show it in full, not summarized.
+1. Write the decision's rubric as message text before the `AskUserQuestion` call: the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. This is the user's chance to push back on the reasoning, so write it in full, not summarized.
 2. Ask:
 
    ```

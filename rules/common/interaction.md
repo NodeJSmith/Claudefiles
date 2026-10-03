@@ -62,6 +62,11 @@ block or as a prose menu of options, call the `AskUserQuestion` tool.
 3. **Respect `multiSelect`.** If the skill says `multiSelect: true`, pass it
    through. Do not downgrade to single-select.
 4. **Use previews for concrete format comparisons.** The `preview` field on options renders multi-line markdown in a side-by-side layout next to the option list. Use previews for format comparisons (code snippets, ASCII mockups, diagram variations, manifest samples) where the user needs to *see* the option before choosing. Previews only work on single-select questions (`multiSelect: false`). Do not use previews for simple preference questions — labels and descriptions suffice there.
+5. **Put the content the answer depends on in message text, before the call.** When the user needs to see something to choose (findings, plans, trade-offs, a recommendation's reasoning), write it as ordinary message text, output before the `AskUserQuestion` call. Read the source file if you need to, then write the content out yourself; a Read or `cat` result is collapsed in the terminal, so the user never sees it, and a file path only sends them off to open a document.
+
+   Keep the `question` to one line and the labels and descriptions short. Don't put tables or long reasoning in `question`, `label`, or `description`: the prompt doesn't render markdown and clips long text. `preview` is the one option field that renders markdown (item 4), and it is for format comparisons, not for the reasoning behind a decision.
+
+   **Why:** the user decides from what's on screen. Message text renders formatted and stays visible while they read the question. For decisions with a recommendation, `references/common/presenting-decisions.md` gives the shape.
 
 ## Intellectual Honesty
 
