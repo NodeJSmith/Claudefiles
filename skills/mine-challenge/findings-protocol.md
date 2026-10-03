@@ -218,10 +218,11 @@ that decision's `### D<n>` block and sets its `**Ratified:**` line back to
 `pending`, so the sketch re-ratifies it.
 
 **Show the reasoning before every question.** Before each User-directed and
-TENSION `AskUserQuestion` below, show the finding's `**Deciding-factor:**`,
-`**Criteria:**` table, and `**Pick-instead-if:**` as text, copied from the
-findings file. Synthesis wrote them before it chose the recommendation, so
-they are the reasoning behind it, not a justification written afterwards.
+TENSION `AskUserQuestion` below, write the finding's `**Deciding-factor:**`,
+`**Criteria:**` table, and `**Pick-instead-if:**` as message text before the
+call, copied from the findings file as markdown (see `interaction.md`, item 5).
+Synthesis wrote them before it chose the recommendation, so they are the
+reasoning behind it, not a justification written afterwards.
 When a finding lacks them (an older findings file, or a producer that doesn't
 write them), show what it has. Don't build a table at this point: one written
 after the recommendation exists only argues for it. The recommendation is

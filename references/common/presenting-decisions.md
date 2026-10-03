@@ -18,7 +18,7 @@ The bias to watch for is writing the pros and cons after choosing. They then rea
 
 ## Shape
 
-Show this as text immediately before the question:
+Write this as message text before the `AskUserQuestion` call, per `rules/common/interaction.md` item 5 (message text, not the question or options; read the source, then write it out). If the reasoning lives in a file, reformat it into the markdown below.
 
 ```markdown
 **Deciding factor:** <what the recommendation optimizes>
