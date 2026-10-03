@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-03
+
+### Added
+
+- A PreToolUse hook (`decision-context-check.py`) denies "Decision N of M" / "Finding N/M" `AskUserQuestion` calls when the current turn has no reply text carrying the rubric, so content written only via Write/Edit is no longer treated as already shown to the user. (#611)
+
 ## 2026-10-02
 
 ### Changed
