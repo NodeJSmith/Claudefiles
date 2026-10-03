@@ -44,6 +44,8 @@ class QuestionKind:
     fix: str
 
 
+DECIDING_FACTOR = re.compile(r"deciding[- ]factor:", re.IGNORECASE)
+
 # Markers are a presence check, not a rubric validator: each kind requires the
 # two labels most specific to its skill's rubric format, which only appear when
 # the agent actually wrote the rubric out. Sketch's rubric (presenting-decisions.md)
@@ -54,7 +56,7 @@ QUESTION_KINDS = (
         name="mine-sketch decision",
         trigger=re.compile(r"\bDecision \d+ of \d+"),
         markers={
-            "Deciding factor": re.compile(r"deciding[- ]factor:", re.IGNORECASE),
+            "Deciding factor": DECIDING_FACTOR,
             "Recommendation": re.compile(r"recommendation:", re.IGNORECASE),
         },
         fix="Write the deciding factor, criteria table, recommendation and 'Pick X instead if' "
@@ -64,7 +66,7 @@ QUESTION_KINDS = (
         name="mine-challenge finding",
         trigger=re.compile(r"\bFinding \d+/\d+"),
         markers={
-            "Deciding-factor": re.compile(r"deciding[- ]factor:", re.IGNORECASE),
+            "Deciding-factor": DECIDING_FACTOR,
             "Pick-instead-if": re.compile(r"pick[- ]instead[- ]if", re.IGNORECASE),
         },
         fix="Write the finding's Deciding-factor, Criteria table and Pick-instead-if, copied from "
@@ -162,9 +164,9 @@ def reply_text_before(entries: list[dict], tool_use_id: str) -> str | None:
 
 def content_blocks(entry: dict) -> list[dict]:
     content = entry.get("message", {}).get("content")
-    return (
-        [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
-    )
+    if not isinstance(content, list):
+        return []
+    return [block for block in content if isinstance(block, dict)]
 
 
 def deny(reason: str) -> None:
@@ -192,11 +194,9 @@ def main() -> int:
     setup_logging()
     tool_use_id = payload.get("tool_use_id", "")
     transcript = Path(payload.get("transcript_path", ""))
-    text = (
-        wait_for_reply_text(transcript, tool_use_id)
-        if tool_use_id and transcript.is_file()
-        else None
-    )
+    text = None
+    if tool_use_id and transcript.is_file():
+        text = wait_for_reply_text(transcript, tool_use_id)
     if text is None:
         log.warning(
             "allowing: tool_use %r not found in transcript %s within %ss",
