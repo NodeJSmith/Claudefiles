@@ -221,13 +221,18 @@ that decision's `### D<n>` block and sets its `**Ratified:**` line back to
 TENSION `AskUserQuestion` below, write the finding's `**Deciding-factor:**`,
 `**Criteria:**` table, and `**Pick-instead-if:**` as message text before the
 call, copied from the findings file as markdown (see `interaction.md`, item 5).
+Do it for every finding, right before its question: the findings file is not on
+the user's screen, and neither is anything you just wrote with Edit or Bash.
 Synthesis wrote them before it chose the recommendation, so they are the
 reasoning behind it, not a justification written afterwards.
 When a finding lacks them (an older findings file, or a producer that doesn't
-write them), show what it has. Don't build a table at this point: one written
-after the recommendation exists only argues for it. The recommendation is
-taken as-is more often than any other answer here, so the user needs the
-trade-offs in view to push back on it.
+write them), show what it has and write the missing labels with "not recorded"
+(`**Deciding-factor:** not recorded`). Don't build a table at this point: one
+written after the recommendation exists only argues for it. The recommendation
+is taken as-is more often than any other answer here, so the user needs the
+trade-offs in view to push back on it. A hook (`decision-context-check.py`)
+denies a `Finding N/M` question when the reply text since the last tool result
+lacks the `Deciding-factor:` or `Pick-instead-if` label.
 
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.

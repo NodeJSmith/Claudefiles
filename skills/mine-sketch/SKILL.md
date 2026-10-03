@@ -134,7 +134,7 @@ Every decision starts as `**Ratified:** pending`.
 
 Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 
-1. Write the decision's rubric as message text before the `AskUserQuestion` call: the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. This is the user's chance to push back on the reasoning, so write it in full, not summarized.
+1. Write the decision's rubric as message text before the `AskUserQuestion` call: the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. This is the user's chance to push back on the reasoning, so write it in full, not summarized. Do this for every decision, right before its question: the copy in `design.md` doesn't count, because the user never sees what you wrote into a file. A hook (`decision-context-check.py`) denies a `Decision N of M` question when the reply text since the last tool result lacks the "Deciding factor:" or "Recommendation:" line.
 2. Ask:
 
    ```

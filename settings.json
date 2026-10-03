@@ -77,6 +77,16 @@
             "timeout": 2000
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/decision-context-check.py\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
