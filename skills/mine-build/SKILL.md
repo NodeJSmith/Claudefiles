@@ -35,7 +35,6 @@ If the user's request is solution-shaped ("add X", "change Y to Z") but the unde
 If the work touches frontend (CSS, components, layouts, styles), check for design context:
 
 - **`design/context.md` found:** Read it. If it has a Design Tokens section, apply the closed token layer — every CSS value must reference a token from the context file (no raw hex, no magic spacing numbers). State which tokens and decisions apply to this change.
-- **`design/direction.md` found** (migration fallback): Read it and apply its tokens as above.
 
 **Token compliance (code-reviewer guidance):** When design/context.md has a Design Tokens section and the diff touches CSS/styles, the code-reviewer should flag raw hex values (`#[0-9a-f]{3,8}`), raw px values not matching the spacing scale, and font names not listed in design/context.md. Surface violations as HIGH findings referencing the specific token that should be used.
 

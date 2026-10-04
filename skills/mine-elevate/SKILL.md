@@ -8,7 +8,7 @@ user-invocable: true
 
 Looks *up* at existing code and asks "if we did this over, knowing what we know now, what would we change?" — surfacing the upward moves that normally get skipped as "not worth it at this level." The deliberate inverse of `/mine-decompose` (which looks down and removes). It produces an impact-ordered menu of independently-landable candidates, each with a cheap first move, a cost, and an honest case against — **not** a ranked mandate.
 
-Use it to pressure your own design choices on a subsystem you suspect could be better. It is **not** a correctness review (`/mine-review`), a debt audit (`/mine-audit`).
+Use it to pressure your own design choices on a subsystem you suspect could be better. It is **not** a correctness review (`/mine-review`) or a debt audit (`/mine-audit`).
 
 ## Arguments
 

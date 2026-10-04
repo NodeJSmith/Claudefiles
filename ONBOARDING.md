@@ -32,7 +32,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume).
 
-**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: engineering specialists, and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
+**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: engineering specialists and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
 
 ## Choose Your Path
 
@@ -62,7 +62,7 @@ Enable the **`ccrecall`** plugin (wired in `settings.json`; its hook binaries co
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
 
 **"I want architecture and QA agents"**
-Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks complex features into task files. QA Specialist finds defects adversarially. Visual Diff catches unintended UI changes via Playwright.
+Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks complex features into task files. QA Specialist finds defects adversarially.
 
 ---
 

@@ -64,7 +64,6 @@ Conversation memory (recall, resume) now ships as the external
 
 | Agent | Description |
 |-------|-------------|
-| `code-judo-reviewer` | Structural simplification reviewer — hunts aggressively for simplification moves; advisory, does not block commits |
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
 | `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis and the `mine-address-pr-issues` review ledger. The caller supplies the full task methodology in its prompt |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
@@ -100,7 +99,6 @@ Conversation memory (recall, resume) now ships as the external
 | `architect` | Read-only architecture documentation — Mermaid diagrams and high-level overviews, no code changes |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA — systematic and exploratory testing to find defects before they ship |
-| `visual-diff` | Visual regression testing via Playwright MCP — before/after screenshots to catch unintended UI changes |
 
 ## Rules
 
