@@ -214,6 +214,51 @@ class TestStaleSymlinks:
         source.rmdir()
         assert install.find_stale_symlinks(dest, repo) == []
 
+    def test_non_interactive_sweep_removes_owned_dangling_links(
+        self, tmp_path: Path
+    ) -> None:
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        (claude_dir / "skills").mkdir(parents=True)
+        (claude_dir / "rules" / "common").mkdir(parents=True)
+        owned_skill = repo / "skills" / "retired-skill"
+        owned_rule = repo / "rules" / "common" / "retired.md"
+        owned_skill.mkdir(parents=True)
+        owned_rule.parent.mkdir(parents=True)
+        owned_rule.write_text("x")
+        skill_link = claude_dir / "skills" / "retired-skill"
+        rule_link = claude_dir / "rules" / "common" / "retired.md"
+        skill_link.symlink_to(owned_skill)
+        rule_link.symlink_to(owned_rule)
+        owned_skill.rmdir()
+        owned_rule.unlink()
+
+        install.resolve_stale_symlinks(
+            claude_dir, repo, tmp_path / "bin", install.Console(), interactive=False
+        )
+
+        assert not skill_link.is_symlink()
+        assert not rule_link.is_symlink()
+
+    def test_non_interactive_sweep_keeps_unowned_dangling_links(
+        self, tmp_path: Path
+    ) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        other = tmp_path / "other" / "ext-skill"
+        other.mkdir(parents=True)
+        claude_dir = tmp_path / "claude"
+        (claude_dir / "skills").mkdir(parents=True)
+        link = claude_dir / "skills" / "ext-skill"
+        link.symlink_to(other)
+        other.rmdir()
+
+        install.resolve_stale_symlinks(
+            claude_dir, repo, tmp_path / "bin", install.Console(), interactive=False
+        )
+
+        assert link.is_symlink()
+
 
 # ---------------------------------------------------------------------------
 # Symlink creation tests

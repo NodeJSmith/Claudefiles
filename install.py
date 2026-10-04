@@ -1135,7 +1135,12 @@ def resolve_stale_symlinks(
     *,
     interactive: bool,
 ) -> None:
-    """Find owned symlinks whose targets vanished and, interactively, offer to remove them."""
+    """Remove owned symlinks whose targets vanished (interactively, after confirming).
+
+    This is the only cleanup for artifacts retired from the repo: the manifest no
+    longer names them, so nothing else tears them down. find_stale_symlinks limits
+    the sweep to links owned by repo_dir, so removing them unattended is safe.
+    """
     stale_dirs = [
         claude_dir / "skills",
         claude_dir / "agents",
@@ -1157,18 +1162,17 @@ def resolve_stale_symlinks(
 
     if not all_stale:
         return
-    console.print(
-        f"\n[yellow]Warning: {len(all_stale)} stale symlink(s) found:[/yellow]"
-    )
+    console.print(f"\n[yellow]{len(all_stale)} stale symlink(s) found:[/yellow]")
     for link in all_stale:
         console.print(f"  {link} -> {os.readlink(link)}")
     if (
         interactive
-        and questionary.confirm("Remove stale symlinks?", default=True).ask()
+        and not questionary.confirm("Remove stale symlinks?", default=True).ask()
     ):
-        for link in all_stale:
-            link.unlink()
-            console.print(f"  removed: {link}")
+        return
+    for link in all_stale:
+        link.unlink()
+        console.print(f"  removed: {link}")
 
 
 def do_install(
