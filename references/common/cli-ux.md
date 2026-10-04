@@ -2,7 +2,7 @@
 
 Principles for building CLIs that humans actually want to use. Distilled from [clig.dev](https://clig.dev).
 
-This file covers philosophy, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing.
+This file covers philosophy, output streams, exit codes, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing.
 
 ---
 
