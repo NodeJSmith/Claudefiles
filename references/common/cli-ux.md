@@ -2,7 +2,7 @@
 
 Principles for building CLIs that humans actually want to use. Distilled from [clig.dev](https://clig.dev).
 
-The cli-* skills own specific dimensions in detail — output formatting, affordances, clarity, hardening. This file covers the cross-cutting concerns those skills don't own: philosophy, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing. For implementation details on signals and exit codes (trap patterns, SIGPIPE, exit 130), see `cli-harden/REFERENCE.md`.
+This file covers philosophy, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing.
 
 ---
 
@@ -20,13 +20,13 @@ The cli-* skills own specific dimensions in detail — output formatting, afford
 
 ## Exit Codes
 
-At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output. For the full table and implementation detail, see `cli-harden/REFERENCE.md`.
+At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output.
 
 ---
 
 ## Signals and Control Characters
 
-This section covers the user-facing behavior; trap patterns and exit codes live in `cli-harden/REFERENCE.md`.
+This section covers the user-facing behavior.
 
 **Ctrl-C exits immediately.** Don't hang on cleanup. If cleanup is running, add a timeout so the process can't get stuck.
 

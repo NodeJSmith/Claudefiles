@@ -33,7 +33,7 @@ CONFIG_VERSION = 2
 CONFIG_VERSION_V1 = 1
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
-SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli"]
+SKILL_DIRS = ["skills"]
 
 # Subdirectories under $CLAUDE_CONFIG_DIR whose contents are symlinked file-by-file (each
 # leaf file is its own symlink) rather than as a whole directory. Used by both the
@@ -132,45 +132,6 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
             ),
             packages=("cfl", "merge-settings"),
             always_installed=True,
-        ),
-        "frontend": Bundle(
-            label="Frontend design (i-*)",
-            description="Impeccable UI design skills: layout, responsive, accessibility, animations",
-            skills=(
-                "i-adapt",
-                "i-animate",
-                "i-audit",
-                "i-bolder",
-                "i-clarify",
-                "i-colorize",
-                "i-critique",
-                "i-delight",
-                "i-distill",
-                "i-frontend-design",
-                "i-harden",
-                "i-layout",
-                "i-optimize",
-                "i-overdrive",
-                "i-polish",
-                "i-quieter",
-                "i-shape",
-                "i-teach-impeccable",
-                "i-typeset",
-            ),
-            capabilities_files=("capabilities-impeccable.md",),
-        ),
-        "cli": Bundle(
-            label="CLI design (cli-*)",
-            description="CLI tool UX — hardening, output, affordances, clarity",
-            skills=(
-                "cli-affordances",
-                "cli-audit",
-                "cli-clarify",
-                "cli-distill",
-                "cli-harden",
-                "cli-output",
-            ),
-            capabilities_files=("capabilities-cli.md",),
         ),
         "engineering": Bundle(
             label="Engineering specialists",
@@ -446,8 +407,7 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
     """Pure function: map v1 type-based config to v2 bundle format.
 
     Migration table (from design doc):
-      skills.impeccable  → bundles.frontend
-      skills.cli         → bundles.cli
+      skills.impeccable, skills.cli → dropped (the i-* and cli-* skills were removed)
       agents.engineering → bundles.engineering
       agents.core        → bundles.extra-agents (true iff agents.core was true)
       skills.core, packages.spec-helper, packages.merge-settings,
@@ -455,14 +415,11 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
       skills.memory, packages.claude-memory → dropped (memory is now the external
         ccrecall plugin, not a Claudefiles bundle)
     """
-    skills = v1_config.get("skills", {})
     agents = v1_config.get("agents", {})
 
     return {
         "version": CONFIG_VERSION,
         "bundles": {
-            "frontend": bool(skills.get("impeccable", False)),
-            "cli": bool(skills.get("cli", False)),
             "engineering": bool(agents.get("engineering", False)),
             "extra-agents": bool(agents.get("core", False)),
         },
@@ -1511,8 +1468,6 @@ def migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict:
             "[bold]Migrating config from v1 to v2[/bold]\n\n"
             "Your previous config used type-based groups (skills/agents/hooks/packages).\n"
             "The new installer uses bundles. Your selections have been mapped:\n\n"
-            f"  skills.impeccable → bundles.frontend  ({v2['bundles']['frontend']})\n"
-            f"  skills.cli        → bundles.cli        ({v2['bundles']['cli']})\n"
             f"  agents.engineering → bundles.engineering ({v2['bundles']['engineering']})\n"
             f"  agents.core       → bundles.extra-agents ({v2['bundles']['extra-agents']})\n\n"
             "[bold]Force-installed (base bundle — non-negotiable in v2):[/bold]\n"

@@ -1,6 +1,6 @@
 # Claudefiles
 
-My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) configuration — skills, commands, agents, rules, and hooks that make Claude Code better at planning, reviewing, and shipping code. Built up and refined over daily use. The core is a complete define → plan → orchestrate → ship pipeline; optional bundles add frontend design, CLI tooling, memory, and engineering specialists.
+My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) configuration — skills, commands, agents, rules, and hooks that make Claude Code better at planning, reviewing, and shipping code. Built up and refined over daily use. The core is a complete define → plan → orchestrate → ship pipeline; optional bundles add memory, and engineering specialists.
 
 Read [ONBOARDING.md](ONBOARDING.md) to understand what's here and decide what to try first.
 

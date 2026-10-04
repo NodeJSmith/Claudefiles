@@ -32,7 +32,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume).
 
-**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, engineering specialists, and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
+**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: engineering specialists, and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
 
 ## Choose Your Path
 
@@ -49,26 +49,11 @@ The base is enough. For moderate tasks (multiple files, real decisions, well-und
 **"I want to brainstorm and challenge ideas"**
 The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.
 
-**"I want to chart a big, foggy effort that spans sessions"**
-The base is enough. `/mine-wayfinder` charts a multi-session effort as a map of decision tickets on the issue tracker, resolved through progressive discovery instead of one upfront plan. Included in base.
-
-**"I want a persistent workspace for learning a topic"**
-The base is enough. `/mine-teach` sets up a stateful learning workspace — mission, lessons, learning records, and zone-of-proximal-development tracking — that carries across sessions instead of restarting from zero each time. Included in base.
-
 **"I want to keep terminology and decisions straight during design conversations"**
 The base is enough. `/mine-domain-model` maintains a `CONTEXT.md` glossary and ADRs as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes. Included in base.
 
-**"I want to turn raw notes into a finished piece of writing"**
-The base is enough. `/mine-fragments` interviews you grill-style to capture raw material with no structure imposed; `/mine-shape` then builds it into an article paragraph by paragraph, or `/mine-beats` assembles it into a branching journey of beats. Both structuring skills enforce grounding discipline — terms get introduced before they're used. Included in base.
-
 **"I need to write up technical research for my boss"**
 The base is enough. `/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope before writing, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Included in base.
-
-**"I want frontend design help"**
-Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
-
-**"I want help building CLI tools"**
-Add the **CLI** bundle. Six skills cover hardening, output formatting, discoverability, error messages, complexity reduction, and comprehensive auditing. Start with `/cli-audit` for an existing tool, or `/cli-affordances` when designing a new one.
 
 **"I want conversation memory across sessions"**
 Enable the **`ccrecall`** plugin (wired in `settings.json`; its hook binaries come from the `ccrecall` PyPI package that `install.py` installs). Claude remembers corrections, architectural decisions, and preferences across sessions. `/ccrecall:ccr-recall` searches past sessions; `/ccrecall:ccr-resume` picks up a fresh session after `/clear`.

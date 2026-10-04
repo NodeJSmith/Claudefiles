@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Count skill invocations across Claude Code transcripts, including never-invoked skills.
+
+A skill is invoked two ways, and both are counted:
+  - tool:  the model calls the Skill tool (`"name":"Skill","input":{"skill":"x"}`)
+  - slash: the user types `/x` (`<command-name>/x</command-name>` in the transcript)
+
+Counting only the Skill tool undercounts user-driven skills badly. Transcripts of
+subagents (`subagents/` directories) are excluded: only main sessions count.
+
+Usage: skill-census [--days N] [--skills-dir DIR]... [--zero-only]
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import time
+from collections import Counter
+from pathlib import Path
+
+DEFAULT_DAYS = 60
+# Raw-text matches, not JSON parsing: they assume the compact serialization Claude Code
+# writes (no spaces after ":" or ","), and they also count a transcript that merely
+# quotes an invocation. Counts are a strong signal, not an exact tally.
+SKILL_TOOL_RE = re.compile(r'"name":"Skill","input":\{"skill":"([^"]+)"')
+SLASH_RE = re.compile(r"<command-name>/([^<]+)</command-name>")
+
+
+def config_dir() -> Path:
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+
+
+def transcripts(projects_dir: Path, days: int):
+    cutoff = time.time() - days * 86400
+    # One level deep on purpose: subagent transcripts live under <session>/subagents/,
+    # so this glob counts main sessions only. Do not widen it to "**".
+    for path in projects_dir.glob("*/*.jsonl"):
+        if path.stat().st_mtime >= cutoff:
+            yield path
+
+
+def count_invocations(paths) -> tuple[Counter, Counter]:
+    tool, slash = Counter(), Counter()
+    for path in paths:
+        with path.open(errors="replace") as fh:
+            for line in fh:
+                tool.update(SKILL_TOOL_RE.findall(line))
+                slash.update(SLASH_RE.findall(line))
+    return tool, slash
+
+
+def installed_skills(skills_dirs: list[Path]) -> set[str]:
+    return {
+        d.name
+        for base in skills_dirs
+        for d in base.iterdir()
+        if (d / "SKILL.md").exists()
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=DEFAULT_DAYS,
+        help="look-back window by transcript mtime (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--skills-dir",
+        type=Path,
+        action="append",
+        help="directory of skill folders (default: ./skills); repeatable",
+    )
+    parser.add_argument(
+        "--zero-only", action="store_true", help="print only skills with no invocations"
+    )
+    args = parser.parse_args()
+
+    skills_dirs = args.skills_dir or [Path("skills")]
+    missing = [str(d) for d in skills_dirs if not d.is_dir()]
+    if missing:
+        print(f"error: skills dir not found: {', '.join(missing)}", file=sys.stderr)
+        return 2
+
+    projects_dir = config_dir() / "projects"
+    if not projects_dir.is_dir():
+        print(
+            f"error: no transcripts directory at {projects_dir} (set CLAUDE_CONFIG_DIR)",
+            file=sys.stderr,
+        )
+        return 2
+    paths = list(transcripts(projects_dir, args.days))
+    tool, slash = count_invocations(paths)
+    print(f"{len(paths)} transcripts in the last {args.days} days", file=sys.stderr)
+
+    installed = installed_skills(skills_dirs)
+    rows = sorted(
+        ((name, tool[name], slash[name]) for name in installed),
+        key=lambda r: (-(r[1] + r[2]), r[0]),
+    )
+    if args.zero_only:
+        rows = [r for r in rows if r[1] + r[2] == 0]
+
+    print(
+        json.dumps(
+            [{"skill": n, "total": t + s, "tool": t, "slash": s} for n, t, s in rows],
+            indent=2,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
