@@ -36,6 +36,12 @@ This section covers the user-facing behavior.
 
 ---
 
+## Output Streams
+
+**stdout is data; stderr is everything else.** Results, tables, and anything a caller might pipe or parse go to stdout. Progress, status, warnings, errors, and prompts go to stderr, so `tool | jq` and `tool > out.json` stay clean. When stdout is not a TTY, drop color, spinners, and progress bars. Offer `--json` (or similar) for machine-readable output rather than making callers scrape the human format.
+
+---
+
 ## Defaults
 
 **Defaults are for the majority.** Most users won't read the docs or remember flags. The default behavior should be correct for the common case without any extra flags.
