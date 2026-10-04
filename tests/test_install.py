@@ -96,12 +96,12 @@ class TestConfigLoadSave:
     def test_roundtrip(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         data = {
-            "bundles": {"frontend": True, "cli": False},
+            "bundles": {"engineering": True, "extra-agents": False},
         }
         install.save_config(cfg_path, data)
         loaded = install.load_config(cfg_path)
         assert loaded is not None
-        assert loaded["bundles"] == {"frontend": True, "cli": False}
+        assert loaded["bundles"] == {"engineering": True, "extra-agents": False}
         assert loaded["version"] == install.CONFIG_VERSION
 
     def test_corrupt_recovery(self, tmp_path: Path) -> None:
@@ -121,10 +121,10 @@ class TestConfigLoadSave:
     def test_atomic_write(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         cfg_path.write_text("original content")
-        install.save_config(cfg_path, {"bundles": {"frontend": True}})
+        install.save_config(cfg_path, {"bundles": {"engineering": True}})
         loaded = install.load_config(cfg_path)
         assert loaded is not None
-        assert loaded["bundles"]["frontend"] is True
+        assert loaded["bundles"]["engineering"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +377,6 @@ class TestLinkBundleArtifacts:
             repo,
             skills_dest=claude / "skills",
             agents_dest=claude / "agents",
-            rules_common_dest=claude / "rules" / "common",
             console=Console(),
             shadowed_out=shadowed,
         )
@@ -428,19 +427,19 @@ class TestDeselectionCleanup:
 
 class TestSmartDiff:
     def test_new_group_detected(self) -> None:
-        saved = {"bundles": {"frontend": True}}
-        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
-        assert new == ["cli"]
+        saved = {"bundles": {"engineering": True}}
+        new = install.find_new_groups(saved, "bundles", ["engineering", "extra-agents"])
+        assert new == ["extra-agents"]
 
     def test_no_changes(self) -> None:
-        saved = {"bundles": {"frontend": True, "cli": False}}
-        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
+        saved = {"bundles": {"engineering": True, "extra-agents": False}}
+        new = install.find_new_groups(saved, "bundles", ["engineering", "extra-agents"])
         assert new == []
 
     def test_missing_section(self) -> None:
         saved = {}
-        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
-        assert new == ["frontend", "cli"]
+        new = install.find_new_groups(saved, "bundles", ["engineering", "extra-agents"])
+        assert new == ["engineering", "extra-agents"]
 
 
 # ---------------------------------------------------------------------------
@@ -1309,9 +1308,7 @@ class TestMainNonInteractive:
 
         saved = {
             "bundles": {
-                "frontend": True,
-                "cli": False,
-                "engineering": False,
+                "engineering": True,
                 "extra-agents": False,
             },
         }
@@ -1334,8 +1331,8 @@ class TestMainNonInteractive:
         assert result == 0
         mock_do_install.assert_called_once()
         call_config = mock_do_install.call_args[0][2]
-        assert call_config["bundles"]["frontend"] is True
-        assert call_config["bundles"]["cli"] is False
+        assert call_config["bundles"]["engineering"] is True
+        assert call_config["bundles"]["extra-agents"] is False
 
     def test_non_interactive_no_saved_config_installs_all(self, tmp_path: Path) -> None:
         claude_dir = tmp_path / "claude_home"
@@ -1370,8 +1367,6 @@ class TestMainNonInteractive:
 
         saved = {
             "bundles": {
-                "frontend": False,
-                "cli": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -1396,7 +1391,7 @@ class TestMainNonInteractive:
         captured = capsys.readouterr()
         assert "--reconfigure has no effect in non-interactive mode" in captured.out
         call_config = mock_do_install.call_args[0][2]
-        assert call_config["bundles"]["frontend"] is False
+        assert call_config["bundles"]["engineering"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -1483,7 +1478,7 @@ class TestSaveConfigException:
             patch("install.os.write", side_effect=OSError("disk full")),
             pytest.raises(OSError, match="disk full"),
         ):
-            install.save_config(cfg_path, {"bundles": {"frontend": True}})
+            install.save_config(cfg_path, {"bundles": {"engineering": True}})
 
         # Original file untouched
         assert cfg_path.read_text() == "original"
@@ -1499,7 +1494,7 @@ class TestSaveConfigException:
             patch("install.os.replace", side_effect=OSError("permission denied")),
             pytest.raises(OSError, match="permission denied"),
         ):
-            install.save_config(cfg_path, {"bundles": {"frontend": True}})
+            install.save_config(cfg_path, {"bundles": {"engineering": True}})
 
         assert cfg_path.read_text() == "original"
         tmp_files = list(tmp_path.glob("*.tmp"))
@@ -1777,8 +1772,6 @@ class TestMigrationMainFlow:
         cfg_path = install.config_path(claude_dir)
         v2 = {
             "bundles": {
-                "frontend": False,
-                "cli": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -1884,8 +1877,6 @@ class TestFirstInstallAdoTip:
         # Write an existing v2 config so original_saved is not None
         saved = {
             "bundles": {
-                "frontend": False,
-                "cli": False,
                 "engineering": False,
                 "extra-agents": False,
             },

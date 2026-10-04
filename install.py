@@ -33,7 +33,7 @@ CONFIG_VERSION = 2
 CONFIG_VERSION_V1 = 1
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
-SKILL_DIRS = ["skills"]
+SKILLS_DIR = "skills"
 
 # Subdirectories under $CLAUDE_CONFIG_DIR whose contents are symlinked file-by-file (each
 # leaf file is its own symlink) rather than as a whole directory. Used by both the
@@ -76,7 +76,6 @@ class Bundle:
     skills: tuple[str, ...] = ()
     agents: tuple[str, ...] = ()
     packages: tuple[str, ...] = ()
-    capabilities_files: tuple[str, ...] = ()
     always_installed: bool = False
 
 
@@ -321,21 +320,11 @@ def warn_dangling_rule_refs(
 
 
 def find_skill_source(skill_name: str, repo_dir: Path) -> Path:
-    """Search skill directories for a matching subdirectory. Raises FileNotFoundError if not found."""
-    for dir_name in SKILL_DIRS:
-        candidate = repo_dir / dir_name / skill_name
-        if candidate.is_dir():
-            return candidate
+    """Return the skill's directory under skills/. Raises FileNotFoundError if not found."""
+    candidate = repo_dir / SKILLS_DIR / skill_name
+    if candidate.is_dir():
+        return candidate
     raise FileNotFoundError(f"Skill not found: {skill_name}")
-
-
-def find_capabilities_file(filename: str, repo_dir: Path) -> Path | None:
-    """Find a capabilities .md file in any skill source directory."""
-    for dir_name in SKILL_DIRS:
-        candidate = repo_dir / dir_name / filename
-        if candidate.exists():
-            return candidate
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -972,11 +961,10 @@ def link_bundle_artifacts(
     *,
     skills_dest: Path,
     agents_dest: Path,
-    rules_common_dest: Path,
     console: Console,
     shadowed_out: list[tuple[Path, Path]],
 ) -> int:
-    """Symlink a bundle's skills, agents, and capabilities files. Returns links created.
+    """Symlink a bundle's skills and agents. Returns links created.
 
     Shared by the always-installed and optional-selected install paths so both stay in
     step. A missing skill or agent source warns and is skipped rather than leaving a
@@ -1015,21 +1003,6 @@ def link_bundle_artifacts(
         ):
             links += 1
 
-    for cap_file in bundle.capabilities_files:
-        source = find_capabilities_file(cap_file, repo_dir)
-        if source is None:
-            console.print(
-                f"  [yellow]Warning: capabilities file not found: {cap_file}[/yellow]"
-            )
-            continue
-        rules_common_dest.mkdir(parents=True, exist_ok=True)
-        if create_symlink(
-            source,
-            rules_common_dest / cap_file,
-            repo_dir=repo_dir,
-            shadowed_out=shadowed_out,
-        ):
-            links += 1
     return links
 
 
@@ -1089,9 +1062,8 @@ def remove_bundle_artifacts(
     *,
     skills_dest: Path,
     agents_dest: Path,
-    rules_common_dest: Path,
 ) -> None:
-    """Remove a deselected bundle's owned skill/agent/capabilities symlinks.
+    """Remove a deselected bundle's owned skill/agent symlinks.
 
     The teardown mirror of link_bundle_artifacts. Takes no console/shadowed_out because
     teardown only unlinks what we own — nothing to warn about or shadow. Package uninstall
@@ -1101,8 +1073,6 @@ def remove_bundle_artifacts(
         unlink_if_owned(skills_dest / skill_name, repo_dir)
     for agent_name in bundle.agents:
         unlink_if_owned(agents_dest / f"{agent_name}.md", repo_dir)
-    for cap_file in bundle.capabilities_files:
-        unlink_if_owned(rules_common_dest / cap_file, repo_dir)
 
 
 def uninstall_deselected_packages(
@@ -1226,7 +1196,6 @@ def do_install(
     # what breaking this layout costs.
     skills_dest = claude_dir / "skills"
     agents_dest = claude_dir / "agents"
-    rules_common_dest = claude_dir / "rules" / "common"
 
     # Rules: install the selected categories, then warn about any rules/ subdir we don't handle.
     total_links += install_rule_categories(
@@ -1273,7 +1242,6 @@ def do_install(
             repo_dir,
             skills_dest=skills_dest,
             agents_dest=agents_dest,
-            rules_common_dest=rules_common_dest,
             console=console,
             shadowed_out=shadowed,
         )
@@ -1288,7 +1256,6 @@ def do_install(
                 repo_dir,
                 skills_dest=skills_dest,
                 agents_dest=agents_dest,
-                rules_common_dest=rules_common_dest,
                 console=console,
                 shadowed_out=shadowed,
             )
@@ -1299,7 +1266,6 @@ def do_install(
                 repo_dir,
                 skills_dest=skills_dest,
                 agents_dest=agents_dest,
-                rules_common_dest=rules_common_dest,
             )
             uninstall_deselected_packages(bundle, bundle_key, prev_config, console)
 

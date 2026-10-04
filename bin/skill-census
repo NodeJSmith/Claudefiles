@@ -21,6 +21,7 @@ from collections import Counter
 from pathlib import Path
 
 DEFAULT_DAYS = 60
+DEFAULT_SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 # Raw-text matches, not JSON parsing: they assume the compact serialization Claude Code
 # writes (no spaces after ":" or ","), and they also count a transcript that merely
 # quotes an invocation. Counts are a strong signal, not an exact tally.
@@ -74,14 +75,14 @@ def main() -> int:
         "--skills-dir",
         type=Path,
         action="append",
-        help="directory of skill folders (default: ./skills); repeatable",
+        help="directory of skill folders (default: the repo skills/); repeatable",
     )
     parser.add_argument(
         "--zero-only", action="store_true", help="print only skills with no invocations"
     )
     args = parser.parse_args()
 
-    skills_dirs = args.skills_dir or [Path("skills")]
+    skills_dirs = args.skills_dir or [DEFAULT_SKILLS_DIR]
     missing = [str(d) for d in skills_dirs if not d.is_dir()]
     if missing:
         print(f"error: skills dir not found: {', '.join(missing)}", file=sys.stderr)
