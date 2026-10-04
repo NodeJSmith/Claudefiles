@@ -2,7 +2,7 @@
 
 Principles for building CLIs that humans actually want to use. Distilled from [clig.dev](https://clig.dev).
 
-This file covers philosophy, output streams, exit codes, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing.
+This file covers the cross-cutting concerns: philosophy, output streams, exit codes, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing. Detail on specific dimensions lives in sibling references: `cli-output.md` (formatting, color, verbosity, progress, human vs machine output), `cli-affordances.md` (discoverability, flag design, help quality), `cli-clarify.md` (error messages, help text, prompts, status output), `cli-distill.md` (reducing flags and complexity), and `cli-harden.md` (edge-case resilience, signal and trap patterns, partial failures, concurrency).
 
 ---
 
@@ -20,13 +20,13 @@ This file covers philosophy, output streams, exit codes, signals (behavioral), d
 
 ## Exit Codes
 
-At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output.
+At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output. For the full table and implementation detail, see `cli-harden.md`.
 
 ---
 
 ## Signals and Control Characters
 
-This section covers the user-facing behavior.
+This section covers the user-facing behavior; trap patterns and exit codes live in `cli-harden.md`.
 
 **Ctrl-C exits immediately.** Don't hang on cleanup. If cleanup is running, add a timeout so the process can't get stuck.
 
@@ -38,7 +38,7 @@ This section covers the user-facing behavior.
 
 ## Output Streams
 
-**stdout is data; stderr is everything else.** Results, tables, and anything a caller might pipe or parse go to stdout. Progress, status, warnings, errors, and prompts go to stderr, so `tool | jq` and `tool > out.json` stay clean. When stdout is not a TTY, drop color, spinners, and progress bars. Offer `--json` (or similar) for machine-readable output rather than making callers scrape the human format.
+**stdout is data; stderr is everything else.** Results, tables, and anything a caller might pipe or parse go to stdout. Progress, status, warnings, errors, and prompts go to stderr, so `tool | jq` and `tool > out.json` stay clean. When stdout is not a TTY, drop color, spinners, and progress bars. Offer `--json` (or similar) for machine-readable output rather than making callers scrape the human format. See `cli-output.md` for the full convention.
 
 ---
 

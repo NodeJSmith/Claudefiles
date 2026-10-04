@@ -20,7 +20,7 @@ If yes:
 
 ## 2. CLI Tools: Print, Not Logging
 
-If the process runs once and the invoker reads its result from stdout (`paperless-api tag ...`, `otf-api classes`, any package-owned CLI), print calls *are* the logging. See `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/cli-ux.md` for the full convention (stdout = data, stderr = everything else). Don't introduce the `logging` module here. It adds handler/formatter ceremony for output nobody reads as a log file. The terminal is the log.
+If the process runs once and the invoker reads its result from stdout (`paperless-api tag ...`, `otf-api classes`, any package-owned CLI), print calls *are* the logging. See `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/cli-output.md` for the full convention (stdout = data, stderr = everything else). Don't introduce the `logging` module here. It adds handler/formatter ceremony for output nobody reads as a log file. The terminal is the log.
 
 ## 3. Unattended Processes: Configure Once at the Entry Point, `getLogger` Everywhere Else
 
