@@ -22,44 +22,17 @@ This file covers philosophy, output streams, exit codes, signals (behavioral), d
 
 At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output.
 
-- `0` — success
-- `1` — general error
-- `2` — usage/argument error (matches bash convention for `getopts`)
-- `128+N` — killed by signal N
-
-Document non-obvious exit codes in `--help`. Be consistent across subcommands. Never exit 0 on failure.
-
 ---
 
 ## Signals and Control Characters
 
-This section covers user-facing behavior first, then the implementation.
+This section covers the user-facing behavior.
 
 **Ctrl-C exits immediately.** Don't hang on cleanup. If cleanup is running, add a timeout so the process can't get stuck.
 
 **Second Ctrl-C skips cleanup.** Tell the user before cleanup starts: "Press Ctrl-C again to force quit." A second interrupt should force-exit even if cleanup isn't done.
 
 **Say something before cleanup.** A silent wait after Ctrl-C looks like a freeze. Even a brief "Shutting down..." is better than silence.
-
-**SIGINT (Ctrl-C)**: Clean up temp files, release locks, restore terminal state. Don't leave partial output or corrupt state. Exit with 128+2 (130).
-
-**SIGTERM**: Same cleanup as SIGINT. Scripts running under process managers receive SIGTERM first.
-
-**SIGPIPE**: When piped to `head` or similar, don't print "broken pipe" errors. In Python: `signal.signal(signal.SIGPIPE, signal.SIG_DFL)`. In bash, this is usually handled automatically.
-
-**Trap cleanup pattern** (bash):
-```bash
-cleanup() { rm -f "$tmpfile"; }
-trap cleanup EXIT
-```
-
-**Trap cleanup pattern** (Python):
-```python
-import atexit, os, tempfile
-tmp = tempfile.NamedTemporaryFile(delete=False)
-tmp.close()
-atexit.register(lambda: os.unlink(tmp.name))
-```
 
 ---
 
