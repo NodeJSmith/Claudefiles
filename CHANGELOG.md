@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-04
+
+### Removed
+
+- Skills with zero invocations in a 60-day census are removed: all `i-*` and `cli-*` skills (with the Frontend and CLI installer bundles), plus `mine-beats`, `mine-fragments`, `mine-shape`, `mine-mockup`, `mine-mutation-test`, `mine-product`, `mine-simplify`, `mine-teach`, `mine-visual-qa`, and `mine-wayfinder`, along with their routing rows. `bin/skill-census` reruns the census, counting both Skill-tool calls and typed slash commands. (#614)
+
 ## 2026-10-02
 
 ### Changed
