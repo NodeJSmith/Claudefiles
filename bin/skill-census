@@ -2,11 +2,14 @@
 """Count skill invocations across Claude Code transcripts, including never-invoked skills.
 
 A skill is invoked two ways, and both are counted:
-  - tool:  the model calls the Skill tool (`"name":"Skill","input":{"skill":"x"}`)
-  - slash: the user types `/x` (`<command-name>/x</command-name>` in the transcript)
+  - tool:  the model calls the Skill tool (a `tool_use` block named "Skill")
+  - slash: the user types `/x` (`<command-name>/x</command-name>` in the user message)
 
-Counting only the Skill tool undercounts user-driven skills badly. Transcripts of
-subagents (`subagents/` directories) are excluded: only main sessions count.
+Counting only the Skill tool undercounts user-driven skills badly. A slash command and
+a Skill tool call for the same skill in one turn are one invocation, so `total` counts
+each skill once per turn; `tool` and `slash` are per-method counts and can sum to more
+than `total`.
+Transcripts of subagents (`subagents/` directories) are excluded: only main sessions count.
 
 Usage: skill-census [--days N] [--skills-dir DIR]... [--zero-only]
 """
@@ -22,10 +25,6 @@ from pathlib import Path
 
 DEFAULT_DAYS = 60
 DEFAULT_SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
-# Raw-text matches, not JSON parsing: they assume the compact serialization Claude Code
-# writes (no spaces after ":" or ","), and they also count a transcript that merely
-# quotes an invocation. Counts are a strong signal, not an exact tally.
-SKILL_TOOL_RE = re.compile(r'"name":"Skill","input":\{"skill":"([^"]+)"')
 SLASH_RE = re.compile(r"<command-name>/([^<]+)</command-name>")
 
 
@@ -42,14 +41,53 @@ def transcripts(projects_dir: Path, days: int):
             yield path
 
 
-def count_invocations(paths) -> tuple[Counter, Counter]:
-    tool, slash = Counter(), Counter()
+def content_blocks(message: dict) -> list[dict]:
+    content = message.get("content")
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    return [b for b in content or [] if isinstance(b, dict)]
+
+
+def count_invocations(paths) -> tuple[Counter, Counter, Counter]:
+    """Return (total, tool, slash) counters; total counts each skill once per turn.
+
+    A turn starts at a user message that is not a tool_result or an isMeta entry.
+    """
+    total, tool, slash = Counter(), Counter(), Counter()
     for path in paths:
+        turn: set[str] = set()
         with path.open(errors="replace") as fh:
             for line in fh:
-                tool.update(SKILL_TOOL_RE.findall(line))
-                slash.update(SLASH_RE.findall(line))
-    return tool, slash
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                message = entry.get("message")
+                if not isinstance(message, dict):
+                    continue
+                blocks = content_blocks(message)
+                if entry.get("type") == "user":
+                    # tool_result and isMeta (injected skill body) entries belong to
+                    # the turn already in progress.
+                    if entry.get("isMeta") or any(
+                        b.get("type") == "tool_result" for b in blocks
+                    ):
+                        continue
+                    total.update(turn)
+                    turn = set()
+                    for b in blocks:
+                        for name in SLASH_RE.findall(b.get("text", "")):
+                            slash[name] += 1
+                            turn.add(name)
+                elif entry.get("type") == "assistant":
+                    for b in blocks:
+                        if b.get("type") == "tool_use" and b.get("name") == "Skill":
+                            name = (b.get("input") or {}).get("skill")
+                            if name:
+                                tool[name] += 1
+                                turn.add(name)
+        total.update(turn)
+    return total, tool, slash
 
 
 def installed_skills(skills_dirs: list[Path]) -> set[str]:
@@ -96,20 +134,20 @@ def main() -> int:
         )
         return 2
     paths = list(transcripts(projects_dir, args.days))
-    tool, slash = count_invocations(paths)
+    total, tool, slash = count_invocations(paths)
     print(f"{len(paths)} transcripts in the last {args.days} days", file=sys.stderr)
 
     installed = installed_skills(skills_dirs)
     rows = sorted(
-        ((name, tool[name], slash[name]) for name in installed),
-        key=lambda r: (-(r[1] + r[2]), r[0]),
+        ((name, total[name], tool[name], slash[name]) for name in installed),
+        key=lambda r: (-r[1], r[0]),
     )
     if args.zero_only:
-        rows = [r for r in rows if r[1] + r[2] == 0]
+        rows = [r for r in rows if r[1] == 0]
 
     print(
         json.dumps(
-            [{"skill": n, "total": t + s, "tool": t, "slash": s} for n, t, s in rows],
+            [{"skill": n, "total": c, "tool": t, "slash": s} for n, c, t, s in rows],
             indent=2,
         )
     )
