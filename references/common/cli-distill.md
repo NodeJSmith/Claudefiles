@@ -1,6 +1,6 @@
 # CLI Distill — Reference
 
-Detailed dimensions for simplifying CLI tool complexity. Referenced by SKILL.md.
+Detailed dimensions for simplifying CLI tool complexity.
 
 ---
 

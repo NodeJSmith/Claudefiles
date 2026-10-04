@@ -10,7 +10,6 @@ Full component tables for Claudefiles. For context on what each component type d
 |-------|-------------|
 | `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI. Review feedback, including earlier rounds, is triaged into a ledger by an Opus subagent; findings that converge on one mechanism stop the run for discussion before anything is patched |
 | `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
-| `mine-beats` | Writing exploit (beat-by-beat) — assemble raw material into a journey of beats with choose-your-own-adventure branching and grounding discipline |
 | `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine-build` | Single entry point — routes between direct implementation, structured sketch (ratified decision ledger → one-session build), and the full caliper workflow (define → plan → orchestrate → ship) |
 | `mine-challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
@@ -23,68 +22,25 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-comb` | One-off fine-toothed comb — open-ended holistic review of a brief, design, plan, or implementation-against-design; dispatches the fine-toothed-comb agent and runs the comb gate. Standalone form of the comb inside mine-define/mine-plan |
 | `mine-define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine-domain-model` | Active domain glossary — maintain CONTEXT.md and ADRs during design conversations, challenge fuzzy language, cross-reference code |
-| `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-simplify/mine-decompose |
+| `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-decompose |
 | `mine-eli5` | Explain a topic to someone who knows nothing about it via an HTML artifact — big pictures, few words, simplification never traded for accuracy |
 | `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
-| `mine-fragments` | Writing explore — interview the user grill-style to surface raw fragments, appended to a markdown file with no structure imposed |
 | `mine-grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine-define |
 | `mine-how` | Interactive subsystem explanation — complexity-adaptive walkthroughs grounded in actual code, with mandatory accuracy review |
 | `mine-document` | Durable subsystem explanation — architectural-altitude write-up that survives code churn, anchored to components and flows rather than line numbers |
 | `mine-humanize` | Edit prose to remove AI writing patterns and add human voice — analyzes first, then surgical edits or full rewrite. Two-pass editing, text-type aware. Prose complement to mine-clean-code |
 | `mine-why` | Decision archaeology — reconstructs historical rationale from git history, issues, design docs, rules, comments, and tests with confidence calibration |
-| `mine-mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
-| `mine-mutation-test` | Mutation testing — intentionally break code to verify tests catch real bugs |
 | `mine-orchestrate` | Execute task files one-by-one with parallel spec/code/integration review, durable known-issue recording for intentional non-later-task deferrals, and post-execution implementation review |
 | `mine-plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine-prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine-research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine-review` | Comprehensive branch review — dispatches code/integration/readability reviewers for code changes, or consistency/instruction-quality/writing-quality reviewers for instruction files; consolidates findings into one prioritized report |
 | `mine-review-pr` | Review someone else's open PR read-only — dispatches the reviewer trio against the PR diff, verifies findings against the code, PR description, and existing threads, then optionally posts new findings as comment threads (GitHub or ADO) |
-| `mine-shape` | Writing exploit (paragraph-by-paragraph) — shape raw material into an article with grounding discipline and collaborative construction |
 | `mine-ship` | Commit, push, and create a PR in one step |
-| `mine-simplify` | Codebase-scoped structural simplification — fans out parallel `code-judo-reviewer` agents over a file/dir/repo, consolidates dramatic simplification moves into one impact-ranked report. On-demand alternative to baking structural review into every orchestrate run |
 | `mine-sketch` | Lightweight structured design — surfaces every decision a change needs into a decision ledger (design.md), ratified one decision at a time, then challenged and combed. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, with a ship-time challenge against the ledger |
-| `mine-teach` | Structured learning — stateful workspace with mission, lessons, learning records, reference docs, and zone-of-proximal-development tracking |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
-| `mine-visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
-| `mine-wayfinder` | Multi-session decision mapping — chart foggy efforts as a map of decision tickets on the issue tracker, resolve via progressive discovery |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 | `mine-writeup` | Turn technical research or investigation notes into a structured, scannable document for a specific audience. Answer-first structure, scope lock, editorial discipline |
-
-### Frontend Design Skills (`i-*`) — Frontend bundle
-
-| Skill | Description |
-|-------|-------------|
-| `i-adapt` | Responsive design — make interfaces work across screen sizes |
-| `i-animate` | Motion design — meaningful animations and transitions |
-| `i-audit` | Comprehensive UI quality audit — a11y, performance, theming, responsive |
-| `i-bolder` | Make designs more distinctive and visually striking |
-| `i-clarify` | UX clarity — reduce confusion, improve information hierarchy |
-| `i-colorize` | Color system — palettes, contrast, theming |
-| `i-critique` | Design critique and review with actionable feedback |
-| `i-delight` | Micro-interactions and moments of delight |
-| `i-distill` | Simplify complex interfaces — reduce without losing function |
-| `i-frontend-design` | Core design skill — creative direction, production-grade interfaces (includes reference docs) |
-| `i-harden` | Production hardening — edge cases, error states, onboarding, resilience |
-| `i-layout` | Layout and spatial design — structure, alignment, visual rhythm |
-| `i-optimize` | Frontend performance optimization |
-| `i-overdrive` | Push interfaces past conventional limits — shaders, spring physics, View Transitions |
-| `i-polish` | Final quality pass — alignment, spacing, design system alignment, consistency |
-| `i-quieter` | Reduce visual noise and clutter |
-| `i-shape` | UX/UI planning — structured discovery interview producing a design brief |
-| `i-teach-impeccable` | Design context setup — gathers brand context and concrete design tokens, saves to `design/context.md` |
-| `i-typeset` | Typography — font choices, hierarchy, sizing, readability |
-
-### CLI Design Skills (`cli-*`) — CLI bundle
-
-| Skill | Description |
-|-------|-------------|
-| `cli-affordances` | CLI discoverability — flag design, subcommand structure, help quality, progressive disclosure |
-| `cli-audit` | Comprehensive CLI quality audit across all dimensions — hardening, output, clarity, affordances, complexity |
-| `cli-clarify` | CLI UX writing — error messages, help text, prompts, confirmations, status output |
-| `cli-distill` | Simplify CLI tools — reduce flags, improve defaults, lower cognitive load per invocation |
-| `cli-harden` | CLI edge-case hardening — resilience against hostile inputs, signals, terminal quirks, and partial failures |
-| `cli-output` | CLI output design — table formatting, color semantics, verbosity, progress, human vs machine output |
 
 Conversation memory (recall, resume) now ships as the external
 [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin (`/ccrecall:ccr-recall`,
@@ -108,7 +64,6 @@ Conversation memory (recall, resume) now ships as the external
 
 | Agent | Description |
 |-------|-------------|
-| `code-judo-reviewer` | Structural simplification reviewer — hunts aggressively for simplification moves; advisory, does not block commits |
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
 | `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis and the `mine-address-pr-issues` review ledger. The caller supplies the full task methodology in its prompt |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
@@ -144,7 +99,6 @@ Conversation memory (recall, resume) now ships as the external
 | `architect` | Read-only architecture documentation — Mermaid diagrams and high-level overviews, no code changes |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA — systematic and exploratory testing to find defects before they ship |
-| `visual-diff` | Visual regression testing via Playwright MCP — before/after screenshots to catch unintended UI changes |
 
 ## Rules
 
@@ -163,15 +117,13 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 
 Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.
 
-Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-cli.md` (CLI).
-
 ## References
 
 Domain-specific guidance in `references/common/` loaded on demand by skills and agents. Always installed but not always-loaded — `invariants.md` has a Domain References table mapping file types to reference files. Skills and agents `Read` the ones they need.
 
 | Reference | Loaded by |
 |-----------|-----------|
-| `frontend.md` | `i-*` skills, `engineering-frontend-developer` agent, meta-rule on `.tsx`/`.jsx` files |
+| `frontend.md` | `engineering-frontend-developer` agent, meta-rule on `.tsx`/`.jsx` files |
 | `typescript.md` | Frontend agent, meta-rule on `.ts`/`.tsx` files |
 | `reliability.md` | `engineering-backend-developer`, `engineering-sre`, `llm-checker` agents |
 | `writing-quality.md` | `mine-humanize`, `engineering-technical-writer` agent |
@@ -182,6 +134,8 @@ Domain-specific guidance in `references/common/` loaded on demand by skills and 
 | `instruction-quality.md` | `mine-write-skill`, `engineering-technical-writer` agent |
 | `security.md` | `engineering-backend-developer` agent, meta-rule on API/auth work |
 | `review-questions.md` | `mine-create-pr` (Step 1b "Add now"), meta-rule when authoring `REVIEW.md` files |
+| `cli-ux.md` | Meta-rule when building user-facing CLI tools; entry point to the `cli-*.md` references |
+| `cli-output.md`, `cli-affordances.md`, `cli-clarify.md`, `cli-distill.md`, `cli-harden.md` | Linked from `cli-ux.md`; per-dimension CLI guidance (output formatting, discoverability and flag design, messages, simplification, hardening) |
 
 ## Hooks
 
@@ -228,6 +182,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `agent-stats` | Post-hoc effectiveness stats for subagent runs mined from the JSONL store (queries the cfl database for gate verdicts) — per agent type: run count, verdict mix (parsed from the `## Summary` line), compaction rate, and peak turn tokens. `--type` for a detailed report, `--findings` to dump blocking text, `--impl-only` for the comb's orchestrate pass, `--json`, `--since` |
 | `orchestrate-cost` | Model-weighted USD cost of mine-orchestrate runs by (role, model), mined from the JSONL store (queries the cfl database for run boundaries) — delimits runs from durable trail markers, splits the orchestrator loop into own-gen vs absorbed bands, disambiguates `general-purpose` roles by dispatch-prompt signature, buckets runs by pipeline fingerprint, and reports coverage. Reuses `ccrecall` pricing via PEP 723. `--since`, `--projects`, `--json` |
 | `orchestrate-concise-probe` | Concise-return compliance rate for mine-orchestrate reviewer dispatches, mined from the JSONL store — reads each reviewer subagent's return message and reports the fraction that returned only the canonical `**Verdict:**` line vs a full report, per role and overall. Read-only; standalone PEP 723 uv-script. `--since`, `--projects`, `--json` |
+| `skill-census` | Count skill invocations (Skill-tool calls and typed `/slash` commands) across main-session transcripts, including never-invoked skills. `--days`, `--skills-dir` (repeatable), `--zero-only` for dead-skill hunting; JSON on stdout (`total` counts each skill once per turn; `tool`/`slash` are per-method) |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `context-pct` | Output the current session's context window usage percentage from the sidecar; uses `$CLAUDE_CODE_SESSION_ID` automatically, accepts explicit session_id argument as override |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |

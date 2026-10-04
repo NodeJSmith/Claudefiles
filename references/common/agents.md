@@ -17,7 +17,6 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "LLM code smells", "training-bias patterns" | `llm-checker` |
 | "deferred debt", "lazy code patterns" | `lazy-checker` |
 | "enrich this issue", "missing acceptance criteria" | `issue-refiner` |
-| "visual regression", before/after screenshots | `visual-diff` |
 | "secure code review", "security audit", "check for vulnerabilities" | `code-reviewer` |
 | "SLOs", "error budgets", "observability" | `engineering-sre` |
 | "React/Vue/Angular", "frontend performance" | `engineering-frontend-developer` |
@@ -25,7 +24,6 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "FastAPI", "REST API", "backend service", "API endpoints" | `engineering-backend-developer` |
 | "developer docs", "API reference", "tutorial" | `engineering-technical-writer` |
 | "pre-ship gate", "visual verification before deploy" | `testing-reality-checker` |
-| "structural simplification", "find simplification moves", "code judo" | `code-judo-reviewer` |
 | "scan for secrets", "check for credentials", "credential scan" | `secrets-auditor` |
 
 ## Immediate Agent Usage

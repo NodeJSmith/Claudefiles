@@ -1,6 +1,6 @@
 # CLI Clarity — Reference
 
-Detailed dimensions for assessing CLI tool communication quality. Referenced by SKILL.md.
+Detailed dimensions for assessing CLI tool communication quality.
 
 ---
 
@@ -68,7 +68,7 @@ Examples:
 
 **Flags should be self-documenting.** `--output-format` over `--fmt`. `--dry-run` over `-n`. Names should be real words, not abbreviations or jargon. A new user reading `--help` should understand what each flag does without consulting docs.
 
-For flag structure conventions (short/long forms, boolean polarity, mutual exclusion), see `cli-affordances/REFERENCE.md`.
+For flag structure conventions (short/long forms, boolean polarity, mutual exclusion), see `cli-affordances.md`.
 
 ---
 

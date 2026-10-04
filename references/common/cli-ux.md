@@ -2,7 +2,7 @@
 
 Principles for building CLIs that humans actually want to use. Distilled from [clig.dev](https://clig.dev).
 
-The cli-* skills own specific dimensions in detail — output formatting, affordances, clarity, hardening. This file covers the cross-cutting concerns those skills don't own: philosophy, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing. For implementation details on signals and exit codes (trap patterns, SIGPIPE, exit 130), see `cli-harden/REFERENCE.md`.
+This file covers the cross-cutting concerns: philosophy, output streams, exit codes, signals (behavioral), defaults, configuration, environment variables, secrets, subcommand design, and future-proofing. Detail on specific dimensions lives in sibling references: `cli-output.md` (formatting, color, verbosity, progress, human vs machine output), `cli-affordances.md` (discoverability, flag design, help quality), `cli-clarify.md` (error messages, help text, prompts, status output), `cli-distill.md` (reducing flags and complexity), and `cli-harden.md` (edge-case resilience, signal and trap patterns, partial failures, concurrency).
 
 ---
 
@@ -20,19 +20,25 @@ The cli-* skills own specific dimensions in detail — output formatting, afford
 
 ## Exit Codes
 
-At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output. For the full table and implementation detail, see `cli-harden/REFERENCE.md`.
+At minimum, distinguish usage errors from runtime errors — don't use `1` for everything. Map important failure modes to distinct codes so scripts can branch on `$?` without parsing output. For the full table and implementation detail, see `cli-harden.md`.
 
 ---
 
 ## Signals and Control Characters
 
-This section covers the user-facing behavior; trap patterns and exit codes live in `cli-harden/REFERENCE.md`.
+This section covers the user-facing behavior; trap patterns and exit codes live in `cli-harden.md`.
 
 **Ctrl-C exits immediately.** Don't hang on cleanup. If cleanup is running, add a timeout so the process can't get stuck.
 
 **Second Ctrl-C skips cleanup.** Tell the user before cleanup starts: "Press Ctrl-C again to force quit." A second interrupt should force-exit even if cleanup isn't done.
 
 **Say something before cleanup.** A silent wait after Ctrl-C looks like a freeze. Even a brief "Shutting down..." is better than silence.
+
+---
+
+## Output Streams
+
+**stdout is data; stderr is everything else.** Results, tables, and anything a caller might pipe or parse go to stdout. Progress, status, warnings, errors, and prompts go to stderr, so `tool | jq` and `tool > out.json` stay clean. When stdout is not a TTY, drop color, spinners, and progress bars. Offer `--json` (or similar) for machine-readable output rather than making callers scrape the human format. See `cli-output.md` for the full convention.
 
 ---
 

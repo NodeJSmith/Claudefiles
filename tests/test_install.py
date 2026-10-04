@@ -96,12 +96,12 @@ class TestConfigLoadSave:
     def test_roundtrip(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         data = {
-            "bundles": {"frontend": True, "cli": False},
+            "bundles": {"engineering": True, "extra-agents": False},
         }
         install.save_config(cfg_path, data)
         loaded = install.load_config(cfg_path)
         assert loaded is not None
-        assert loaded["bundles"] == {"frontend": True, "cli": False}
+        assert loaded["bundles"] == {"engineering": True, "extra-agents": False}
         assert loaded["version"] == install.CONFIG_VERSION
 
     def test_corrupt_recovery(self, tmp_path: Path) -> None:
@@ -121,10 +121,10 @@ class TestConfigLoadSave:
     def test_atomic_write(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         cfg_path.write_text("original content")
-        install.save_config(cfg_path, {"bundles": {"frontend": True}})
+        install.save_config(cfg_path, {"bundles": {"engineering": True}})
         loaded = install.load_config(cfg_path)
         assert loaded is not None
-        assert loaded["bundles"]["frontend"] is True
+        assert loaded["bundles"]["engineering"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +213,51 @@ class TestStaleSymlinks:
         link.symlink_to(source)
         source.rmdir()
         assert install.find_stale_symlinks(dest, repo) == []
+
+    def test_non_interactive_sweep_removes_owned_dangling_links(
+        self, tmp_path: Path
+    ) -> None:
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        (claude_dir / "skills").mkdir(parents=True)
+        (claude_dir / "rules" / "common").mkdir(parents=True)
+        owned_skill = repo / "skills" / "retired-skill"
+        owned_rule = repo / "rules" / "common" / "retired.md"
+        owned_skill.mkdir(parents=True)
+        owned_rule.parent.mkdir(parents=True)
+        owned_rule.write_text("x")
+        skill_link = claude_dir / "skills" / "retired-skill"
+        rule_link = claude_dir / "rules" / "common" / "retired.md"
+        skill_link.symlink_to(owned_skill)
+        rule_link.symlink_to(owned_rule)
+        owned_skill.rmdir()
+        owned_rule.unlink()
+
+        install.resolve_stale_symlinks(
+            claude_dir, repo, tmp_path / "bin", install.Console(), interactive=False
+        )
+
+        assert not skill_link.is_symlink()
+        assert not rule_link.is_symlink()
+
+    def test_non_interactive_sweep_keeps_unowned_dangling_links(
+        self, tmp_path: Path
+    ) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        other = tmp_path / "other" / "ext-skill"
+        other.mkdir(parents=True)
+        claude_dir = tmp_path / "claude"
+        (claude_dir / "skills").mkdir(parents=True)
+        link = claude_dir / "skills" / "ext-skill"
+        link.symlink_to(other)
+        other.rmdir()
+
+        install.resolve_stale_symlinks(
+            claude_dir, repo, tmp_path / "bin", install.Console(), interactive=False
+        )
+
+        assert link.is_symlink()
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +422,6 @@ class TestLinkBundleArtifacts:
             repo,
             skills_dest=claude / "skills",
             agents_dest=claude / "agents",
-            rules_common_dest=claude / "rules" / "common",
             console=Console(),
             shadowed_out=shadowed,
         )
@@ -428,19 +472,19 @@ class TestDeselectionCleanup:
 
 class TestSmartDiff:
     def test_new_group_detected(self) -> None:
-        saved = {"bundles": {"frontend": True}}
-        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
-        assert new == ["cli"]
+        saved = {"bundles": {"engineering": True}}
+        new = install.find_new_groups(saved, "bundles", ["engineering", "extra-agents"])
+        assert new == ["extra-agents"]
 
     def test_no_changes(self) -> None:
-        saved = {"bundles": {"frontend": True, "cli": False}}
-        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
+        saved = {"bundles": {"engineering": True, "extra-agents": False}}
+        new = install.find_new_groups(saved, "bundles", ["engineering", "extra-agents"])
         assert new == []
 
     def test_missing_section(self) -> None:
         saved = {}
-        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
-        assert new == ["frontend", "cli"]
+        new = install.find_new_groups(saved, "bundles", ["engineering", "extra-agents"])
+        assert new == ["engineering", "extra-agents"]
 
 
 # ---------------------------------------------------------------------------
@@ -466,16 +510,11 @@ class TestBundleModel:
                 f"{key} should not be always_installed"
             )
 
-    def test_four_optional_bundles(self, tmp_path: Path) -> None:
-        """Exactly 4 optional bundles (memory is now the external ccrecall plugin)."""
+    def test_two_optional_bundles(self, tmp_path: Path) -> None:
+        """Exactly 2 optional bundles (memory is the external ccrecall plugin)."""
         _setup_minimal_repo(tmp_path)
         opt = install.optional_bundles(tmp_path)
-        assert set(opt.keys()) == {
-            "frontend",
-            "cli",
-            "engineering",
-            "extra-agents",
-        }
+        assert set(opt.keys()) == {"engineering", "extra-agents"}
 
     def test_base_agents(self, tmp_path: Path) -> None:
         """Base bundle includes the pre-commit safety gates and core reviewers."""
@@ -504,16 +543,6 @@ class TestBundleModel:
         bundles = install.get_bundles(tmp_path)
         assert "memory" not in bundles
 
-    def test_frontend_capabilities_file(self, tmp_path: Path) -> None:
-        _setup_minimal_repo(tmp_path)
-        bundles = install.get_bundles(tmp_path)
-        assert "capabilities-impeccable.md" in bundles["frontend"].capabilities_files
-
-    def test_cli_capabilities_file(self, tmp_path: Path) -> None:
-        _setup_minimal_repo(tmp_path)
-        bundles = install.get_bundles(tmp_path)
-        assert "capabilities-cli.md" in bundles["cli"].capabilities_files
-
 
 # ---------------------------------------------------------------------------
 # find_skill_source tests
@@ -526,26 +555,9 @@ class TestFindSkillSource:
         result = install.find_skill_source("mine-build", tmp_path)
         assert result == tmp_path / "skills" / "mine-build"
 
-    def test_finds_in_skills_impeccable(self, tmp_path: Path) -> None:
-        (tmp_path / "skills-impeccable" / "i-audit").mkdir(parents=True)
-        result = install.find_skill_source("i-audit", tmp_path)
-        assert result == tmp_path / "skills-impeccable" / "i-audit"
-
-    def test_finds_in_skills_cli(self, tmp_path: Path) -> None:
-        (tmp_path / "skills-cli" / "cli-harden").mkdir(parents=True)
-        result = install.find_skill_source("cli-harden", tmp_path)
-        assert result == tmp_path / "skills-cli" / "cli-harden"
-
     def test_raises_when_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="Skill not found: nonexistent"):
             install.find_skill_source("nonexistent", tmp_path)
-
-    def test_prefers_skills_over_others(self, tmp_path: Path) -> None:
-        """skills/ is checked first in SKILL_DIRS order."""
-        (tmp_path / "skills" / "mine-build").mkdir(parents=True)
-        (tmp_path / "skills-impeccable" / "mine-build").mkdir(parents=True)
-        result = install.find_skill_source("mine-build", tmp_path)
-        assert result == tmp_path / "skills" / "mine-build"
 
 
 # ---------------------------------------------------------------------------
@@ -622,14 +634,6 @@ def _setup_full_repo(path: Path) -> None:
     # Base skills
     (path / "skills" / "mine-build").mkdir(parents=True)
     (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
-    # Frontend skills
-    (path / "skills-impeccable" / "i-audit").mkdir(parents=True)
-    (path / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
-    (path / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
-    # CLI skills
-    (path / "skills-cli" / "cli-harden").mkdir(parents=True)
-    (path / "skills-cli" / "cli-harden" / "SKILL.md").write_text("skill")
-    (path / "skills-cli" / "capabilities-cli.md").write_text("caps")
     # Agents — write a stub for every agent named by any bundle, derived from the live
     # bundle definitions so the fixture can't drift from install.py's agent lists.
     (path / "agents").mkdir(parents=True)
@@ -691,39 +695,6 @@ class TestFullInstallFlow:
         # Base agents installed
         assert (claude_dir / "agents" / "code-reviewer.md").is_symlink()
         assert (claude_dir / "agents" / "issue-refiner.md").is_symlink()
-        # Optional skills NOT installed (all deselected)
-        assert not (claude_dir / "skills" / "i-audit").exists()
-
-    def test_selected_bundle_installs_skills_and_agents(self, tmp_path: Path) -> None:
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-        _setup_full_repo(repo)
-
-        config = {
-            "bundles": {
-                "frontend": True,
-                "cli": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-
-        with (
-            patch("install.install_package"),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            errors = install.do_install(repo, claude_dir, config, interactive=False)
-
-        assert errors == 0
-        # Frontend skill installed
-        assert (claude_dir / "skills" / "i-audit").is_symlink()
-        # Frontend capabilities file installed into rules/common
-        assert (
-            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
-        ).is_symlink()
-        # Capability file NOT in skills/
-        assert not (claude_dir / "skills" / "capabilities-impeccable.md").exists()
 
     def test_hooks_always_installed(self, tmp_path: Path) -> None:
         """All hooks install regardless of bundle selection."""
@@ -769,145 +740,6 @@ class TestFullInstallFlow:
         refs = claude_dir / "references" / "common"
         assert (refs / "testing.md").is_symlink()
         assert (refs / "frontend.md").is_symlink()
-
-    def test_deselected_bundle_removes_symlinks(self, tmp_path: Path) -> None:
-        """Deselecting a bundle removes its skill and capability symlinks."""
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-        _setup_full_repo(repo)
-
-        # First: install with frontend selected
-        config_v1 = {
-            "bundles": {
-                "frontend": True,
-                "cli": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package", return_value=(True, "")),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(repo, claude_dir, config_v1, interactive=False)
-
-        assert (claude_dir / "skills" / "i-audit").is_symlink()
-        assert (
-            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
-        ).is_symlink()
-
-        # Second: deselect frontend
-        config_v2 = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package"),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(
-                repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
-            )
-
-        assert not (claude_dir / "skills" / "i-audit").exists()
-        assert not (
-            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
-        ).exists()
-
-    def test_deselection_preserves_unowned_capabilities_file(
-        self, tmp_path: Path
-    ) -> None:
-        """Deselecting a bundle must not remove capabilities files owned by another repo."""
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-        _setup_full_repo(repo)
-
-        rules_common = claude_dir / "rules" / "common"
-        rules_common.mkdir(parents=True)
-
-        # Place an unowned symlink for capabilities-impeccable.md
-        other_repo = tmp_path / "other-repo"
-        other_repo.mkdir()
-        other_source = other_repo / "capabilities-impeccable.md"
-        other_source.write_text("other caps")
-        (rules_common / "capabilities-impeccable.md").symlink_to(other_source)
-
-        config = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package"),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(repo, claude_dir, config, interactive=False)
-
-        # Unowned fragment must survive deselection
-        assert (rules_common / "capabilities-impeccable.md").is_symlink()
-        assert (
-            rules_common / "capabilities-impeccable.md"
-        ).resolve() == other_source.resolve()
-
-    def test_deselected_group_removes_rule_fragments(self, tmp_path: Path) -> None:
-        """Re-run with bundle deselected removes rule fragment; other bundle's fragment survives."""
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-        _setup_full_repo(repo)
-
-        rules_common = claude_dir / "rules" / "common"
-
-        # First install with frontend and cli enabled
-        config_v1 = {
-            "bundles": {
-                "frontend": True,
-                "cli": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package", return_value=(True, "")),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(repo, claude_dir, config_v1, interactive=False)
-
-        assert (rules_common / "capabilities-impeccable.md").is_symlink()
-        assert (rules_common / "capabilities-cli.md").is_symlink()
-
-        # Re-install with frontend deselected
-        config_v2 = {
-            "bundles": {
-                "frontend": False,
-                "cli": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package", return_value=(True, "")),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(
-                repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
-            )
-
-        assert not (rules_common / "capabilities-impeccable.md").exists()
-        assert (rules_common / "capabilities-cli.md").is_symlink()
-        assert (claude_dir / "skills" / "cli-harden").is_symlink()
-        assert not (claude_dir / "skills" / "i-audit").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -1521,9 +1353,7 @@ class TestMainNonInteractive:
 
         saved = {
             "bundles": {
-                "frontend": True,
-                "cli": False,
-                "engineering": False,
+                "engineering": True,
                 "extra-agents": False,
             },
         }
@@ -1546,8 +1376,8 @@ class TestMainNonInteractive:
         assert result == 0
         mock_do_install.assert_called_once()
         call_config = mock_do_install.call_args[0][2]
-        assert call_config["bundles"]["frontend"] is True
-        assert call_config["bundles"]["cli"] is False
+        assert call_config["bundles"]["engineering"] is True
+        assert call_config["bundles"]["extra-agents"] is False
 
     def test_non_interactive_no_saved_config_installs_all(self, tmp_path: Path) -> None:
         claude_dir = tmp_path / "claude_home"
@@ -1582,8 +1412,6 @@ class TestMainNonInteractive:
 
         saved = {
             "bundles": {
-                "frontend": False,
-                "cli": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -1608,7 +1436,7 @@ class TestMainNonInteractive:
         captured = capsys.readouterr()
         assert "--reconfigure has no effect in non-interactive mode" in captured.out
         call_config = mock_do_install.call_args[0][2]
-        assert call_config["bundles"]["frontend"] is False
+        assert call_config["bundles"]["engineering"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -1695,7 +1523,7 @@ class TestSaveConfigException:
             patch("install.os.write", side_effect=OSError("disk full")),
             pytest.raises(OSError, match="disk full"),
         ):
-            install.save_config(cfg_path, {"bundles": {"frontend": True}})
+            install.save_config(cfg_path, {"bundles": {"engineering": True}})
 
         # Original file untouched
         assert cfg_path.read_text() == "original"
@@ -1711,95 +1539,11 @@ class TestSaveConfigException:
             patch("install.os.replace", side_effect=OSError("permission denied")),
             pytest.raises(OSError, match="permission denied"),
         ):
-            install.save_config(cfg_path, {"bundles": {"frontend": True}})
+            install.save_config(cfg_path, {"bundles": {"engineering": True}})
 
         assert cfg_path.read_text() == "original"
         tmp_files = list(tmp_path.glob("*.tmp"))
         assert tmp_files == []
-
-
-# ---------------------------------------------------------------------------
-# Capabilities file tests
-# ---------------------------------------------------------------------------
-
-
-class TestCapabilitiesFiles:
-    def test_capabilities_core_not_in_any_bundle(self, tmp_path: Path) -> None:
-        """capabilities-core.md must not be in any bundle — it lives in rules/common/."""
-        _setup_minimal_repo(tmp_path)
-        bundles = install.get_bundles(tmp_path)
-        for key, bundle in bundles.items():
-            assert "capabilities-core.md" not in bundle.capabilities_files, (
-                f"capabilities-core.md should not be in bundle '{key}'"
-            )
-
-    def test_capabilities_files_install_with_bundle(self, tmp_path: Path) -> None:
-        """capabilities-*.md files install to rules/common/ when bundle selected."""
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-        _setup_full_repo(repo)
-
-        config = {
-            "bundles": {
-                "frontend": False,
-                "cli": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package"),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(repo, claude_dir, config, interactive=False)
-
-        assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
-        assert not (
-            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
-        ).exists()
-
-    def test_capabilities_files_removed_on_deselect(self, tmp_path: Path) -> None:
-        """capabilities-*.md files removed from rules/common/ when bundle deselected."""
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-        _setup_full_repo(repo)
-
-        config_v1 = {
-            "bundles": {
-                "frontend": False,
-                "cli": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        config_v2 = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        with (
-            patch("install.install_package"),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(repo, claude_dir, config_v1, interactive=False)
-
-        assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
-
-        with (
-            patch("install.install_package"),
-            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            _fake_home_patch(tmp_path),
-        ):
-            install.do_install(
-                repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
-            )
-
-        assert not (claude_dir / "rules" / "common" / "capabilities-cli.md").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -1861,30 +1605,15 @@ class TestMigrateV1ToV2:
         result = install.migrate_v1_to_v2(V1_ALL_SELECTED)
         assert result["version"] == install.CONFIG_VERSION
         bundles = result["bundles"]
-        assert bundles["frontend"] is True
-        assert bundles["cli"] is True
+        # v1 impeccable/cli selections are dropped: those skills no longer exist.
+        assert "frontend" not in bundles
+        assert "cli" not in bundles
         assert bundles["engineering"] is True
         assert bundles["extra-agents"] is True
 
     def test_none_selected_maps_all_bundles_false(self) -> None:
         result = install.migrate_v1_to_v2(V1_NONE_SELECTED)
         bundles = result["bundles"]
-        assert bundles["frontend"] is False
-        assert bundles["cli"] is False
-        assert bundles["engineering"] is False
-        assert bundles["extra-agents"] is False
-
-    def test_partial_impeccable_only(self) -> None:
-        v1 = {
-            "version": install.CONFIG_VERSION_V1,
-            "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
-            "agents": {"core": False, "engineering": False, "memory": False},
-            "packages": {},
-        }
-        result = install.migrate_v1_to_v2(v1)
-        bundles = result["bundles"]
-        assert bundles["frontend"] is True
-        assert bundles["cli"] is False
         assert bundles["engineering"] is False
         assert bundles["extra-agents"] is False
 
@@ -1930,7 +1659,7 @@ class TestMigrateV1ToV2:
     def test_missing_v1_fields_default_false(self) -> None:
         """Completely empty v1 config → all optional bundles false."""
         result = install.migrate_v1_to_v2({"version": install.CONFIG_VERSION_V1})
-        for key in ("frontend", "cli", "engineering", "extra-agents"):
+        for key in ("engineering", "extra-agents"):
             assert result["bundles"][key] is False
 
     def test_result_is_v2_format(self) -> None:
@@ -2007,7 +1736,7 @@ class TestMigrationMainFlow:
         assert result == 0
         # save_config must have been called with v2 data
         assert len(saved_configs) == 1
-        assert saved_configs[0]["bundles"]["frontend"] is True
+        assert "frontend" not in saved_configs[0]["bundles"]
         assert saved_configs[0]["bundles"]["extra-agents"] is True
         assert "packages" not in saved_configs[0]
 
@@ -2088,8 +1817,6 @@ class TestMigrationMainFlow:
         cfg_path = install.config_path(claude_dir)
         v2 = {
             "bundles": {
-                "frontend": False,
-                "cli": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -2195,8 +1922,6 @@ class TestFirstInstallAdoTip:
         # Write an existing v2 config so original_saved is not None
         saved = {
             "bundles": {
-                "frontend": False,
-                "cli": False,
                 "engineering": False,
                 "extra-agents": False,
             },

@@ -1,6 +1,6 @@
 # CLI Affordances — Reference
 
-Detailed dimensions for assessing CLI tool discoverability and usability. Referenced by SKILL.md.
+Detailed dimensions for assessing CLI tool discoverability and usability.
 
 ---
 

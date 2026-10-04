@@ -195,8 +195,6 @@ The feature directory was created in Phase 1's "Initialize tracking" step. Write
 If the work touches frontend (CSS, components, layouts, styles), check for design context:
 
 - **`design/context.md` found:** Read it. If it has a Design Tokens section, apply the closed token layer — every CSS value must reference a token from the context file (no raw hex, no magic spacing numbers). State which tokens and decisions apply to this change.
-- **`.impeccable.md` found** (migration fallback): Read it — use its brand personality and aesthetic direction for general decisions, but note there are no concrete design tokens. For non-trivial UI work, suggest running `/i-teach-impeccable` first to generate a full token set.
-- **None found** and the work involves non-trivial UI: suggest "No design context found. Consider running `/i-teach-impeccable` first for consistent results."
 
 ### Write design.md
 

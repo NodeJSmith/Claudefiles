@@ -92,7 +92,7 @@ Write your review to the temp file path provided:
 2. **Be specific** — "the grid overflows its container by ~40px on the right" is useful. "Layout issues" is not.
 3. **Don't manufacture findings** — if the screenshots look correct and match the criteria, say PASS. Padding out findings wastes time.
 4. **Flag state quality honestly** — if the executor captured a trivial state that doesn't exercise the task's changes, say so. This is the most important thing you catch.
-5. **You are not a designer** — you verify against the stated criteria, not against your aesthetic preferences. Leave design critique to `mine-visual-qa`.
+5. **You are not a designer** — you verify against the stated criteria, not against your aesthetic preferences.
 
 <!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ## Concise-Return Mode

@@ -1,6 +1,6 @@
 # CLI Hardening — Reference
 
-Detailed dimensions for assessing CLI tool resilience. Referenced by SKILL.md.
+Detailed dimensions for assessing CLI tool resilience.
 
 ---
 

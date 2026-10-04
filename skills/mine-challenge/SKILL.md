@@ -218,14 +218,7 @@ Orchestration callers (mandatory, via challenge-gate.md):
 - `skills/mine-sketch/SKILL.md` (Phase 4 — sketch-time challenge with --critics=2; Build Mode Step 3 — ship-time challenge against the ledger)
 - `skills/mine-orchestrate/post-execution-pipeline.md` (Step 3.5 — ship-time challenge)
 
-Inline-revision callers (invoke challenge, read findings in-context, revise own proposal):
-- `skills-impeccable/i-adapt/SKILL.md`, `skills-impeccable/i-animate/SKILL.md`, `skills-impeccable/i-bolder/SKILL.md`
-- `skills-impeccable/i-clarify/SKILL.md`, `skills-impeccable/i-colorize/SKILL.md`, `skills-impeccable/i-delight/SKILL.md`
-- `skills-impeccable/i-distill/SKILL.md`, `skills-impeccable/i-harden/SKILL.md`, `skills-impeccable/i-layout/SKILL.md`
-- `skills-impeccable/i-overdrive/SKILL.md`, `skills-impeccable/i-optimize/SKILL.md`, `skills-impeccable/i-polish/SKILL.md`
-- `skills-impeccable/i-quieter/SKILL.md`, `skills-impeccable/i-typeset/SKILL.md`
-
 Detection callers (scan for severity labels, don't read findings file):
 - `skills/mine-build/SKILL.md`
 
-To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/ ${CLAUDE_CONFIG_DIR:-~/.claude}/skills-impeccable/ --include='*.md' -l`
+To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/ --include='*.md' -l`

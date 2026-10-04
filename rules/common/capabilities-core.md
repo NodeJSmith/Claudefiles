@@ -27,10 +27,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "decompose this", "find decomposition opportunities", "what should I split", "break this apart", "this file is too big", "split opportunities", "extract candidates", "find god classes" | `/mine-decompose` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine-research` |
 | "prior art", "how do others do this", "what patterns exist", "industry standards for X" | `/mine-prior-art` |
-<!-- NOTE: "design this UI" = visual direction (i-teach-impeccable); "design this change" = architecture doc (design) -->
-| "mockup this UI", "show me what it looks like", "HTML mockup", "UI preview", "generate a mockup" | `/mine-mockup` |
 | "eli5", "explain like I'm 5", "eli5 this", "explain like I'm five", "dead-simple picture explainer" | `/mine-eli5` |
-| "visual QA", "screenshot review", "review the UI visually", "take screenshots and find issues", "UX review" | `/mine-visual-qa` |
 | "audit permissions", "reduce permission prompts" | `/mine-permissions-audit` |
 | "status", "where am I", "quick summary" | `/mine-status` |
 | "prepare to compact", "running low on context" | `/mine-pre-compact` |
@@ -39,19 +36,15 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "evaluate this repo", "should I use this library" | `/mine-eval-repo` |
 | "how does X work", "walk me through", "explain this subsystem", "explain how", "trace the flow" | `/mine-how` |
 | "document how X works", "write up how this works", "durable explanation", "explain this for the docs", "document this subsystem" | `/mine-document` |
-| "teach me", "help me learn a new topic", "lesson on", "tutorial on" | `/mine-teach` (not for explaining code in the current repo — that's mine-how or mine-document) |
 | "why is this code like this", "why does this exist", "why was this built this way", "decision rationale", "what's the history behind" | `/mine-why` |
-| "mutation test", "do my tests actually catch bugs" | `/mine-mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine-tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine-grill` |
-| "create product context", "generate product.md", "set up product context", "document this product", "update product context" | `/mine-product` |
 | "domain model", "glossary", "sharpen terminology", "define this term", "what does X mean in this codebase", "ubiquitous language", "record an architectural decision" | `/mine-domain-model` |
 | "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine-define` |
 | "specify this feature", "write a spec", "define requirements" | `/mine-define` |
 | "sketch this out", "sketch this feature", "lightweight plan", "structured but lightweight", "decision ledger", "build the ratified ledger" | `/mine-sketch` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine-build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine-define` |
-| "wayfinder", "chart this effort", "too big for one session", "multi-session plan", "foggy effort", "progressive discovery" | `/mine-wayfinder` |
 | "draft a plan", "create work packages", "generate WPs", "create task files" | `/mine-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine-plan` |
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine-orchestrate` |
@@ -62,12 +55,8 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "review this PR", "review PR <number>", "review someone else's PR", "review their branch", "review the PR for <branch>" | `/mine-review-pr` |
 | "create a skill", "write a skill", "new skill" | `/mine-write-skill` |
 | "clean code check", "style review", "LLM smell check", "nitpick this", "style check", "code hygiene", "find style sins", "nitpicker review", "anal retentive review", "exhaustive style review", "no-filter style report" | `/mine-clean-code` |
-| "simplify this codebase", "find simplification opportunities", "where can I simplify", "code judo this", "judo this module", "find structural simplifications", "what can I collapse", "reduce complexity in this code" | `/mine-simplify` |
 | "what would a v2 look like", "how would we rebuild this", "next iteration of this design", "what improvements are we skipping", "what would a mature version look like", "what are we not considering here", "how would we make this more robust", "sophistication ceiling", "elevate this subsystem" | `/mine-elevate` |
 | "humanize this", "unslop this", "de-slop this", "fix AI writing", "remove AI tells", "clean up AI prose" | `/mine-humanize` |
-| "mine fragments", "explore writing", "raw material", "capture fragments", "start writing an article", "gather raw material for an article" | `/mine-fragments` |
-| "shape this article", "write paragraph by paragraph", "shape this writing", "structure this material" | `/mine-shape` |
-| "write in beats", "beat by beat", "choose your own adventure writing", "journey-style article" | `/mine-beats` |
 | "write this up", "write up for my boss", "summarize this for leadership", "executive summary", "distill this research", "write a summary for leadership" | `/mine-writeup` |
 <!-- NOTE: "write up how this works" → mine-document (explain a subsystem). "write this up" → mine-writeup (distill research for an audience). -->
 

@@ -1,6 +1,6 @@
 # CLI Output — Reference
 
-Detailed dimensions for assessing CLI tool output quality. Referenced by SKILL.md.
+Detailed dimensions for assessing CLI tool output quality.
 
 ---
 
