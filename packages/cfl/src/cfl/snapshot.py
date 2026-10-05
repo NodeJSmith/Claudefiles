@@ -16,11 +16,9 @@ import yaml
 import cfl.output as output_module
 from cfl.run import task_id_sort_key
 
-# Canonical FR/AC definition rule: ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-doc-format.md
-# (FR/AC Definition). A bolded ID counts only when it starts a hyphen-bulleted
-# Markdown list item and is followed by whitespace and text; that doc's example
-# blocks are run through these patterns by tests/test_snapshot.py. Any other
-# design-doc parser must apply this same rule.
+# FR/AC definition rule: a bolded ID counts only when it starts a
+# hyphen-bulleted Markdown list item and is followed by whitespace and text.
+# Any other design-doc parser must apply this same rule.
 _FR_PATTERN = re.compile(r"^\s*-\s+\*\*FR#(\d+)\*\*\s+(.*)")
 _AC_PATTERN = re.compile(r"^\s*-\s+\*\*AC#(\d+)\*\*\s+(.*)")
 _SCOPE_MODE_PATTERN = re.compile(r"\*\*Scope-mode:\*\*\s*(\S+)", re.IGNORECASE)

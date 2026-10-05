@@ -37,36 +37,36 @@ def transcript(tmp_path: Path, entries: list[dict]) -> Path:
 
 def test_slash_followed_by_tool_call_counts_once_in_total(tmp_path: Path) -> None:
     path = transcript(
-        tmp_path, [slash("mine-build"), skill_body(), skill_call("mine-build")]
+        tmp_path, [slash("mine-sketch"), skill_body(), skill_call("mine-sketch")]
     )
 
     total, tool, slash_counts = count_invocations([path])
 
-    assert total["mine-build"] == 1
-    assert tool["mine-build"] == 1
-    assert slash_counts["mine-build"] == 1
+    assert total["mine-sketch"] == 1
+    assert tool["mine-sketch"] == 1
+    assert slash_counts["mine-sketch"] == 1
 
 
 def test_same_skill_in_separate_turns_counts_each(tmp_path: Path) -> None:
     path = transcript(
         tmp_path,
         [
-            slash("mine-build"),
-            skill_call("mine-build"),
+            slash("mine-sketch"),
+            skill_call("mine-sketch"),
             tool_result("ok"),
             user("next request"),
-            skill_call("mine-build"),
+            skill_call("mine-sketch"),
         ],
     )
 
     total, _, _ = count_invocations([path])
 
-    assert total["mine-build"] == 2
+    assert total["mine-sketch"] == 2
 
 
 def test_tool_result_quoting_an_invocation_is_not_counted(tmp_path: Path) -> None:
     path = transcript(
-        tmp_path, [tool_result("<command-name>/mine-build</command-name>")]
+        tmp_path, [tool_result("<command-name>/mine-sketch</command-name>")]
     )
 
     total, tool, slash_counts = count_invocations([path])

@@ -35,10 +35,6 @@ After completing a review, create or update that same file — but only if the e
 
 **Keep it prunable:** date each entry (`<!-- YYYY-MM-DD -->`), remove stale ones, stay under 100 lines. A bloated MEMORY.md stops being useful.
 
-## Invocation patterns
-- **Orchestrate pipeline** (`mine-orchestrate`): passes explicit file list in prompt — use that list, skip the self-discovery cascade
-- **Ship / commit-push / review / manual**: no file list provided — use the self-discovery cascade in Step 1
-
 ## Review Dimensions
 
 | # | Category | Severity | What to find |
@@ -46,7 +42,7 @@ After completing a review, create or update that same file — but only if the e
 | 1 | **Duplication** | CRITICAL | Re-implements existing functionality |
 | 2 | **Misplacement** | HIGH | File or class in wrong layer/directory |
 | 3 | **Interface inconsistency** | HIGH | Different signature style, return type pattern, or error handling than similar functions |
-| 4 | **Design violation** | HIGH | Conflicts with `design.md` architectural decisions (caliper features) |
+| 4 | **Design violation** | HIGH | Conflicts with a sketch ledger's (`design.md`) ratified decisions |
 | 5 | **Naming drift** | MEDIUM | Doesn't match naming conventions used by sibling files/functions |
 | 6 | **Orphaned code** | LOW | Added but never imported or called |
 | 7 | **Unexpected coupling** | MEDIUM | New cross-module dependency that violates layer boundaries |
@@ -67,7 +63,7 @@ If the invoker provided an explicit file list in the prompt, use that and skip t
 Otherwise, get the list of changed files, trying each fallback in order:
 
 ```bash
-# 1. Uncommitted changes (staged + unstaged) — catches files during orchestrate before commit
+# 1. Uncommitted changes (staged + unstaged) — catches files before commit
 git diff --name-only HEAD
 ```
 
@@ -106,16 +102,16 @@ Read each changed file in full.
 
 **Module REVIEW.md files** — find applicable `REVIEW.md` files. If Step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
-**Design doc (caliper features)** — check for a design doc matching the current branch:
+**Design doc (sketch ledgers)** — check for a design doc matching the current branch:
 
 1. Get the current branch name:
    ```bash
    git branch --show-current
    ```
 2. Glob for `design/specs/*/design.md`. If any exists, pick the most recently modified one whose directory name relates to the current branch name (slug match). If there's only one, use it.
-3. If a design.md is found, read it in full. Also read all task files (`tasks/T*.md` or `tasks/WP*.md`) in the same directory. These define the intended architecture — deviations are design violations.
+3. If a design.md is found, read it in full. Its decisions define the intended architecture — deviations are design violations.
 4. If no design.md is found, proceed without it and mark dimension 4 as N/A.
-5. If the design.md's `**Status:**` is `archived` or `abandoned`, also mark dimension 4 as N/A — a terminal-status design doc no longer constrains new work; treat it as settled history instead.
+5. If the design.md's `**Status:**` is `built`, `archived`, or `abandoned` (the terminal set in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), also mark dimension 4 as N/A — a terminal-status design doc no longer constrains new work; treat it as settled history instead.
 
 ---
 
@@ -307,7 +303,6 @@ Group findings by severity (CRITICAL first), then by file.
 
 After all findings, print a summary table:
 
-<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ```
 ## Integration Review Summary
 
@@ -345,15 +340,6 @@ After all findings, print a summary table:
 Report any issue you find in the code under review, regardless of whether this diff introduced it. This applies to any issue in a file you read in full during review, not only lines the diff touches. Do not dismiss findings as "pre-existing" or "out of scope." Note when it was introduced if you know, but do not use that as a reason to omit it.
 
 ---
-
-<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
-## Concise-Return Mode
-
-When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
-- Write the full report to the provided output file path
-- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)`) as your final message
-
-In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default. Callers such as `/mine-review`, `/mine-ship`, `/mine-commit-push`, `/mine-build`, and `/mine-address-pr-issues` do not supply the token and always receive the full report.
 
 ## What This Agent Does NOT Do
 

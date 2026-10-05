@@ -8,11 +8,11 @@ Unit, integration, and E2E tests all required.
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
-Code and its unit tests ship together. In any repo with test infrastructure, every change that introduces or modifies functional code must include corresponding unit tests in the same commit (or the same WP in the caliper workflow). Integration tests may follow in a subsequent WP, but unit tests may not be deferred.
+Code and its unit tests ship together. In any repo with test infrastructure, every change that introduces or modifies functional code must include corresponding unit tests in the same commit. Integration tests may follow in a later commit, but unit tests may not be deferred.
 
 Exemptions: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic.
 
-<!-- SYNC: This exemption list is inlined in skills/mine-implementation-review/reviewer-prompt.md (item 7 FAIL criteria). Update both when changing. skills/mine-plan/SKILL.md and skills/mine-ship/SKILL.md reference this list by name. -->
+<!-- skills/mine-commit-push/SKILL.md references this list by name. -->
 
 ## Test-Driven Development
 

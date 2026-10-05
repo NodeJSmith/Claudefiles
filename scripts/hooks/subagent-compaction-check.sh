@@ -3,19 +3,16 @@
 #
 # After each Agent tool invocation, scans the subagent's JSONL file for
 # compact_boundary entries. If found, injects a warning into the parent's
-# context so the orchestrator knows the subagent hit its context window limit.
+# context so the parent session knows the subagent hit its context window limit.
 #
 # This matters because compaction degrades reasoning quality — a subagent that
 # compacted mid-task may have lost file references, prior decisions, or test
-# output context. The orchestrator can then decide whether to re-run with a
+# output context. The parent can then decide whether to re-run with a
 # smaller scope or flag the task as potentially degraded.
 #
 # State file: ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-subagent-compaction-<session_id>.txt
 #   Tracks which subagent files have already been reported to avoid duplicate
 #   warnings across multiple Agent tool calls in the same session.
-#
-# See also: skills/mine-orchestrate/SKILL.md "Resuming after context compaction"
-#   for parent-compaction handling (a separate concern from subagent compaction).
 #
 # Hook wiring (settings.json):
 #   "PostToolUse": [{

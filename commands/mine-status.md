@@ -35,22 +35,6 @@ Look for error files in `/tmp/claude-claude-errors-*/errors.md` (glob for direct
 
 <!-- Error files are produced by /mine-debug — the skill owns the error-tracking contract and writes to this path at each fix attempt. -->
 
-### Spec Run Status (Bash)
-
-Check for task files and run status:
-
-```bash
-find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null
-```
-
-If any task files are found, also run:
-
-```bash
-cfl run status 2>/dev/null
-```
-
-If either command is not found, exits non-zero, or returns no output, skip this section silently. When run status is returned, include a summary in the status block.
-
 ## Output Format
 
 Print a compact status block. Use exactly this structure, omitting sections that have no data:
@@ -69,8 +53,6 @@ Errors (<N> this session):
   - <short description> — Attempt N, <Next value>
 
 Last commit: <subject> (<relative time>)
-
-<checkpoint summary, if any task files found>
 ```
 
 ### Rules
@@ -79,5 +61,4 @@ Last commit: <subject> (<relative time>)
 - Show at most 8 tasks. If more exist, append `  ... and N more`
 - For errors, show only unresolved entries (no "Resolved:" in Next). If all resolved, show `Errors: all resolved`
 - If no tasks, no errors, and no git — just print `No active context.`
-- If no task files are found (no `T*.md` in `design/specs/*/tasks/`), omit the task section entirely
 - Do NOT use subagents, code blocks, or headers. Plain text only.

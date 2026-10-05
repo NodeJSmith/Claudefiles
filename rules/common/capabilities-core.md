@@ -40,16 +40,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine-tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine-grill` |
 | "domain model", "glossary", "sharpen terminology", "define this term", "what does X mean in this codebase", "ubiquitous language", "record an architectural decision" | `/mine-domain-model` |
-| "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine-define` |
-| "specify this feature", "write a spec", "define requirements" | `/mine-define` |
-| "sketch this out", "sketch this feature", "lightweight plan", "structured but lightweight", "decision ledger", "build the ratified ledger" | `/mine-sketch` |
-| "build this", "implement this", "make this change", "start a feature" | `/mine-build` |
-| "design this change", "write a design doc", "investigate before planning" | `/mine-define` |
-| "draft a plan", "create work packages", "generate WPs", "create task files" | `/mine-plan` |
-| "review this plan", "check the plan", "plan review" | `/mine-plan` |
-| "execute the plan", "orchestrate implementation", "start executing" | `/mine-orchestrate` |
-| "review the implementation", "post-implementation review" | `/mine-orchestrate` (impl-review runs automatically in Phase 3) |
-| "archive completed specs", "clean up old WPs", "remove working documents", "one-time cleanup of design files" | `cfl archive` |
+| "sketch this out", "sketch this feature", "spec this out", "design this change", "lightweight plan", "structured but lightweight", "decision ledger", "build the ratified ledger" | `/mine-sketch` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine-review` |
 | "readability review", "maintainability review", "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module", "review this skill", "review these instructions" | `/mine-review` |
 | "review this PR", "review PR <number>", "review someone else's PR", "review their branch", "review the PR for <branch>" | `/mine-review-pr` |
@@ -83,11 +74,9 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "stale review questions", "REVIEW.md staleness", "review questions affected by this branch" | `check-review-questions` |
 | "missing review questions", "REVIEW.md coverage", "modules without review questions" | `check-review-coverage` |
 | "which REVIEW.md applies", "find applicable review questions for this diff" | `find-review-md` |
-| "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
-| "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
 | "did the opencode sync actually work", "are subagents running at the right effort", "check subagent variants", "did the variant resolve", "audit opencode variants" | `opencode-variant-audit` |
-| "spec status", "run status", "orchestration status", "what tasks are left" | `cfl run status` |
-| "query orchestration data", "pipeline effectiveness", "gate blocking rate" | `cfl` |
+| "spec status", "run status" | `cfl run status` |
+| "query cfl data", "gate blocking rate" | `cfl` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-api logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-api pr` |

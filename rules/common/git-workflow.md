@@ -43,7 +43,7 @@ Code review and challenge are **orthogonal quality gates** with different scopes
 
 A green code review does not mean challenge is unnecessary. A green test suite is necessary but not sufficient — tests verify expected behavior, not unexpected behavior.
 
-Challenge is mandatory in orchestration workflows (`mine-define`, `mine-sketch` in both sketch and build mode, `mine-orchestrate`). It runs automatically at defined points and cannot be declined.
+Challenge is mandatory in `mine-sketch`, at sketch time and again at build time. It runs automatically at defined points and cannot be declined.
 
 The failure mode to watch for: offering the user a "skip the challenge" option to reduce friction, or treating a green code review plus a green test suite as sufficient and advancing to the next phase without it. Do not present challenge as a choice. If you are about to ask whether to run it, run it instead.
 
@@ -57,18 +57,6 @@ When creating issues, match the conventions already in use in the repo:
 4. **Pass the body as a file, never as a shell argument.** Write the body to a temp file and hand that file to the tracker's `--body-file`/`--description-file` flag, or its stdin equivalent. Issue bodies are multi-line Markdown; interpolating one into a shell argument mangles quotes, backticks, and other metacharacters. This holds on every tracker — the flag's name changes, the requirement doesn't.
 
 When in doubt about which milestone or labels to use, ask the user.
-
-## Task File Cleanup
-
-Before committing changes (whether via `/mine-ship`, `/mine-commit-push`, `/mine-create-pr`, or a manual commit), check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`.
-
-**No output → nothing to do.** If the `find` prints nothing (no task files exist, or `design/specs/` doesn't exist), skip this section entirely and continue with the commit.
-
-**Output → archive before committing.** If task files exist, run `cfl archive --dry-run`. If the output has `"status": "would_archive"`, run `cfl archive` to remove `tasks/` directories and set `**Status:** archived` in the preserved `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes.
-
-Task files must never reach a PR. Git history preserves the full content.
-
-Archiving freezes `design.md`. Once `**Status:**` is `archived`, drift between it and the code is expected, not a defect to fix by editing the doc — see the `## Addendum` convention in `skills/mine-define/design-template.md` (or `skills/mine-sketch/design-template.md`).
 
 ## Worktree Baseline Testing
 
@@ -94,4 +82,4 @@ A PR description is read by someone with zero session context: a reviewer today,
 
 **Terse is not the same as vague.** A description that omits the actual reasoning ("Fix bug," "various improvements," "Phase 1") is the mirror-image failure — cut the narration, never the rationale itself.
 
-This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule when drafting the body — `skills/mine-create-pr/worker.md` Step 5 mirrors it for the drafting agent, so an edit to one should check the other stays in sync.
+This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule when drafting the body — `skills/mine-create-pr/worker.md` Step 4 mirrors it for the drafting agent, so an edit to one should check the other stays in sync.

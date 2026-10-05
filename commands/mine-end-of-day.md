@@ -36,9 +36,8 @@ Run in parallel where possible:
 - `git log --oneline -8`
 - `git diff --stat` (uncommitted changes)
 
-### Tasks (Tool + Bash)
+### Tasks (Tool)
 - TaskList — any tracked tasks in this session
-- `find <toplevel>/design/specs -path '*/tasks/T*.md' -print 2>/dev/null | head -20`
 
 ### Tmux (Bash)
 - `claude-tmux current` — skip if not in tmux
@@ -56,7 +55,7 @@ Reflect on the entire conversation and write each section below. Brief a colleag
 7. **Key Files** — files central to the work, one-line note on each.
 8. **Next Steps** — ordered list. First item should be immediately actionable.
 
-If the conversation is thin (skill invoked early in a session), lean on git state and task files instead of narrative.
+If the conversation is thin (skill invoked early in a session), lean on git state and any design ledger (`design/specs/*/design.md`) instead of narrative.
 
 ## Step 4: Write the File
 

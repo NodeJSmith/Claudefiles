@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-05
+
+### Removed
+
+- The define → plan → orchestrate pipeline is retired: `mine-define`, `mine-plan`, `mine-orchestrate`, `mine-implementation-review`, and `mine-build` are deleted, along with `spec-reviewer`, `agent-stats`, `orchestrate-cost`, and their references and tests. `mine-sketch` owns the whole path, including known-issues tracking, and `tests/test_retired_pipeline.py` guards against references to the removed components. After merging, run `uv run install.py` on each machine to remove the stale symlinks, and stop any open define/plan/orchestrate cfl runs with `cfl run stop`. (#617)
+
 ## 2026-10-04
 
 ### Removed

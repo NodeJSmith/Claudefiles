@@ -1,6 +1,3 @@
-<!-- SYNC: skills/mine-orchestrate/retry-prompt.md — mental stance, response protocol, YAGNI check,
-     and push-back protocol must be kept in sync. When updating either file, update both. -->
-
 # Receiving Code Review
 
 When code review findings arrive — from `code-reviewer`, `integration-reviewer`, or a human reviewer — evaluate before acting. Reviewers catch real issues. Reviewers also make mistakes.

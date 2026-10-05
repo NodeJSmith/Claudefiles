@@ -18,8 +18,8 @@
 #             three-dot diff against this ref.
 #   --paths   Read repo-relative file paths from stdin (one per line)
 #             instead of discovering them — for a caller that already has
-#             an explicit, scoped file list (mine-review path mode, the
-#             orchestrate pipeline) and must not let this script's own
+#             an explicit, scoped file list (mine-review path mode,
+#             integration-reviewer) and must not let this script's own
 #             fallback cascade substitute an unrelated diff.
 #
 # Output (stdout): one REVIEW.md path per line, repo-relative, deduped.

@@ -85,7 +85,7 @@ AskUserQuestion `question` text. This lets the user decide whether to continue
 or clear context and resume.
 
 **Major gates** (always show context):
-- Shipping/completion gates (mine-ship, mine-orchestrate post-execution)
+- Shipping/completion gates (mine-ship, mine-sketch build completion)
 - Known issues walkthrough and backlog gates
 - Task failure/blocked decisions (try again / stop)
 - Review and challenge finding walkthroughs

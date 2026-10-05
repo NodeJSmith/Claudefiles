@@ -129,7 +129,7 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Build top opportunity"
-      description: "Implement the highest-priority decomposition via /mine-build"
+      description: "Implement the highest-priority decomposition now"
     - label: "File as issues"
       description: "Create issues for the decomposition opportunities"
     - label: "Save report"
@@ -138,11 +138,11 @@ AskUserQuestion:
       description: "Acknowledged — no action this session"
 ```
 
-If the user chooses "Build top opportunity", invoke `/mine-build` with a description of the decomposition. If "File as issues", create one issue per HIGH/MEDIUM opportunity in the project's issue tracker. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`.
+If the user chooses "Build top opportunity", implement the split now. If "File as issues", create one issue per HIGH/MEDIUM opportunity in the project's issue tracker. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`.
 
 ## What This Skill Does NOT Do
 
-- **Implement splits** — diagnosis only. Fixes flow through `/mine-build`
+- **Implement splits** — diagnosis only, until the user picks "Build top opportunity"
 - **Replace `/mine-audit`** — audit covers broad codebase health. This focuses specifically on decomposition
 - **Suggest micro-extractions** — a clear, cohesive 30-line function stays as-is even if 3 lines could be extracted
 - **Profile runtime performance** — complexity here is structural, not runtime

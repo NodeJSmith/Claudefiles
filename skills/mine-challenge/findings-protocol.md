@@ -206,16 +206,12 @@ findings in order.
 
 **Design-doc targets.** When the target type is `design-doc` (see
 `skills/mine-challenge/SKILL.md`'s target-type table), every edit below —
-Auto-apply, User-directed, and TENSION alike — follows the Content Rules of
-the template that produced the doc:
-`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` when
-the doc's header has `**Mode:** sketch`, otherwise
-`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-template.md`. In
+Auto-apply, User-directed, and TENSION alike — follows the Content Rules in
+`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`. In
 particular, don't restate a fact that already lives elsewhere in the doc —
-cite its existing home instead. In a `mine-define` doc, keep ACs nested under
-their FR. In a sketch ledger, a finding that adds or changes a decision edits
-that decision's `### D<n>` block and sets its `**Ratified:**` line back to
-`pending`, so the sketch re-ratifies it.
+cite its existing home instead. In a sketch ledger, a finding that adds or
+changes a decision edits that decision's `### D<n>` block and sets its
+`**Ratified:**` line back to `pending`, so the sketch re-ratifies it.
 
 **Show the reasoning before every question.** Before each User-directed and
 TENSION `AskUserQuestion` below, write the finding's `**Deciding-factor:**`,

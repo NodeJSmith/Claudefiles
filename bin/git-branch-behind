@@ -3,7 +3,7 @@
 #
 # Catches the "I forgot to pull latest main before starting" mistake: it
 # fetches the default branch from origin and counts how many commits HEAD is
-# behind it. A long unattended run (e.g. a 12-hour orchestrate) that starts on
+# behind it. A long unattended run (e.g. a multi-hour build) that starts on
 # a stale base only discovers the staleness when work conflicts — this surfaces
 # it in the first second instead.
 #

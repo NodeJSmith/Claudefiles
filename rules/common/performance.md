@@ -67,7 +67,6 @@ The `(do not downgrade; ...)` annotations below are pulled from a trailing comme
 - `agents/qa-specialist.md` — sonnet, medium
 - `agents/researcher.md` — opus, high
 - `agents/secrets-auditor.md` — haiku, high
-- `agents/spec-reviewer.md` — sonnet, medium
 - `agents/standard-worker.md` — sonnet, medium
 - `agents/testing-reality-checker.md` — sonnet, medium (do not downgrade; pre-ship safety gate)
 - `agents/writing-quality-reviewer.md` — sonnet, medium

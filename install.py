@@ -122,7 +122,6 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "nitpicker",
                 "researcher",
                 "secrets-auditor",
-                "spec-reviewer",
                 "standard-worker",
                 "writing-quality-reviewer",
                 "wtf-reviewer",

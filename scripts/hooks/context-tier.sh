@@ -16,7 +16,7 @@
 # Heartbeat: even when the tier hasn't changed, re-inject the message every
 # N tool calls (default 25, override via CLAUDE_CONTEXT_HEARTBEAT). This
 # prevents the reassurance from scrolling out of context during long
-# orchestrations, which caused Claude to fabricate context pressure and skip
+# sessions, which caused Claude to fabricate context pressure and skip
 # code reviews in practice.
 #
 # Hook wiring: registered as a separate "PreToolUse" entry with matcher "*" in

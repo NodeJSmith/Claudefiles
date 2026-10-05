@@ -116,7 +116,7 @@ A bug you cannot reproduce, you cannot prove fixed. Reproduce it yourself before
 **Defined in:** `rules/common/debugging-discipline.md`
 
 #### "Pre-existing" Means Verified Against the Default Branch
-Before calling something "pre-existing," "baseline," or "not introduced by this change," verify it against the actual default branch per the procedure in `rules/common/pre-existing-verification.md` (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one) — not a stash, an orchestration run's `base_commit`, or an earlier commit on the same branch. Those are real but narrower claims; state them as such instead. This applies to claims that a failure or issue predates the change, not to routine uses of "baseline" as a captured measurement snapshot (test/lint baselines, screenshot baselines, performance traces).
+Before calling something "pre-existing," "baseline," or "not introduced by this change," verify it against the actual default branch per the procedure in `rules/common/pre-existing-verification.md` (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one) — not a stash, a run's captured starting commit, or an earlier commit on the same branch. Those are real but narrower claims; state them as such instead. This applies to claims that a failure or issue predates the change, not to routine uses of "baseline" as a captured measurement snapshot (test/lint baselines, screenshot baselines, performance traces).
 **Defined in:** `rules/common/pre-existing-verification.md`
 
 #### Pause Safely on Unplanned Interruption
@@ -143,8 +143,8 @@ Every error recovery path (`except` that doesn't re-raise) and external I/O boun
 When code review findings arrive, verify each against the actual code before implementing. Reviewers make mistakes. Grep for suggested abstractions — if no callers exist outside the changed files, skip it.
 **Defined in:** `references/common/receiving-code-review.md`
 
-#### Mandatory Challenge in Orchestration
-Challenge runs at design-time (`mine-define`), sketch-time (`mine-sketch`), and ship-time (`mine-orchestrate`, and `mine-sketch`'s build mode) in orchestration workflows. It is not offered as an option and cannot be skipped.
+#### Mandatory Challenge in Sketch
+Challenge runs at sketch time and at ship time in `mine-sketch`'s build mode. It is not offered as an option and cannot be skipped.
 **Defined in:** `rules/common/git-workflow.md`
 
 ### Consider

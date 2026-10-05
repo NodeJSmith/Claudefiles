@@ -1,6 +1,6 @@
 ---
 name: mine-clean-code
-description: "Use when the user says: \"clean code check\", \"style review\", \"LLM smell check\", \"code hygiene\", \"nitpick this\", \"style check\", \"find style sins\", \"nitpicker review\", \"anal retentive review\", \"exhaustive style review\", \"no-filter style report\". Dispatches three parallel stylistic checkers — llm-checker (training-bias patterns), lazy-checker (deferred debt), and nitpicker (style hygiene) — and consolidates findings into a report organized by checker with a Summary section for orchestration consumption."
+description: "Use when the user says: \"clean code check\", \"style review\", \"LLM smell check\", \"code hygiene\", \"nitpick this\", \"style check\", \"find style sins\", \"nitpicker review\", \"anal retentive review\", \"exhaustive style review\", \"no-filter style report\". Dispatches three parallel stylistic checkers — llm-checker (training-bias patterns), lazy-checker (deferred debt), and nitpicker (style hygiene) — and consolidates findings into a report organized by checker with a Summary section."
 user-invocable: true
 opencode-command: true
 ---
@@ -88,8 +88,6 @@ Organize by checker, not severity. Summary table:
 ```
 
 Then checker sections with grouped findings, each tagged `(in scope)` / `(out of scope)` per the classification above (diff mode only — path-mode findings carry no scope tag, since Scope classification skips them entirely). Each finding includes the proposed fix — the specific edit that would be applied. The user decides what to fix based on seeing both the problem and the proposed edit. Likely-invalid findings in a separate section with Claimed/Actually/Why-invalid fields.
-
-When invoked from `mine-orchestrate`, write `clean-code-summary.md` with `<!-- HEAD: <short-sha> -->` header followed by a narrative of what was fixed and what was left.
 
 ### Next steps
 

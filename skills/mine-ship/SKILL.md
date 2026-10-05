@@ -25,18 +25,7 @@ Follow **all steps in `mine-commit-push`** exactly (read `${CLAUDE_CONFIG_DIR:-~
 
 **Skip this phase if the branch diff contains only instruction files (`.md`).** Clean-code checkers are for code, not prose. Instruction files are already covered by mine-review's instruction-mode reviewers in Phase 1.
 
-After Phase 1 completes (changes committed and pushed), check for a prior clean-code run:
-
-```bash
-find /tmp -maxdepth 2 -name 'clean-code-summary.md' -path '*/claude-mine-orchestrate-*' 2>/dev/null | xargs -r ls -t 2>/dev/null | head -5
-```
-
-For each match, most recent first, read its first line's recorded SHA (`<!-- HEAD: <sha> -->`) and check it against the current HEAD (`git rev-parse --short HEAD`):
-
-- **Exact match** — skip this phase with the note: "Stylistic review already completed."
-- **No exact match** — run `git diff --name-only <recorded-sha> HEAD`. If that command fails (the recorded SHA doesn't resolve here — e.g. a stale match from an unrelated repo sharing `/tmp`, or history rewritten since), treat this candidate as not satisfying and move to the next match. If it succeeds and every changed file is one a style check wouldn't evaluate — a lockfile (`*.lock`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.sum`) or a `known-issues.md` (any path) — skip this phase with the note: "Only lockfile/known-issues changes since the last stylistic review — skipping."
-
-If no candidate satisfies either condition, run `/mine-clean-code` on the branch diff. Note: prior-run detection only applies when mine-orchestrate ran mine-clean-code. Manual mine-clean-code runs are not detected.
+After Phase 1 completes (changes committed and pushed), run `/mine-clean-code` on the branch diff.
 
 When mine-clean-code presents its own next-steps prompt, choose "Note and move on" — this phase handles the fix/skip/stop decision.
 
@@ -69,4 +58,4 @@ If any checker subagent fails to complete, skip that checker's findings and note
 
 ### Phase 2 — Create PR
 
-Follow **all steps in `mine-create-pr`** exactly (read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, changelog entry + PR-number annotation, ready transition). Phase 1 already committed and pushed (so create-pr's push check passes) and already archived task files (so its archival step finds nothing and skips silently). Return the PR URL it produces.
+Follow **all steps in `mine-create-pr`** exactly (read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, changelog entry + PR-number annotation, ready transition). Phase 1 already committed and pushed, so create-pr's push check passes. Return the PR URL it produces.

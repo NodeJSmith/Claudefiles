@@ -6,7 +6,7 @@ user-invocable: true
 
 # Grill
 
-Multi-angle interrogation of a raw idea. Attacks the idea from product, design, engineering, and adversarial perspectives to surface what you haven't thought about. Produces a structured brief that `/mine-define` can ingest.
+Multi-angle interrogation of a raw idea. Attacks the idea from product, design, engineering, and adversarial perspectives to surface what you haven't thought about. Produces a structured brief that `/mine-sketch` can take as input.
 
 Not a spec. Not a design doc. A thinking tool.
 
@@ -67,7 +67,7 @@ Work through these lenses one at a time. For each lens, ask 1-3 questions — on
 
 **You do not need to ask every question.** Skip any that are obvious, already answered, or where the codebase provides the answer. The goal is to find the 5-8 questions the user hasn't thought about, not to run a checklist.
 
-After each answer, walk down any decision branches it opens — same pattern as adaptive follow-up in `/mine-define`. If an answer reveals something the codebase can inform, check the code before asking the next question.
+After each answer, walk down any decision branches it opens — follow each thread until it settles before moving to the next lens. If an answer reveals something the codebase can inform, check the code before asking the next question.
 
 ---
 
@@ -99,7 +99,7 @@ Write to `<feature_dir>/brief.md`:
 
 ## Open Questions
 
-<Anything that came up but couldn't be resolved — these feed directly into /mine-define>
+<Anything that came up but couldn't be resolved — these become decisions when the brief feeds /mine-sketch>
 
 ## Scope Boundaries
 
@@ -118,26 +118,26 @@ Write to `<feature_dir>/brief.md`:
 
 ## Phase 4: Handoff
 
-Ask `"Brief saved. What next?"` (header `Handoff`), building the options from the brief you just wrote. If its Open Questions would change the scope or approach, resolving them is the natural next step, so lead with that and recommend it. Challenge, define, and build would each stall on those questions or bake in a guess, and build in particular is premature. When the open questions are minor or empty, lead with whichever downstream step fits the size and risk of the feature. Name the actual questions or risks in the descriptions. Keep "Done for now" available.
+Ask `"Brief saved. What next?"` (header `Handoff`), building the options from the brief you just wrote. If its Open Questions would change the scope or approach, resolving them is the natural next step, so lead with that and recommend it. Challenge, sketch, and building directly would each stall on those questions or bake in a guess. When the open questions are minor or empty, lead with whichever downstream step fits the size and risk of the feature. Name the actual questions or risks in the descriptions. Keep "Done for now" available.
 
 - **Resolve the open questions**: keep grilling on just those questions, update the brief's Open Questions, Key Decisions, and Scope sections with the answers, then return to this gate
 - **Challenge this brief first**: run `/mine-challenge`; the brief shapes everything downstream
-- **Specify this feature**: run `/mine-define` with this brief as input
-- **Build it directly**: run `/mine-build`, which routes based on complexity
+- **Sketch it (`/mine-sketch`)**: turn the brief into a decision ledger, with the brief as input
+- **Build it directly**: implement it now, for a small feature whose brief left nothing to decide
 - **Done for now**: brief saved; pick it up later
 
 ### On "Challenge this brief first"
 
 Invoke `/mine-challenge --target-type=brief <feature_dir>/brief.md`. After challenge completes, loop back to this handoff gate.
 
-### On "Specify"
+### On "Sketch it"
 
-Invoke `/mine-define <feature_dir>`
+Invoke `/mine-sketch <feature_dir>`. Sketch reads the brief as prior work and writes its ledger in the same directory.
 
 ### On "Build it directly"
 
-Invoke `/mine-build <feature_dir>`
+Implement the change described in `<feature_dir>/brief.md`, through the normal pre-commit reviewers.
 
 ### On "Done for now"
 
-Confirm: "Brief saved at `<feature_dir>/brief.md`. Resume with `/mine-define <feature_dir>` later."
+Confirm: "Brief saved at `<feature_dir>/brief.md`. Resume with `/mine-sketch <feature_dir>` later."

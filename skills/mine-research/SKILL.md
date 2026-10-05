@@ -13,9 +13,9 @@ Deep investigation of a codebase to evaluate a proposed change, new pattern, or 
 | Skill | Question it answers |
 |-------|-------------------|
 | **`/mine-research`** | **"What would it take to do X in this codebase?"** |
-| `/mine-define` | "How should we build X?" |
+| `/mine-sketch` | "How should we build X?" |
 
-Research comes **before** design docs and plans. It's the investigation that makes those possible.
+Research comes **before** a design. It's the investigation that makes one possible.
 
 ## Arguments
 
@@ -148,8 +148,8 @@ Include the options below that fit this brief, order them by fit, mark your reco
 
 - **Resolve the open questions**: work through the brief's Open Questions now (see below)
 - **Challenge these findings**: run `/mine-challenge` on the brief before committing to a direction
-- **Design it (`/mine-define`)**: formalize findings into a design doc, with the brief as prior work
-- **Build it (`/mine-build`)**: skip design, route straight to implementation
+- **Sketch it (`/mine-sketch`)**: turn the findings into a decision ledger, with the brief as prior work
+- **Build it**: skip design and implement now, when the brief leaves nothing to decide
 - **I need to think about it**: stop here; the brief is saved for later
 
 ### Resolving open questions
@@ -166,15 +166,15 @@ Update the brief at `<research_brief_path>` as answers land: check off each reso
 
 If "Challenge these findings" is selected: invoke `/mine-challenge --mode=passthrough --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
 
-If "Design it (/mine-define)" is selected: invoke `/mine-define` and pass `<research_brief_path>` so mine-define can use it as prior work and skip its own researcher dispatch.
+If "Sketch it (`/mine-sketch`)" is selected: invoke `/mine-sketch` with a one-line description of the change and "Prior research brief at `<research_brief_path>`", so sketch reads the brief as prior work.
 
-If "Build it (/mine-build)" is selected: invoke `/mine-build` with context: "Prior research brief available at `<research_brief_path>`." This ensures mine-build's prior-analysis detection fires reliably.
+If "Build it" is selected: implement the change now, using the brief at `<research_brief_path>` as the guide, through the normal pre-commit reviewers.
 
 ## Principles
 
 1. **Questions before code** — the user's first description of what they want is almost never the full picture.
 2. **Options, not prescriptions** — include a "do less" option when the proposal is ambitious.
-3. **Feeds forward** — the research brief should contain everything needed to write a design doc or create an implementation plan. No redundant investigation later.
+3. **Feeds forward** — the research brief should contain everything needed to write a design. No redundant investigation later.
 
 ## Common Rationalizations
 
@@ -187,8 +187,7 @@ If "Build it (/mine-build)" is selected: invoke `/mine-build` with context: "Pri
 
 ## What This Skill Does NOT Do
 
-- **Make decisions** — it informs them. Use `/mine-define` to formalize decisions.
-- **Plan implementations** — it assesses feasibility. Use `/mine-build` to route to the right implementation workflow.
-- **Write code** — it's pure investigation. No prototypes or scaffolding; a throwaway probe in the tmpdir to observe behavior is as far as it goes.
+- **Make decisions** — it informs them. Use `/mine-sketch` to settle and ratify them.
+- **Write code during the investigation** — no prototypes or scaffolding; a throwaway probe in the tmpdir to observe behavior is as far as it goes. Code gets written only after the next-step gate, if the user picks "Build it".
 - **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine-challenge` for general health assessment.
 - **Benchmark or profile** — it can identify likely performance concerns from code reading, but won't run benchmarks.

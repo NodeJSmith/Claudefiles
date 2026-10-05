@@ -4,7 +4,7 @@ tool: claude, antigravity
 
 # "Pre-existing" Means Verified Against the Default Branch, Nothing Else
 
-"Pre-existing," "baseline," "already broken," and "predates this change" get used as if they all point at the same reference: the repo's default branch (`main`, `master`, or whatever it's actually called — resolve it, never assume the name). They don't. Each of these is also routinely used to mean something narrower — the state before your own uncommitted edit, an orchestration run's captured starting point, an earlier commit on the same branch — and none of those prove the thing is actually on the default branch. Asserting the narrow claim while implying the broad one lets a regression you (or an earlier task in the same session) introduced get waved off as unrelated debt.
+"Pre-existing," "baseline," "already broken," and "predates this change" get used as if they all point at the same reference: the repo's default branch (`main`, `master`, or whatever it's actually called — resolve it, never assume the name). They don't. Each of these is also routinely used to mean something narrower — the state before your own uncommitted edit, a run's captured starting commit, an earlier commit on the same branch — and none of those prove the thing is actually on the default branch. Asserting the narrow claim while implying the broad one lets a regression you (or an earlier task in the same session) introduced get waved off as unrelated debt.
 
 ## The Failure Mode
 
@@ -12,7 +12,7 @@ The typical shape: a test fails, you stash your uncommitted fix to get a clean b
 
 ## The Rule
 
-When "pre-existing," "baseline," "already broken," or "doesn't need fixing here" is being used to claim a failure or issue predates the current change — in a report, a commit message, or a reply to the user — verify it against the actual default branch first, not against whatever reference point is closest at hand (a stash, an orchestration run's `base_commit`, an earlier commit on this same branch, "the file before I touched it"). This does not cover routine uses of "baseline" as a captured measurement snapshot unrelated to blame — an orchestration test/lint baseline, a screenshot baseline, a performance trace captured before an operation. Those aren't claims about the default branch and don't need this check.
+When "pre-existing," "baseline," "already broken," or "doesn't need fixing here" is being used to claim a failure or issue predates the current change — in a report, a commit message, or a reply to the user — verify it against the actual default branch first, not against whatever reference point is closest at hand (a stash, a run's captured starting commit, an earlier commit on this same branch, "the file before I touched it"). This does not cover routine uses of "baseline" as a captured measurement snapshot unrelated to blame — a test/lint baseline, a screenshot baseline, a performance trace captured before an operation. Those aren't claims about the default branch and don't need this check.
 
 **Never mutate the current working tree or index to run this check.** No `git stash`, `git reset`, `git checkout <default-branch>`, or switching the worktree's branch — ever, for this purpose alone. This has cost real work before: a stash or reset done to "just peek at main" can lose uncommitted changes if something goes wrong on the way back. Every command below is read-only and never touches the working tree or index.
 
@@ -48,8 +48,4 @@ If you have not run one of these, you do not get to say "pre-existing." Say what
 
 ## When This Applies
 
-Any time a claim about "not my problem" or "not new" would change what gets fixed and what gets left alone: debugging a test failure, reviewing a diff, closing out an investigation, writing a "Pre-existing Issues" section in a review report, deciding whether a regression blocks a task in `mine-orchestrate`. Mid-session recurrence is expected — re-run the check every time the claim is about to be made, not just the first time.
-
-## Orchestration-Specific Note
-
-`mine-orchestrate`'s `base_commit` is captured at the start of the current run (HEAD before any task executes), specifically so the run's own diff stays clean of unrelated prior commits — see `skills/mine-orchestrate/SKILL.md`. It is a real and useful reference point for *regression-within-this-run* detection (test/lint gates), but it is not the default branch, and a branch can already be many commits past the default branch when a run starts (a resumed run, a branch with prior manual work). A finding that is "pre-existing relative to `base_commit`" has not been checked against the default branch — say so, or run the check above before reporting it to the user as settled debt.
+Any time a claim about "not my problem" or "not new" would change what gets fixed and what gets left alone: debugging a test failure, reviewing a diff, closing out an investigation, writing a "Pre-existing Issues" section in a review report, deciding whether a regression blocks a build. Mid-session recurrence is expected — re-run the check every time the claim is about to be made, not just the first time.
