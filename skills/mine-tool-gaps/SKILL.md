@@ -240,7 +240,7 @@ If the tool is missing from the appropriate `rules/common/capabilities-*.md` fil
 
 ## What This Skill Does NOT Do
 
-- **Fix anything** — this is diagnosis, not treatment. It ends when the user knows what gaps exist and has decided what to do about each one
+- **Fix anything during the analysis** — this is diagnosis, not treatment. Implementation happens only in Phase 5's "Implement now" path, for gaps the user chose it for
 - **Audit code quality** — use `/mine-challenge` for that
 - **Mine for bugs** — this is about missing features and recurring patterns, not defects
 

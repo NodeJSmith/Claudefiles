@@ -45,6 +45,7 @@ Some issues can't be deferred silently. The gate applies only to findings the us
 - Silent data loss or corruption.
 - A security or auth exposure.
 - The core workflow is blocked entirely for all users, not an edge case or a degraded-but-usable path.
+- `code-reviewer` or `integration-reviewer` rated it CRITICAL or HIGH.
 
 If one does, stop and ask. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result. Recommend from the finding: "Fix now" when the fix is contained and verifiable, "Stop here" when it needs a design decision or reaches across many files, "Ship anyway" only when the risk is real but outside this change's scope.
 

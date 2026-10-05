@@ -152,6 +152,7 @@ def test_known_issues_protocol_shape() -> None:
     assert re.search(r"^## Severity Gate$", text, re.MULTILINE)
     assert re.search(r"^Recorded: <YYYY-MM-DD> \(<branch>\)$", text, re.MULTILINE)
     assert re.search(r"^Run: ", text, re.MULTILINE) is None
+    assert "rated it CRITICAL or HIGH" in text
     for label in ("Fix now", "Stop here", "Ship anyway"):
         assert f'label: "{label}"' in text
 

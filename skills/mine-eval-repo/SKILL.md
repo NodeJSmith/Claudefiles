@@ -165,7 +165,7 @@ Tie the options to the verdict you just wrote and recommend the matching one:
 - *Build your own* → "Build it yourself" in place of "Adopt it", recommended: wrap the underlying API directly (a library search would contradict the verdict)
 - *Avoid* → "Skip it"
 
-Offer "Adopt it" only for the two *Adopt* verdicts, and name the specific concern in each description.
+The block below lists every option; prune it per verdict. Offer "Adopt it" only for the two *Adopt* verdicts and "Build it yourself" only for *Build your own*, so the user never sees both or more than four. Name the specific concern in each description.
 
 ```
 AskUserQuestion:
@@ -175,6 +175,8 @@ AskUserQuestion:
   options:
     - label: "Adopt it"
       description: "I'll add it as a dependency — thanks for the review"
+    - label: "Build it yourself"
+      description: "Skip the dependency and wrap the underlying API directly"
     - label: "Dig deeper"
       description: "I want to look at specific areas more closely before deciding"
     - label: "Look for alternatives"
@@ -182,6 +184,8 @@ AskUserQuestion:
     - label: "Skip it"
       description: "Not worth it — I'll find another approach"
 ```
+
+If the user picks **Build it yourself**, implement the wrapper now, through the normal pre-commit reviewers: cover only what the user's project needs from the underlying API, borrowing from the evaluated repo's approach where its code was sound. Do this before Cleanup removes the clone.
 
 If the user wants to **dig deeper**, ask what specifically concerns them and focus investigation there.
 
@@ -208,6 +212,7 @@ Note: `rm -rf` is intentionally not pre-approved — the user will see a permiss
 
 ## What This Skill Does NOT Do
 
+- **Write code during the evaluation** — code gets written only after the next-step gate, if the user picks "Build it yourself"
 - **Audit your own codebase** — use `/mine-challenge` for that
 - **Research feasibility of adopting it** — use `/mine-research` if you need to evaluate how this would integrate into your specific project
 - **Security audit** — this checks for basic security hygiene (audit in CI, no secrets in code) but won't do a thorough vulnerability assessment

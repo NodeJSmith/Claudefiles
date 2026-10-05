@@ -188,6 +188,6 @@ If "Build it" is selected: implement the change now, using the brief at `<resear
 ## What This Skill Does NOT Do
 
 - **Make decisions** — it informs them. Use `/mine-sketch` to settle and ratify them.
-- **Write code** — it's pure investigation. No prototypes or scaffolding; a throwaway probe in the tmpdir to observe behavior is as far as it goes.
+- **Write code during the investigation** — no prototypes or scaffolding; a throwaway probe in the tmpdir to observe behavior is as far as it goes. Code gets written only after the next-step gate, if the user picks "Build it".
 - **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine-challenge` for general health assessment.
 - **Benchmark or profile** — it can identify likely performance concerns from code reading, but won't run benchmarks.
