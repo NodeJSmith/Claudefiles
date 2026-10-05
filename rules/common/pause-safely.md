@@ -29,7 +29,7 @@ This ensures nothing is lost if context compacts or the process dies.
 
 **Branch:** <branch>
 **Last completed action:** <what you just finished>
-**Position in plan/loop:** <step N of M, or which task in mine-orchestrate>
+**Position in plan/loop:** <step N of M, or which `## Build` step of a sketch ledger>
 **What's in memory but not on disk:** <anything important not captured in commits or files>
 **First action on resume:** <specific enough to start without re-reading the full context>
 ```

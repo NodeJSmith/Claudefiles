@@ -73,6 +73,10 @@ Inline `style={}` is acceptable for dynamic values (positions, transforms, color
 
 Define spacing, color, and typography scales as CSS custom properties. Reference tokens instead of hardcoding values.
 
+Some projects keep a hand-written `design/context.md` with a Design Tokens section. When one exists, use only its tokens: every CSS value in the change references one of them (no raw hex, no magic spacing numbers), and say which tokens apply.
+
+When such a project's diff touches CSS or styles, include this in the `code-reviewer` dispatch, since the reviewer doesn't read this file: flag raw hex values (`#[0-9a-f]{3,8}`), px values off the spacing scale, and font names not listed in `design/context.md` as HIGH findings, naming the token that should be used.
+
 ```css
 :root {
   --space-xs: 0.25rem;

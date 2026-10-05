@@ -1,15 +1,15 @@
 ---
 name: mine-sketch
-description: "Use when the user says: \"sketch this out\", \"sketch this feature\", \"lightweight plan\", \"structured but lightweight\", or wants structured design without full caliper ceremony. Produces a decision ledger (design.md) the user ratifies one decision at a time; `/mine-sketch <dir>` on a ratified ledger builds it in one session."
+description: "Use when the user says: \"sketch this out\", \"sketch this feature\", \"lightweight plan\", \"structured but lightweight\", or wants the decisions behind a change settled before building it (\"spec this out\", \"design this change\"). Produces a decision ledger (design.md) the user ratifies one decision at a time; `/mine-sketch <dir>` on a ratified ledger builds it in one session."
 user-invocable: true
 opencode-command: true
 ---
 
 # Sketch
 
-Structured design without the full caliper ceremony. Sketch mode surfaces every decision a change needs into a **decision ledger** (`design.md`) and has the user ratify each one, then challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge.
+Structured design before code. Sketch mode surfaces every decision a change needs into a **decision ledger** (`design.md`) and has the user ratify each one, then challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge.
 
-The value is in the decisions. A judgment call made silently is the failure this skill exists to prevent, so every choice that would change the code gets surfaced, reasoned, and ratified before any code is written. There are no task files and no per-task executors: one session builds the whole change, gated by the normal pre-commit reviewers.
+The value is in the decisions. A judgment call made silently is the failure this skill exists to prevent, so every choice that would change the code gets surfaced, reasoned, and ratified before any code is written. One session builds the whole change, gated by the normal pre-commit reviewers.
 
 ## Arguments
 
@@ -20,15 +20,15 @@ $ARGUMENTS — a description of what to build, or a feature directory path. Can 
 
 ## Routing
 
-If $ARGUMENTS points to a directory containing `design.md`, read its header and route by the first row that matches.
+If $ARGUMENTS points to a directory containing `design.md`, read its header and route by the first row that matches. A directory with only a `brief.md` takes the last row.
 
 | Ledger | Do |
 |---|---|
-| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Run Phase 1's cfl setup but not its scan or escalation check, then continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
+| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Run Phase 1's cfl setup but not its scan, then continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
 | `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
 | `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
 | `**Status:** archived` or `abandoned` | Report the status and stop. |
-| No `**Mode:** sketch` | A `mine-define` design. Tell the user to continue with `/mine-plan <dir>` and stop. |
+| No `design.md`, but a `brief.md` (from `/mine-grill`) | A new sketch: read the brief as prior work and put the ledger in this directory. Start at Phase 1. |
 
 Otherwise, treat $ARGUMENTS as a new request and start at Phase 1.
 
@@ -47,41 +47,7 @@ Read 3-8 files relevant to the change:
 
 Keep it fast. You're looking for conventions, constraints, and the decisions the change will force, not doing a deep investigation.
 
-### Escalation check
-
-Two signals stop the sketch before anything is written.
-
-**The change needs investigation, not a sketch.** It touches more services or packages than the request implied, modifies a shared or foundational module with many callers, or raises an architectural question with no obvious answer. Recommend upgrading when the finding is an unresolved architectural question or touches many callers, and continuing when it is mostly breadth that the sketch's decisions can still settle:
-
-```
-AskUserQuestion:
-  question: "The codebase scan found more complexity than expected — <one-sentence finding>. How should we proceed?"
-  header: "Escalate?"
-  multiSelect: false
-  options:
-    - label: "Upgrade to full caliper"
-      description: "Stop here — invoke /mine-define for a full investigation and design"
-    - label: "Continue with sketch"
-      description: "Proceed with the lighter sketch despite the finding"
-```
-
-On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop.
-
-**The build won't fit one session.** The whole change has to be implemented, tested, and reviewed in one fresh session. If the scan shows it won't (several independent areas that each need their own design, or a diff too large to review as one PR), say so with the evidence and ask. Recommend stopping to rescope when the evidence shows independent areas or an unreviewable diff, and continuing only when the overrun is marginal:
-
-```
-AskUserQuestion:
-  question: "This looks too big to build in one session — <one-sentence evidence>. How should we proceed?"
-  header: "Too big?"
-  multiSelect: false
-  options:
-    - label: "Stop here"
-      description: "Don't write a ledger; I'll rescope the request"
-    - label: "Continue anyway — I understand the risk"
-      description: "Write the ledger for the whole change; the build may not finish in one session"
-```
-
-On "Stop here": stop. On "Continue anyway": proceed, and carry the accepted risk into Phase 2, which records it in the ledger's Summary.
+If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions.
 
 ### Initialize CFL tracking
 
@@ -91,7 +57,7 @@ For a new request, derive a `<slug>` (kebab-case, max 40 chars) and create the s
 cfl spec init <slug>
 ```
 
-Record `dir` as `<feature_dir>` and `number` as `<spec_number>`.
+Record `dir` as `<feature_dir>` and `number` as `<spec_number>`. When the request is a feature directory with a brief, skip `cfl spec init`: that directory is `<feature_dir>`. Take `<spec_number>` from the directory name and check it with `cfl spec status` exactly as on resume below, including the `spec_not_found` fallback.
 
 On resume, extract the number from the directory name and run `cfl spec status --spec <NNN>`. If it errors with `spec_not_found`, the directory predates cfl tracking: tell the user, and skip every `cfl` call for the rest of this run.
 
@@ -123,7 +89,6 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` and
 - **Resumable work state.** When the change owns work state across invocations (a background worker, batch job, queue consumer, scheduler, or persistent retry state), its lifecycle is a set of decisions: completion, retry eligibility and bounds, recovery from states that need user action, repeated-run convergence, and visible progress and failure accounting.
 - **Fill each table before recommending.** Ground the criteria in what the scan found, and cite files.
 - **Assumed** gets the facts the build relies on, each with evidence.
-- **Accepted risk.** If the user chose "Continue anyway" at the escalation check, say so in the Summary.
 - **Self-sufficient.** The build runs in a fresh session with only this file and the repo. Name the files and modules; don't refer to "as discussed".
 
 Every decision starts as `**Ratified:** pending`.
@@ -173,31 +138,11 @@ Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<critic_flag>`**: `--critics=2`
 - **`<focus_flag>`**: (empty)
 - **`<re_challenge_flag>`**: `--re-challenge` when Phase 6's Revise sent you here, otherwise empty
-- **`<post_resolution>`**: A resolved finding that added or changed a decision has set it back to `**Ratified:** pending` (the findings protocol's rule for sketch ledgers). Run Phase 3 for those decisions. Then return here and continue to the CRITICAL escalation below, which runs once per challenge.
+- **`<post_resolution>`**: A resolved finding that added or changed a decision has set it back to `**Ratified:** pending` (the findings protocol's rule for sketch ledgers). Run Phase 3 for those decisions, then continue to Phase 5.
 
 Skip the cfl calls inside the gate if cfl tracking is disabled. The challenge itself always runs.
 
 **Resume check.** When entering this phase on resume, skip it only if the challenge already covers the current ledger: run `cfl event list --event challenge.findings-persisted --run <run_id>` and `cfl event list --event sketch.design-written --run <run_id>`. Skip when the newest `challenge.findings-persisted` row whose data has `"gate_type": "sketch-challenge"` has a higher `id` than the newest `sketch.design-written` row. Otherwise the ledger changed since the last challenge, so run it. With cfl tracking disabled, always run it.
-
-### CRITICAL escalation
-
-If the challenge produced any CRITICAL finding, whatever its disposition, ask. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result. Recommend from the finding you just read: upgrade when it shows the change's structure or scope is wrong (not just one decision), continue when it was a local flaw already fixed by the resolution.
-
-```
-AskUserQuestion:
-  question: "[Context: N%] The challenge found a CRITICAL structural issue. A sketch may not be the right vehicle for this change. Upgrade to the full caliper workflow?"
-  header: "Escalate?"
-  multiSelect: false
-  options:
-    - label: "Upgrade to full caliper"
-      description: "Stop here — invoke /mine-define for a full investigation and design"
-    - label: "Continue with sketch"
-      description: "Proceed with the sketch despite the CRITICAL finding"
-```
-
-On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop. The resolved findings have already improved `design.md`, which `/mine-define` picks up.
-
-On "Continue with sketch": continue to Phase 5.
 
 ---
 
@@ -294,7 +239,7 @@ Runs when `/mine-sketch <dir>` finds `**Status:** ratified`. Building doesn't to
 
 ### Step 1: Orient
 
-Read the whole ledger and the files it names. Check git state (branch, uncommitted changes, recent commits) and raise anything surprising, such as being on the default branch or unrelated uncommitted work, before writing code.
+Read the whole ledger and the files it names. Check git state (branch, uncommitted changes, recent commits, and `git-branch-behind` for how far the branch trails the default branch) and raise anything surprising, such as being on the default branch, unrelated uncommitted work, or a stale base the ledger's file references may no longer match, before writing code.
 
 Read the `## Build` checklist. If no step is ticked, this is a fresh build. If some are, resume after the last ticked step, using the branch's commits to see where the work stands.
 
@@ -310,6 +255,11 @@ Implement the change with its tests and docs. The ledger is the spec:
 - Tests pin the behavior each decision specifies. The ledger says what to pin; choosing how is yours.
 - When the ledger doesn't settle something, make the call and record it under `**Calls made during the build:**` as `- <the call>: <one line of why>`. The ship-time challenge checks each one against the code. A call that contradicts a ratified decision isn't a build-time call: stop and ask the user whether to reopen the decision.
 
+When you decide not to fix a real finding (from the pre-commit reviewers here, or the ship-time challenge in Step 3), follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/known-issues.md`:
+
+- If you are deferring it on your own (the user never saw it, as with a pre-commit reviewer finding), check its Severity Gate first.
+- Then record the finding if it qualifies.
+
 Commit as you judge best. Every repo squash-merges, so there's no required commit sequence. The pre-commit reviewers in `git-workflow.md` gate each commit. Tick each `## Build` step, and add each build-time call, in the same commit as the work it describes. When the change needs no doc updates, tick Docs and note "none needed".
 
 ### Step 3: Ship-time Challenge
@@ -324,13 +274,29 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<critic_flag>`**: (empty — use triage default 1–3)
 - **`<focus_flag>`**: `--focus="The ledger at <feature_dir>/design.md is the reference. (A) Does what landed match its ratified decisions and assumptions, with tests pinning the behavior each one specifies? (B) Where the code diverges, does the ledger's Build section give a sound reason? Check each stated reason against the code. (C) What unintended consequences are there beyond what the ledger covered?"`
 - **`<re_challenge_flag>`**: (empty)
-- **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. Note any CRITICAL or HIGH finding left with `disposition: skipped` for Step 4's report.
+- **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. A real finding the user left with `disposition: skipped` is recorded as in Step 2; the Severity Gate doesn't apply, since the user already saw it.
 
 Findings resolve inline, as in any challenge. The `## Build` record is the build's stated reasoning, not evidence: the challenge checks it against the code rather than taking it on its word.
 
 ### Step 4: Finish
 
-Tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger. Report what was built, any build-time calls, and any CRITICAL or HIGH finding left skipped. This is a completion gate: run `context-pct` and prepend the result.
+If `<feature_dir>/known-issues.md` has `Status: open` entries, walk all of them before the Ship? gate, one question per entry, batched up to 4 questions per `AskUserQuestion` call (major gate: run `context-pct` and prepend it to the first). In each question, say when the entry's `Recorded:` line names a different branch from this one, since that entry came from an earlier build. Recommend fixing when it's contained, filing when it needs its own change, keeping it open when it's tied to this feature's follow-up work:
+
+```
+AskUserQuestion:
+  question: "[Context: N%] KI-<NNN>: <title>. <one-line issue>. What now?"
+  header: "KI-<NNN>"
+  multiSelect: false
+  options:
+    - label: "Fix now"
+      description: "Fix it through the pre-commit reviewers (no re-challenge); Status becomes `resolved — fixed before ship`"
+    - label: "File as issue"
+      description: "Create a tracker issue; Status becomes `filed (<issue-key>)`"
+    - label: "Keep open"
+      description: "Status stays `open` for later"
+```
+
+Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger with any known-issues updates. Report what was built, any build-time calls, and the known issues left open. This is a completion gate: run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:

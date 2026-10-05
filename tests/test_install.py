@@ -551,9 +551,9 @@ class TestBundleModel:
 
 class TestFindSkillSource:
     def test_finds_in_skills(self, tmp_path: Path) -> None:
-        (tmp_path / "skills" / "mine-build").mkdir(parents=True)
-        result = install.find_skill_source("mine-build", tmp_path)
-        assert result == tmp_path / "skills" / "mine-build"
+        (tmp_path / "skills" / "mine-sketch").mkdir(parents=True)
+        result = install.find_skill_source("mine-sketch", tmp_path)
+        assert result == tmp_path / "skills" / "mine-sketch"
 
     def test_raises_when_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="Skill not found: nonexistent"):
@@ -623,8 +623,8 @@ def _write_rule_files(path: Path, content_map: dict[str, str] | None = None) -> 
 
 def _setup_minimal_repo(path: Path) -> None:
     """Create a minimal repo directory structure for testing."""
-    (path / "skills" / "mine-build").mkdir(parents=True)
-    (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
+    (path / "skills" / "mine-sketch").mkdir(parents=True)
+    (path / "skills" / "mine-sketch" / "SKILL.md").write_text("skill")
     (path / "agents").mkdir(parents=True)
     _write_rule_files(path)
 
@@ -632,8 +632,8 @@ def _setup_minimal_repo(path: Path) -> None:
 def _setup_full_repo(path: Path) -> None:
     """Create a repo with skills, agents, hooks, etc. for integration tests."""
     # Base skills
-    (path / "skills" / "mine-build").mkdir(parents=True)
-    (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
+    (path / "skills" / "mine-sketch").mkdir(parents=True)
+    (path / "skills" / "mine-sketch" / "SKILL.md").write_text("skill")
     # Agents — write a stub for every agent named by any bundle, derived from the live
     # bundle definitions so the fixture can't drift from install.py's agent lists.
     (path / "agents").mkdir(parents=True)
@@ -690,8 +690,8 @@ class TestFullInstallFlow:
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         assert errors == 0
-        # Base skill mine-build installed
-        assert (claude_dir / "skills" / "mine-build").is_symlink()
+        # Base skill mine-sketch installed
+        assert (claude_dir / "skills" / "mine-sketch").is_symlink()
         # Base agents installed
         assert (claude_dir / "agents" / "code-reviewer.md").is_symlink()
         assert (claude_dir / "agents" / "issue-refiner.md").is_symlink()

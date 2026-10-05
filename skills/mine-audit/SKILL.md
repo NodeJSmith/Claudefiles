@@ -150,7 +150,7 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 **Recommendation:** Option A
 
 **Options:**
-- **A** *(recommended)*: Build the fix via `/mine-build`
+- **A** *(recommended)*: Fix it now
 - **B**: File as issue — track for future work
 - **C**: Skip — noted, no action this session
 
@@ -170,11 +170,11 @@ The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel 
 Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and field definitions.
 
 Audit findings use the User-directed model with explicit option letters (A/B/C). Present each finding one at a time via AskUserQuestion:
-- **`A`** (or `fix`) — invoke `/mine-build` with the finding's description as the argument. For structural/architectural problems, `/mine-build` will assess complexity and route to direct implementation or the full caliper workflow.
+- **`A`** (or `fix`) — implement the fix now, using the finding's description.
 - **`B`** — create an issue in the project's issue tracker for this finding
 - **`C`** (or `skip`) — noted in session summary, no action
 
-**Multiple findings selected for build**: if several findings are being addressed via `/mine-build`, suggest an order of attack — highest impact first, dependency-aware (e.g., fix the circular dependency before refactoring the modules caught in the cycle).
+**Multiple findings selected for build**: if several findings are being fixed, suggest an order of attack — highest impact first, dependency-aware (e.g., fix the circular dependency before refactoring the modules caught in the cycle).
 
 ## Phase 4: Save Report (optional)
 
@@ -193,7 +193,7 @@ Create `design/audits/` if it doesn't exist. If the project already saves audits
 
 ## What This Skill Does NOT Do
 
-- **Fix anything** — this is diagnosis, not treatment. Fixes flow through `/mine-build`
+- **Fix anything** — this is diagnosis, not treatment. Fixes happen after the walkthrough
 - **Rewrite scores or letter grades** — subjective ratings create false precision. Instead: specific problems ranked by impact
 - **Profile performance** — runtime performance requires execution and profiling tools, not static analysis
 

@@ -13,5 +13,3 @@ node_modules/
 # (reviewer agent memory lives under ~/.claude/projects/<encoded-root>/agent-memory/, not here — see bin/resolve-agent-memory-path)
 .claude/
 
-# Orchestration checkpoint files (ephemeral runtime state)
-design/specs/*/tasks/.orchestrate-state.md

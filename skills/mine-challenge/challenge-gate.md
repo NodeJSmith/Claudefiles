@@ -1,18 +1,18 @@
 # Challenge Gate
 
-The shared gate applied after the challenge runs at a mandatory call site. Callers (`mine-define`, `mine-sketch`, `mine-orchestrate`) read this file and instantiate the parameters below. One source of truth for the gate's central invariant:
+The shared gate applied after the challenge runs at a mandatory call site. Its caller, `mine-sketch` (sketch time and build time), reads this file and instantiates the parameters below. One source of truth for the gate's central invariant:
 
 > **Challenge runs automatically. There is no option to decline it.**
 
 ## Parameters the caller supplies
 
 - **`<header>`** — the `AskUserQuestion` header chip, e.g. `Challenge`. Keep it ≤12 chars.
-- **`<gate_type>`** — the cfl gate type: `define-challenge`, `sketch-challenge`, or `ship-challenge`.
+- **`<gate_type>`** — the cfl gate type: `sketch-challenge` or `ship-challenge`.
 - **`<target>`** — what to pass to `/mine-challenge`: a design doc path or a changed-files list file.
 - **`<critic_flag>`** — `--critics=N` if pinned, or empty string if using triage default.
 - **`<focus_flag>`** — `--focus="<text>"` to steer the critics, or empty string. Callers that don't name it pass empty.
 - **`<re_challenge_flag>`** — `--re-challenge` if this is a re-challenge, or empty string.
-- **`<post_resolution>`** — caller-specific handling after step 6 completes (e.g., sketch's upgrade-to-caliper check, ship-time's unresolved-finding summary).
+- **`<post_resolution>`** — caller-specific handling after step 6 completes (e.g., sketch's re-ratification of changed decisions, ship-time's known-issues recording).
 
 ## The sequence
 
@@ -22,7 +22,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
    cfl dispatch <gate_type> --agent-type standard-worker
    ```
 
-   Capture `dispatch_id`. Note: `--spec` is not included here — callers thread it per their own convention (mine-define and mine-plan pass `--spec <spec_number>`; mine-orchestrate uses CWD-based resolution, matching the rest of `post-execution-pipeline.md`).
+   Capture `dispatch_id`. Note: `--spec` is not included here — the caller threads it per its own convention (mine-sketch's sketch mode passes `--spec <spec_number>`; build mode skips cfl entirely).
 
 2. Invoke `/mine-challenge <critic_flag> <focus_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
 

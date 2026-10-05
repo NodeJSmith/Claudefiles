@@ -4,7 +4,6 @@
 
 When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`.
 
-<!-- PARALLEL: skills/mine-orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both. This table uses user-intent phrases ("readability review"); orchestrate uses WP-content signals ("contains UI components"). The wording differs because the routing trigger differs. -->
 <!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine-clean-code. wtf-reviewer is mandatory pre-commit (see git-workflow.md) and also dispatched by mine-review / mine-clean-code. nitpicker is dispatched only by skills (mine-clean-code). -->
 | User needs... | Use `subagent_type` |
 |---|---|
@@ -44,7 +43,7 @@ A dispatch names an agent — nothing else. Don't dispatch the harness's built-i
 
 | Need | `subagent_type` |
 |------|----------------|
-| A role a named specialist already covers (review, research, planning, etc.) | That specialist (e.g., `code-reviewer`, `researcher`, `spec-reviewer`) |
+| A role a named specialist already covers (review, research, planning, etc.) | That specialist (e.g., `code-reviewer`, `researcher`, `planner`) |
 | A generic dispatch with no fixed methodology, low-complexity/high-volume | `light-worker` (haiku) |
 | A generic dispatch with no fixed methodology, everything else | `standard-worker` (sonnet) |
 
@@ -85,7 +84,7 @@ Each agent gets its own git worktree — private HEAD, private index, private wo
 **When isolation is NOT needed:**
 - Read-only subagents (reviewers, critics, triagers, analyzers) — they don't write to the git working directory
 - A single executor running alone — no contention
-- Sequential executors (one finishes before the next starts, as in `mine-orchestrate`)
+- Sequential executors (one finishes before the next starts)
 
 **Before parallelizing executors**, check file domain overlap — scan affected files per issue (grep/glob for relevant symbols) rather than relying on file counts alone. If two tasks modify the same files, they'll conflict at merge time even with isolation — serialize them instead, or accept the merge cost. The decomposition questions in `decomposition-discipline.md` (especially Q2: independent workstreams and Q3: shared mutable state) apply here.
 

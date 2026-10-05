@@ -56,15 +56,15 @@ A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and c
 
 ## Phase 4: Next Step (Main Context)
 
-Hand the deep-dive context off to the implementation pipeline. Use `AskUserQuestion`:
+Hand the deep-dive context off to implementation. Use `AskUserQuestion`:
 
-- **Build it** — Hand the issue to `/mine-build`, which routes by complexity (direct implementation for small changes, the full `define → plan → orchestrate` pipeline for large ones)
+- **Build it** — Implement the issue now
 - **Research first** — Run `/mine-research` to investigate feasibility before committing to an approach
 - **Skip** — Done for now, I'll come back to this later
 
 Use the issue's **Estimated scope** from Phase 3 to recommend: small/medium → "Build it"; large or uncertain approach → mention "Research first" is worth considering. Phrase the recommendation, but let the user choose.
 
-**If the user picks "Build it":** invoke `/mine-build`, passing the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description.
+**If the user picks "Build it":** use the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description and implement it.
 
 **If the user picks "Research first":** invoke `/mine-research`, passing the issue context as the proposal to investigate.
 

@@ -199,7 +199,7 @@ If no gap is worth acting on, say so and stop.
 Otherwise ask about the gaps worth acting on, one question per gap (header `Gaps to fix`, label the question with the gap name), batched up to 4 questions per `AskUserQuestion` call; with more than 4 gaps, make another call for the next batch in priority order. Each question offers "Implement now", "Create issue", and "Skip". Recommend implement-now for small, well-evidenced gaps (a flag addition, a few lines), an issue for larger ones (a new script or subcommand needing design), and skip for weakly evidenced ones. Put the effort estimate in the descriptions. (This is a custom gate: tool gaps have implement/issue/skip paths that don't fit the standard inline resolution flow.)
 
 Then act on each:
-- **Implement now** → hand off to `/mine-build`
+- **Implement now** → implement it in this session (see below)
 - **Create an issue** → file a tracked issue with the gap description (see below)
 
 ## Phase 5: Act
@@ -207,8 +207,7 @@ Then act on each:
 Based on user decisions:
 
 **Implement now:**
-Hand off to `/mine-build` with the gap description. Do not draft code in this skill — `/mine-build` assesses complexity and routes to direct implementation or the full caliper workflow. Say:
-> "Handing off to `/mine-build` for `<gap name>`. This will assess complexity and route to the right implementation workflow."
+Once the gap analysis is finished, implement the gap from its description, through the normal pre-commit reviewers.
 
 **Create issue:**
 Draft and file the issue immediately.

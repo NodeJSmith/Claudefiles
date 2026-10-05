@@ -204,7 +204,7 @@ Ask `"What's the primary next step for the top idea?"` (header `Next step`), rec
 
 - **Challenge the top idea first**: run `/mine-challenge` before committing to this direction
 - **Go deeper on the top idea**: hand off to `/mine-research` for feasibility analysis
-- **Build it (`/mine-build`)**: direct implementation or full caliper workflow, depending on complexity
+- **Build it**: implement the top idea now
 - **Keep exploring**: run another round with a different framing or constraint
 
 Then, if anything in the session is worth keeping (a ranked result with ideas worth revisiting, or ideas worth filing), ask about housekeeping. If nothing is, skip the question.

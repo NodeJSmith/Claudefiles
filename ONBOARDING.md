@@ -20,7 +20,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 ## Key Concepts
 
-**Skills** — reusable prompts Claude invokes by name (`/mine-challenge`, `/mine-plan`). The main interface. You type the slash command; Claude runs the structured workflow behind it.
+**Skills** — reusable prompts Claude invokes by name (`/mine-challenge`, `/mine-sketch`). The main interface. You type the slash command; Claude runs the structured workflow behind it.
 
 **Commands** — lightweight slash commands for daily tasks (`/mine-status`, `/mine-end-of-day`). Quicker than skills, no multi-step flow.
 
@@ -44,7 +44,7 @@ Start with whatever problem you have right now.
 The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine-review`. For a style and debt check: `/mine-clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine-humanize`. To comb a brief, design, plan, or implementation for consistency, accuracy, and drift: `/mine-comb`. Included in base — no extra bundles needed.
 
 **"I want structured planning for complex features"**
-The base is enough. For moderate tasks (multiple files, real decisions, well-understood territory): `/mine-sketch` writes a decision ledger you ratify one decision at a time, then a fresh session builds the whole change from it with `/mine-sketch <dir>`. For complex features (ambiguous, cross-system, needs deep investigation): the full pipeline is `/mine-define` → `/mine-plan` → `/mine-orchestrate` → `/mine-ship`. `/mine-build` routes between these automatically. Start with `/mine-grill` to sharpen a raw idea first. Included in base.
+The base is enough. `/mine-sketch` writes a decision ledger you ratify one decision at a time, then a fresh session builds the whole change from it with `/mine-sketch <dir>`. Work too big for one session splits into separate ledgers. Start with `/mine-grill` to sharpen a raw idea, or `/mine-research` when you don't yet know enough to decide. Included in base.
 
 **"I want to brainstorm and challenge ideas"**
 The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.
@@ -62,11 +62,11 @@ Enable the **`ccrecall`** plugin (wired in `settings.json`; its hook binaries co
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
 
 **"I want architecture and QA agents"**
-Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks complex features into task files. QA Specialist finds defects adversarially.
+Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks a feature into a step-by-step plan. QA Specialist finds defects adversarially.
 
 ---
 
-### Path B: The Full Pipeline
+### Path B: Idea to PR
 
 This is the workflow that makes Claude Code feel like a senior engineer on your team, not a code autocomplete. It takes 10–30 minutes to run end to end for a small feature.
 
@@ -82,37 +82,29 @@ You describe the feature. `/mine-grill` interrogates it across five lenses — p
 
 *What you get:* a one-page brief identifying the key decisions and risks before you write any code.
 
-**Step 2: Define the design**
+**Step 2: Sketch the decisions**
 
 ```
-/mine-define
+/mine-sketch design/specs/<spec-name>
 ```
 
-Feed it your brief (or start fresh). The skill reads the codebase, asks the right clarifying questions, and produces a `design.md` with problem statement, functional requirements, acceptance criteria, and architecture notes. One sign-off gate before it finalizes.
+Point it at the brief's directory. Sketch reads the brief and the codebase, then writes a decision ledger (`design.md`): every place the change has more than one reasonable answer, each with its options scored and a recommendation. You ratify the decisions one at a time, then a mandatory challenge and a consistency comb check the ledger before you ratify the whole thing.
 
-*What you get:* a `design/specs/<spec-name>/design.md` that captures what you're building and why.
+*What you get:* a `design/specs/<spec-name>/design.md` where every judgment call the change needs is already made.
 
-**Step 3: Generate a task plan**
+**Step 3: Build**
 
-```
-/mine-plan
-```
-
-Takes the `design.md` and breaks it into concrete task files (`T01.md`, `T02.md`, ...) with FR/AC traceability. A 10-point review validates the plan before you approve it.
-
-*What you get:* `design/specs/<spec-name>/tasks/` with one file per work package.
-
-**Step 4: Execute**
+Start a fresh session and run the same command:
 
 ```
-/mine-orchestrate
+/mine-sketch design/specs/<spec-name>
 ```
 
-Executes task files one by one. For each task, it runs spec, code, and integration review in parallel on the diff, with test/lint/visual gates as applicable. Findings are fixed before moving to the next task. Real issues that should not be fixed during the run, such as faithful-port behavior that must stay unchanged, are recorded beside the feature design using the known-issues protocol; later-task handoffs stay in the task flow instead of becoming known issues. A post-execution implementation review checks the full diff at the end.
+On a ratified ledger, sketch builds the whole change in one session, with tests, through the normal pre-commit reviewers. Calls the ledger didn't settle get recorded in it. A real issue the build decides not to fix (faithful-port behavior that must stay unchanged, say) is recorded in `known-issues.md` beside the ledger and walked with you before ship. A ship-time challenge checks what landed against the ledger.
 
-*What you get:* the feature implemented, reviewed, and verified — ready to ship.
+*What you get:* the feature implemented, reviewed, and challenged — ready to ship.
 
-**Step 5: Ship**
+**Step 4: Ship**
 
 ```
 /mine-ship
@@ -124,7 +116,7 @@ Commits, pushes, and opens a PR in one step. Picks up the right commit message f
 
 ---
 
-That's the full loop. For a feature like rate limiting — limiter logic, config, request-handler integration, and tests across a few files — the pipeline takes 20–30 minutes of wall-clock time, most of it waiting for Claude to execute. You stay in the reviewer seat, not the implementer seat.
+That's the full loop. For a feature like rate limiting — limiter logic, config, request-handler integration, and tests across a few files — the build takes 20–30 minutes of wall-clock time, most of it waiting for Claude to execute. You stay in the reviewer seat, not the implementer seat.
 
 ---
 
@@ -140,7 +132,7 @@ When you have all bundles installed, the system covers the full development life
 /mine-end-of-day            → capture session state as a handoff file
 ```
 
-After a `/clear` (e.g. to drop a huge uncached context the morning after an orchestration), `/ccrecall:ccr-resume` (from the `ccrecall` plugin) reads the *prior* session's transcript tail to recover your last instruction and any decision you left unanswered — no hand-written handoff needed. With the plugin enabled, the SessionStart hook also auto-warns when the previous session ended on an unanswered question.
+After a `/clear` (e.g. to drop a huge uncached context the morning after a long build), `/ccrecall:ccr-resume` (from the `ccrecall` plugin) reads the *prior* session's transcript tail to recover your last instruction and any decision you left unanswered — no hand-written handoff needed. With the plugin enabled, the SessionStart hook also auto-warns when the previous session ended on an unanswered question.
 
 **Worktree-based development:**
 
@@ -162,23 +154,20 @@ Each worktree gets its own context, isolated from the main working tree.
 
 The result is a consistent development environment that works the same way every session, regardless of which codebase you're in.
 
-## Orchestration State: cfl
+## Run State: cfl
 
-`cfl` is the orchestration state management CLI, part of the base bundle. It replaces the older `spec-helper` and `trail-log` tools with a single CLI backed by a durable SQLite database at `~/.local/share/claudefiles/cfl.db` (overridable via `$CFL_DB`).
-
-All orchestration state — spec lifecycle, run management, task status, gate results, subagent dispatches, and audit events — lives in the DB rather than in ephemeral files like `trail.tsv` or `.orchestrate-state.md` that were deleted on archive. This makes pipeline effectiveness data available to query across runs.
+`cfl` is the run-state CLI, part of the base bundle, backed by a durable SQLite database at `~/.local/share/claudefiles/cfl.db` (overridable via `$CFL_DB`). `/mine-sketch` records each sketch's spec, run, gate results, subagent dispatches, and events there.
 
 Key commands:
 
 ```bash
-cfl run status          # current run state: tasks, verdicts, derived fields
-cfl archive             # archive completed spec: removes task files, stamps design.md
+cfl run status          # current run state
 cfl spec status         # spec-level state including active run
 cfl gate                # record a gate evaluation result
 cfl event               # append a free-form event to the audit trail
 ```
 
-`mine-orchestrate` calls `cfl` automatically — you rarely need to invoke it directly. The main user-facing commands are `cfl run status` (to check where an orchestration run is) and `cfl archive` (to clean up after shipping).
+`mine-sketch` calls `cfl` automatically — you rarely need to invoke it directly.
 
 ## Customizing
 

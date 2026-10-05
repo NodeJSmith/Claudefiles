@@ -20,7 +20,7 @@ Interactive subsystem explanation grounded in actual code. Reads the real files,
 ## Arguments
 
 $ARGUMENTS — the question to answer. Can be:
-- A subsystem question: `/mine-how "how does mine-orchestrate handle task failures?"`
+- A subsystem question: `/mine-how "how does mine-challenge pick its critics?"`
 - A runtime flow: `/mine-how "walk me through what happens when a webhook arrives"`
 - A specific mechanism: `/mine-how "how does the rate limiter work?"`
 - A file/module: `/mine-how src/services/auth.py`

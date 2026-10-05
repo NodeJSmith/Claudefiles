@@ -1,6 +1,6 @@
 # Comb Gate
 
-The shared gate applied after a `fine-toothed-comb` agent returns. Callers (`mine-comb`, `mine-define`, `mine-sketch`, `mine-plan`) read this file and instantiate the parameters below. One source of truth for the gate's central invariant:
+The shared gate applied after a `fine-toothed-comb` agent returns. Callers (`mine-comb`, `mine-sketch`) read this file and instantiate the parameters below. One source of truth for the gate's central invariant:
 
 > **A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or by fixing the findings and proceeding without re-combing).**
 
@@ -8,8 +8,8 @@ Acknowledging a finding and moving on is not allowed. The only ways past a block
 
 ## Parameters the caller supplies
 
-- **`<header>`** — the `AskUserQuestion` header chip, e.g. `Design comb`, `Plan comb`, `Comb`. Keep it ≤12 chars — the chip truncates past that.
-- **`minor_blocks`** — `true` if minor findings should ask the user (the standalone `mine-comb` skill, where the user invoked the comb specifically to get a call on what it finds); `false` if minor findings are noted and the caller proceeds without asking (`mine-define`, `mine-plan`, `mine-sketch` — a design or plan doc shouldn't get stuck re-combing over polish when the phase has its own later sign-off).
+- **`<header>`** — the `AskUserQuestion` header chip, e.g. `Sketch comb`, `Comb`. Keep it ≤12 chars — the chip truncates past that.
+- **`minor_blocks`** — `true` if minor findings should ask the user (the standalone `mine-comb` skill, where the user invoked the comb specifically to get a call on what it finds); `false` if minor findings are noted and the caller proceeds without asking (`mine-sketch` — a ledger shouldn't get stuck re-combing over polish when it has its own later sign-off).
 - **`<proceed_label>` / `<proceed_description>`** — the "fix and move on" option, named for the caller's next step (e.g. `Proceed to sign-off`, `Proceed to the gate`). Fixes the current findings but skips the re-comb. **Required only when `minor_blocks` is `true`** — when `minor_blocks` is `false` the minor-findings prompt never fires, so omit it.
 - **`<re_review_instructions>`** — what "Fix and re-review" does in this context: which files may be edited, any scope restriction, and (for implementation combs) the subagent dispatch to apply the fix. The re-comb always re-runs the comb from the top.
 - **`<blocking_question>`** *(optional)* — overrides the blocking-findings question text when the caller needs context-specific wording (e.g. "before shipping"). Defaults to the standard string below. The options and the no-acknowledgement rule are never overridable.

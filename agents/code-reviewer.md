@@ -44,10 +44,6 @@ After completing a review, create or update that same file — but only if the e
 
 **Keep it prunable:** date each entry (`<!-- YYYY-MM-DD -->`), remove stale ones, stay under 100 lines. A bloated MEMORY.md stops being useful.
 
-## Invocation patterns
-- **Orchestrate pipeline** (`mine-orchestrate`): passes explicit file list in prompt — use that list, skip self-discovery
-- **Ship / commit-push / build / manual**: no file list provided — use the self-discovery cascade below
-
 When invoked:
 1. Find all changed files. If an explicit file list was provided, use it. Otherwise discover:
    ```bash
@@ -198,7 +194,6 @@ Fix: Use parameterized query — cursor.execute("SELECT * FROM users WHERE id = 
 
 End with an **Assessment**:
 
-<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ```text
 ### Assessment
 **Strengths:** [what works well — 1-3 sentences]
@@ -215,15 +210,6 @@ End with an **Assessment**:
 - **FAIL**: Any CRITICAL or HIGH issue found
 
 </output_format>
-
-<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
-## Concise-Return Mode
-
-When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
-- Write the full report to the provided output file path
-- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)`) as your final message
-
-In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default. Callers such as `/mine-review`, `/mine-ship`, `/mine-commit-push`, `/mine-build`, and `/mine-address-pr-issues` do not supply the token and always receive the full report.
 
 ## Skill & Markdown File Checks
 

@@ -1,16 +1,11 @@
 """Tests for cfl.snapshot — plan metadata capture."""
 
 import json
-import re
-from pathlib import Path
 
 import pytest
 
-from cfl.snapshot import _parse_requirements, snapshot_plan
+from cfl.snapshot import snapshot_plan
 from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DESIGN_DOC_FORMAT = REPO_ROOT / "skills" / "mine-define" / "design-doc-format.md"
 
 
 @pytest.fixture()
@@ -250,51 +245,3 @@ def test_snapshot_nested_format_matches_flat(db_conn, tmp_path, capsys):
 
     assert nested_reqs["frs"] == flat_reqs["frs"]
     assert nested_reqs["acs"] == flat_reqs["acs"]
-
-
-def _extract_example_block(text: str, label: str) -> str:
-    """Pull the fenced code block that follows a `**<label>:**` lead-in out
-    of design-doc-format.md's FR/AC Definition section. Blank lines between
-    the label and the fence, and a language tag on the fence, are tolerated."""
-    match = re.search(
-        rf"\*\*{re.escape(label)}:\*\*\s*\n```[^\n]*\n(.*?)\n```", text, re.DOTALL
-    )
-    assert match, (
-        f"design-doc-format.md has no fenced example block directly under a "
-        f"`**{label}:**` label — this test reads its input from that block, so "
-        f"the doc's layout changed, not the parser"
-    )
-    return match.group(1)
-
-
-def test_design_doc_format_examples_match_cfl_parser(tmp_path):
-    """The FR/AC Definition examples in design-doc-format.md must parse the
-    same way through the real cfl extractor (_parse_requirements) that
-    enforces the rule, so the doc's contract can't silently drift from
-    _FR_PATTERN/_AC_PATTERN.
-    """
-    text = DESIGN_DOC_FORMAT.read_text()
-
-    definitions_block = _extract_example_block(text, "Definitions")
-    not_definitions_block = _extract_example_block(text, "Not definitions")
-
-    design_path = tmp_path / "design.md"
-
-    design_path.write_text(definitions_block)
-    reqs = _parse_requirements(design_path)
-    assert [fr["id"] for fr in reqs["frs"]] == ["FR#1"], (
-        "design-doc-format.md's 'Definitions' examples no longer parse as the "
-        "FR definitions the doc claims they are"
-    )
-    assert [ac["id"] for ac in reqs["acs"]] == ["AC#1", "AC#2"], (
-        "design-doc-format.md's 'Definitions' examples no longer parse as the "
-        "AC definitions the doc claims they are"
-    )
-
-    design_path.write_text(not_definitions_block)
-    reqs = _parse_requirements(design_path)
-    assert reqs["frs"] == [] and reqs["acs"] == [], (
-        "a line in design-doc-format.md's 'Not definitions' examples was parsed "
-        "as a definition by the real cfl extractor — the doc's rule and the "
-        "parser have drifted apart"
-    )

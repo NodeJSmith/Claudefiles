@@ -55,7 +55,7 @@ Classify target type — use `--target-type` if provided, otherwise:
 |-------------|-------------|
 | `code` | `.py`, `.go`, `.rs`, `.java`, `.ts`, `.js` (backend); mixed/repo-wide scope |
 | `frontend-code` | `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`; UI framework imports; dirs named `components/`, `pages/`, `hooks/` |
-| `spec` | Standalone requirement docs outside caliper workflow |
+| `spec` | Standalone requirement docs |
 | `design-doc` | `design.md`; architecture/API contract content |
 | `brief` | `brief.md`; grill/brainstorm output |
 | `skill-file` | `SKILL.md`; phases/persona definitions |
@@ -65,7 +65,7 @@ Classify target type — use `--target-type` if provided, otherwise:
 | `rule` | Files in `rules/`; convention/guideline definitions |
 | `other` | Nothing matches |
 
-**`design-doc` terminal-status caveat:** if the target's `**Status:**` is `archived` or `abandoned`, note it here for Phase 2 — the dispatch bullet list there tells critics not to flag drift from current code as a finding.
+**`design-doc` terminal-status caveat:** if the target's `**Status:**` is `built`, `archived`, or `abandoned` (the terminal set in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), note it here for Phase 2 — the dispatch bullet list there tells critics not to flag drift from current code as a finding.
 
 ### Re-challenge detection
 
@@ -153,7 +153,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
 - Focus instruction if `--focus` was provided: "The user is specifically concerned about: <focus>. Weight your analysis toward this concern."
 - If re-challenge: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough, (2) whether fixes introduced new problems, (3) issues missed in the first round."
 - Project context if available: check the project's CLAUDE.md for frontmatter with `audience`, `developers`, and `data-sensitivity` fields. If present, include: "Project context: audience is <audience>, <developers> developer(s), data sensitivity is <data-sensitivity>. Calibrate severity to this context — report a finding that would only matter for a different audience or scale at MEDIUM, starting its Why it matters with `Audience assumption: <the audience or scale it assumes>.`, rather than omitting it." If absent, do not fabricate context — omit this line.
-- If target type is `design-doc` and the doc's `**Status:**` is `archived` or `abandoned`: "This design.md is frozen (Status: <status>) — it documents a past decision, not a live spec to keep synced with the code. Critique the decision as written, but do not flag drift from current code as a finding — that belongs in the doc's own `## Addendum` section, not this critique."
+- If target type is `design-doc` and the doc's `**Status:**` is `built`, `archived`, or `abandoned`: "This design.md is frozen (Status: <status>) — it documents a past decision, not a live spec to keep synced with the code. Critique the decision as written, but do not flag drift from current code as a finding — that belongs in the doc's own `## Addendum` section, not this critique."
 - Output path: `<tmpdir>/<persona-slug>-report.md`
 - Critic rules:
   1. **Cite evidence for every claim** — `file:line` for codebase claims; canonical URL for external patterns
@@ -213,12 +213,7 @@ Passthrough callers (pass `--mode=passthrough`):
 Standalone callers (full inline resolution flow):
 - `skills/mine-grill/SKILL.md`
 
-Orchestration callers (mandatory, via challenge-gate.md):
-- `skills/mine-define/SKILL.md` (Phase 5.5 — design-time challenge)
+Mandatory caller (via challenge-gate.md):
 - `skills/mine-sketch/SKILL.md` (Phase 4 — sketch-time challenge with --critics=2; Build Mode Step 3 — ship-time challenge against the ledger)
-- `skills/mine-orchestrate/post-execution-pipeline.md` (Step 3.5 — ship-time challenge)
-
-Detection callers (scan for severity labels, don't read findings file):
-- `skills/mine-build/SKILL.md`
 
 To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/ --include='*.md' -l`

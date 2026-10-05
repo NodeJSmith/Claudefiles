@@ -162,7 +162,7 @@ Tie the options to the verdict you just wrote and recommend the matching one:
 - *Adopt with confidence* → "Adopt it"
 - *Adopt with caution* → "Dig deeper", naming the gaps worth checking
 - *Use for reference only* → "Look for alternatives"
-- *Build your own* → "Build it yourself" in place of "Adopt it", recommended: hand off to `/mine-build` to wrap the underlying API directly (a library search would contradict the verdict)
+- *Build your own* → "Build it yourself" in place of "Adopt it", recommended: wrap the underlying API directly (a library search would contradict the verdict)
 - *Avoid* → "Skip it"
 
 Offer "Adopt it" only for the two *Adopt* verdicts, and name the specific concern in each description.

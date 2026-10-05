@@ -97,15 +97,6 @@ always_run = true
 stages = ["pre-commit"]
 
 [[repos.hooks]]
-id = "lint-verdict-line"
-name = "Reviewer verdict-line conformance"
-entry = "bin/lint-verdict-line"
-language = "system"
-pass_filenames = false
-always_run = true
-stages = ["pre-commit"]
-
-[[repos.hooks]]
 id = "lint-agent-files"
 name = "Skill/agent frontmatter + hardcoded path lint"
 entry = "bin/lint-agent-files"

@@ -29,11 +29,7 @@ git-branch-diff-stat               # → diff summary
 2. Use `git diff [base-branch]...HEAD` to see all code changes
 3. Read key modified files if needed for additional context
 
-## Step 4: Task File Archival
-
-Follow `rules/common/git-workflow.md` (Task File Cleanup): check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist and `cfl` is available, run `cfl archive --dry-run`. If the output has `"status": "would_archive"`, run `cfl archive`, then commit (`chore: archive completed tasks`) and push before creating the PR. If `cfl archive` exits non-zero, return `ERROR: cfl archive failed` with the error output.
-
-## Step 5: Draft PR Body
+## Step 4: Draft PR Body
 
 Follow `rules/common/git-workflow.md` (PR Description Content). The body records the shipped state and its durable rationale, not the process that produced it. Terse, not exhaustive, but terse is not the same as vague.
 
@@ -85,7 +81,7 @@ Example shape:
 - If found, append `Closes #N` per issue.
 - Skip for Azure DevOps.
 
-## Step 6: Create PR (Draft)
+## Step 5: Create PR (Draft)
 
 1. Run `get-skill-tmpdir mine-pr` to create a temp directory
 2. Write the PR body to `<dir>/body.md`
@@ -99,7 +95,7 @@ Example shape:
      az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
      ```
 
-## Step 7: Write CHANGELOG Entry
+## Step 6: Write CHANGELOG Entry
 
 Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md`. The first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, skip this step.
 
@@ -125,12 +121,12 @@ If adding an entry, **match the existing changelog structure**: read the file to
 5. Commit: `docs: update changelog for PR #<NUMBER>` (or `!<NUMBER>` for ADO)
 6. Push
 
-## Step 8: Mark PR Ready
+## Step 7: Mark PR Ready
 
 - **GitHub**: `gh pr ready`
 - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
 
-## Step 9: Return Result
+## Step 8: Return Result
 
 Your final message must end with the PR URL on its own line. If you have notes (e.g., no CHANGELOG found), put them on lines before the URL. If you encountered an error at any step, return `ERROR: <description>` instead.
 

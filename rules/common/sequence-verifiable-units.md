@@ -37,6 +37,6 @@ Each step is independently verifiable (tests still pass, linter clean).
 - Do not combine RED and GREEN in the same commit. Separate evidence of the problem from evidence of the solution.
 - One concern per unit. Bundling unrelated changes destroys the argument structure.
 
-## Applies to mine-orchestrate and mine-ship
+## Planning Multi-Step Work
 
-When planning multi-task work, prefer task orderings that produce verifiable checkpoints at each boundary rather than one large commit at the end. The trail of green checkpoints is the proof of correctness.
+When planning multi-step work, prefer orderings that produce verifiable checkpoints at each boundary rather than one large commit at the end. The trail of green checkpoints is the proof of correctness.

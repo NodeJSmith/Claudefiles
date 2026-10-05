@@ -7,7 +7,7 @@
 #
 # Stats file: ${CLAUDE_CODE_TMPDIR:-/tmp}/cfl-dispatch-stats/<dispatch_id>.json
 #
-# Non-orchestrate Agent calls (no cfl_dispatch_id in prompt) are silently skipped.
+# Agent calls with no cfl_dispatch_id in the prompt are silently skipped.
 #
 # Hook wiring (settings.json):
 #   "PostToolUse": [{
