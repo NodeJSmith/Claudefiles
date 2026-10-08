@@ -181,24 +181,6 @@ cfl event               # append a free-form event to the audit trail
 
 **Removing things** — run `uv run install.py --reconfigure` and deselect the bundle or rule category. For an individual rule file within a category you otherwise want, delete the symlink from `$CLAUDE_CONFIG_DIR/rules/common/` or remove the source file.
 
-## OpenCode Support
-
-OpenCode support is a plugin (`opencode/claudefiles.ts`) that reads the live Claude install directly — `install.py` is a **prerequisite** for OpenCode now, not only for Claude Code: run it first, since the plugin has nothing to read from `~/.claude/` otherwise. The plugin populates `cfg.agent`, `cfg.command`, and `cfg.instructions` in memory at OpenCode session start, resolving each agent's Claude tier name on `model:` to a provider-qualified model ID and reasoning `variant`. Since a dispatch already names a real agent file on both harnesses (see Key Concepts, above), there's nothing to rewrite in skill, command, or agent body content — every agent, worker and specialist alike, is a real file that resolves the same way on both harnesses.
-
-OpenCode loads skills through its native skill tool; unlike Claude Code, it does not automatically expose every skill as a slash command. The plugin builds thin `/` command entries for skills declaring `opencode-command: true`, a curated set of frequently invoked workflows. Standalone files under `commands/`, such as `/mine-issues`, are read directly and merged into the same `cfg.command` map — their body is already a complete prompt, not a skill wrapper, so it needs no bridge and works the same way on both harnesses.
-
-Model routing lives entirely in each agent's own frontmatter, read live and transformed by the plugin — there is no config-level agent pinning. A generated `config.json` carries only the plugin declaration and `subagent_depth`; it has no `agent` key. `opencode.jsonc` stays entirely user-managed and is never written by the plugin or `bin/opencode-sync` (see [REFERENCE.md's OpenCode Sync section](REFERENCE.md#opencode-sync) for the full merge order).
-
-```bash
-opencode-sync --prune       # once, if upgrading from the old copy-based sync: remove the stale generated tree
-opencode-sync --bootstrap   # symlink the plugin and compatibility rule, write config.json, then verify
-opencode-sync --verify      # re-check that every agent resolves through the live install
-```
-
-Existing users upgrading from the prior copy-based sync need that `--prune` step once, to clear out the stale generated files and orphaned agents it left behind — `--bootstrap` does not do this for you, it only sets up the new plugin-based path. `--bootstrap` runs the full `--verify` sweep automatically as its final step. Editing an agent, skill, or rule takes effect in the next OpenCode **process** — `config()` runs once per process and its result is cached, so a running `opencode serve` needs a restart, not just a new session. OpenCode discovering the live Claude artifacts is the delivery mechanism, not a confound: there's no separate generated copy anymore for a passing check to have missed.
-
-The native-support roadmap's Spec 2 (native agents and model enforcement) is complete; `design/specs/1008-opencode-named-roles` closed most of Spec 3 (skill compatibility adapter) by removing the need for dispatch rewriting in the first place, and `design/specs/1007-opencode-config-plugin` replaced the copy-to-disk transport with this plugin. Interactive question syntax conversion and skill classification remain open. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the full spec sequence and the constraints future OpenCode work must preserve.
-
 ## Reference
 
 See [REFERENCE.md](REFERENCE.md) for the full list of skills, agents, commands, hooks, bin scripts, and packages.

@@ -11,7 +11,6 @@ Extended guidance for SKILL.md authoring. Referenced by SKILL.md — do not refe
 name: mine-<name>
 description: "Use when the user says: '<trigger 1>', '<trigger 2>', or <broader description>."
 user-invocable: true|false
-opencode-command: true|false
 ---
 
 # mine-<name>
@@ -36,8 +35,7 @@ $ARGUMENTS — <what arguments it accepts, or "none">
 ## Conventions
 
 - `mine-*` prefix for first-party skills
-- Frontmatter fields: `name`, `description`, `user-invocable`, and optional `opencode-command`
-- `opencode-command: true` adds a thin OpenCode slash-command bridge, built in memory by the OpenCode plugin at session start — not a generated file. Use it only when users should routinely invoke the skill by name; otherwise omit it or set it to `false` and rely on native skill discovery.
+- Frontmatter fields: `name`, `description`, `user-invocable`
 - Description: starts with "Use when..." trigger phrases, ends with a summary of what it produces
 - Phases are numbered with descriptive names
 - Use `AskUserQuestion` for every user interaction point
