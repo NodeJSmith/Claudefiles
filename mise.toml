@@ -41,4 +41,4 @@ run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --
 
 [tasks."test:root"]
 description = "pytest for tests/ (install.py and repo-level hooks)"
-run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --with pytest --with questionary --with rich --with pyyaml pytest tests/"
+run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --group dev pytest"
