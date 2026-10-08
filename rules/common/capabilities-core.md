@@ -74,7 +74,6 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "stale review questions", "REVIEW.md staleness", "review questions affected by this branch" | `check-review-questions` |
 | "missing review questions", "REVIEW.md coverage", "modules without review questions" | `check-review-coverage` |
 | "which REVIEW.md applies", "find applicable review questions for this diff" | `find-review-md` |
-| "did the opencode sync actually work", "are subagents running at the right effort", "check subagent variants", "did the variant resolve", "audit opencode variants" | `opencode-variant-audit` |
 | "spec status", "run status" | `cfl run status` |
 | "query cfl data", "gate blocking rate" | `cfl` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |

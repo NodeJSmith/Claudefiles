@@ -33,3 +33,7 @@ markers = [
 ]
 addopts = ["-p", "no:warnings"]
 testpaths = ["tests"]
+
+[tool.ruff]
+# Own ruff config root so the target version comes from requires-python above,
+# not the repo-root pyproject.toml.

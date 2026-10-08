@@ -1,0 +1,20 @@
+[project]
+name = "claudefiles"
+version = "0.0.0"
+description = "Dev environment for the repo-level tests (install.py and hooks); not a distributable package"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pyyaml",
+    "questionary>=2.0",
+    "rich>=13.0",
+]

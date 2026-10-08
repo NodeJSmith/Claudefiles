@@ -2,7 +2,6 @@
 name: mine-prior-art
 description: "Use when the user says: \"prior art\", \"how do others do this\", \"what patterns exist\", \"industry standards for X\", or wants to survey external approaches."
 user-invocable: true
-opencode-command: true
 ---
 
 # Prior Art

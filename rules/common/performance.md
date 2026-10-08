@@ -18,8 +18,6 @@ Every agent file declares an explicit `effort:` in frontmatter — no agent ship
 
 Sonnet agents run at `effort: medium`. Opus and Haiku agents run at `effort: high`. These are current defaults, not ceilings — match a new agent's effort to its tier's current default unless there's a specific reason to diverge. To retune a role's effort, edit that agent's frontmatter, then run `bin/lint-agent-models --write` to regenerate the list below from it.
 
-`effort:` is the Claude Code key and stays that in source. OpenCode has no such key — its equivalent is `variant:`, and it accepts unknown agent keys silently rather than rejecting them, so an `effort:` that reached OpenCode would look configured while every agent ran at the provider default. Neither side rewrites agent files: an OpenCode plugin (`opencode/claudefiles.ts`) reads each agent's frontmatter live at OpenCode session start and resolves its Claude tier name to a model and `variant` through `opencode/config-data.json`'s `tier_map`, so raising or lowering a tier's reasoning level for OpenCode means editing that shared data file, not the agent files (`design/specs/1007-opencode-config-plugin`). `tier_map`'s per-tier `variant` values are kept matching the per-agent `effort:` defaults above.
-
 The parent session runs at `high` (set in `settings.machine.json`).
 
 **Gap:** Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`) have no frontmatter, so they inherit the parent session's effort level (`high`). The Agent tool schema has no `effort` parameter, so the model-default hook cannot inject it. These types already get downgraded to Sonnet by the hook, which limits the cost impact.

@@ -20,6 +20,10 @@ Interactive wizard that symlinks skills, agents, hooks, rules, commands, and bin
 
 Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 
+## Running Tests
+
+Repo-level tests (`tests/`) use the dev dependency group in the root `pyproject.toml`: `uv run --group dev pytest`, or `mise run test:root` (which also strips the `GIT_*` env vars). Package suites run via `mise run 'test:*'`.
+
 ## Naming Conventions
 
 - `mine-*` — personal skills and commands

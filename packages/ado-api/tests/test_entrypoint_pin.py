@@ -485,11 +485,15 @@ class TestSetupDispatch:
     behavior of the command, not a test bug, so a passing ``az devops configure
     --list`` response is stubbed to keep this test on the "all prerequisites met"
     happy path and avoid asserting on a ``SystemExit`` that would otherwise depend
-    on unrelated environment state.
+    on unrelated environment state. For the same reason ``shutil.which`` is stubbed,
+    so the test doesn't require ``az`` to be installed on the machine running it.
     """
 
+    @patch("ado_api.commands.setup.shutil.which", return_value="/usr/bin/az")
     @patch("ado_api.commands.setup.subprocess.run")
-    def test_setup_shells_out_to_az(self, mock_run: MagicMock) -> None:
+    def test_setup_shells_out_to_az(
+        self, mock_run: MagicMock, _mock_which: MagicMock
+    ) -> None:
         def side_effect(cmd: list[str], **_kwargs: object) -> MagicMock:
             result = MagicMock()
             result.returncode = 0

@@ -39,7 +39,7 @@ Multiple `Agent` tool calls in a **single message** = parallel execution. Only s
 
 ### Subagent Types
 
-A dispatch names an agent — nothing else. Don't dispatch the harness's built-in `general-purpose` or `Explore` types, and add no separate `model:` tier clause at the call site: every agent's model, effort, and tools are declared once, in that agent's own frontmatter (`agents/*.md`), and a name that resolves on Claude Code resolves identically on OpenCode.
+A dispatch names an agent — nothing else. Don't dispatch the harness's built-in `general-purpose` or `Explore` types, and add no separate `model:` tier clause at the call site: every agent's model, effort, and tools are declared once, in that agent's own frontmatter (`agents/*.md`).
 
 | Need | `subagent_type` |
 |------|----------------|

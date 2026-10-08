@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 
+- OpenCode support is removed: `opencode-sync`, `opencode-resume`, `opencode-variant-audit`, the `opencode/` plugin, `mine-resume`, and the OpenCode specs and tests are deleted. After merging, run `uv run install.py` to drop the stale symlinks. (#620)
 - The `claude-context-writer` hook no longer writes the account-wide rate-limits sidecar (`CLAUDE_RATE_LIMITS_META`); its only consumer, `dfl claude usage`, is gone. The per-session context sidecar is unchanged. (#619)
 
 ## 2026-10-05
