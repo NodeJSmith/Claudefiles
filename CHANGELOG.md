@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-08
+
+### Removed
+
+- The `claude-context-writer` hook no longer writes the account-wide rate-limits sidecar (`CLAUDE_RATE_LIMITS_META`); its only consumer, `dfl claude usage`, is gone. The per-session context sidecar is unchanged. (#619)
+
 ## 2026-10-05
 
 ### Removed
