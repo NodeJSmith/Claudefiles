@@ -4,7 +4,7 @@ tool: claude, antigravity
 
 # Design Invariants
 
-Named invariants that must hold across all code written in this setup. These are defined in their respective rule files — this file promotes them to a proactive checklist.
+Named invariants that must hold across all code written in this setup. Each is defined in the rule or reference file named after it; this file promotes them to a proactive checklist. Entries pointing at `rules/common/` are summaries of text normally already loaded; entries pointing at `references/common/` are the only always-present surface for guidance that otherwise loads on demand.
 
 ## When to Check
 
@@ -18,172 +18,74 @@ Scan this list at two points: **before writing code** (catch structural violatio
 
 ## Invariant Library
 
+Bare filenames are in `rules/common/`; others are prefixed `references/common/` (both under `${CLAUDE_CONFIG_DIR:-~/.claude}/` when installed).
+
 ### Must
 
-#### Immutability
-Create new objects, never mutate existing ones. Return new copies with changes. (PySpark DataFrame reassignment is exempt — see coding-style.md.)
-**Defined in:** `rules/common/coding-style.md`
-
-#### No Compatibility Shims for Convenience
-Never keep an old attribute, field, name, or re-export alive just to avoid updating the sites that reference it — tests and imports included; ask whether it would still be needed if those sites were free to change. Migrate every caller and delete the old path once that migration completes — the staged "new path → migrate callers → delete old" sequence in `sequence-verifiable-units.md` is fine, an old path that outlives it is not. Exception: the specific name/attribute/export is itself part of a library's declared public API surface (semver, changelog, documented public API), or is itself a wire format or schema another system parses — there you presume unknown users exist rather than requiring one be named. Scoped to that declared surface only — an internal helper, private module, or test inside an otherwise-published package never qualifies, and merely being installable or on GitHub doesn't create the contract. Tests never qualify.
-**Defined in:** `rules/common/coding-style.md`
-
-#### No Future Annotations
-Never add `from __future__ import annotations` — breaks Pydantic, FastAPI, dataclasses, and runtime type inspection.
-**Defined in:** `rules/common/python.md`
-
-#### No Optional[X]
-Use `X | None`, not `Optional[X]`.
-**Defined in:** `rules/common/python.md`
-
-#### No Lazy Imports
-All imports at the top of the file. Only exception: `TYPE_CHECKING` guards for circular import avoidance.
-**Defined in:** `rules/common/python.md`
-
-#### Mock at Boundaries Only
-Mock external APIs, databases, time, filesystem. Use real instances for internal collaborators. Prefer dependency injection.
-**Defined in:** `references/common/testing.md`
-
-#### Dependencies as Parameters
-Functions and classes receive collaborators as parameters, not create them inline. If testing requires `mock.patch` more than one level deep, restructure the code.
-**Defined in:** `references/common/dependency-injection.md`
-
-#### No Log Capture Tests
-Test the behavior that produces the log, not the log output itself.
-**Defined in:** `references/common/testing.md`
-
-#### Evidence Before Claims
-Never claim work is done without actual command output proving it.
-**Defined in:** `rules/common/verification.md`
-
-#### No `any`
-Do not use `any` in TypeScript. Use `unknown` for external data and narrow before use.
-**Defined in:** `references/common/typescript.md`
-
-#### No `as` Casts
-Do not use `as` casts in TypeScript. Exceptions: after full validation at system boundaries, and branded type constructors where the preceding validation is the only path to the type.
-**Defined in:** `references/common/typescript.md`
-
-#### No Enums
-Do not use TypeScript `enum`. Use `as const` objects or union types instead.
-**Defined in:** `references/common/typescript.md`
-
-#### Functional Components Only
-No class components in React/Preact. Use function components with hooks.
-**Defined in:** `references/common/frontend.md`
-
-#### Effect Cleanup
-Every `useEffect` that subscribes, listens, or opens a connection must return a cleanup function.
-**Defined in:** `references/common/frontend.md`
-
-#### Input Validation at Boundaries
-External data (user input, API responses, file reads, env vars) validated and parsed at system boundaries. Internal code trusts what the boundary already validated.
-**Defined in:** `references/common/security.md`
-
-#### Timeouts on External Calls
-Every call to an external service has an explicit timeout. No implicit "wait forever."
-**Defined in:** `references/common/reliability.md`
-
-#### Shared State Protection
-Concurrent access to shared mutable state: first ask whether sharing is necessary — if not, give each actor its own state. When sharing is a real invariant, protect with locks, queues, or atomic operations.
-**Defined in:** `references/common/reliability.md`
-
-#### Parallel Executor Isolation
-When launching 2+ subagents that write to the git working directory in parallel, each must use `isolation: "worktree"`. A shared working directory with concurrent writers destroys changes via index races and pre-commit hook stash collisions.
-**Defined in:** `references/common/agents.md`
-
-#### Library Code Never Configures Logging
-A module imported by other code calls `logging.getLogger()` and nothing else. Never `basicConfig()`, a handler, or `setLevel()`. Configuration is the importing application's job, done once at its entry point.
-**Defined in:** `rules/common/logging.md`
+- **Immutability** — create new objects, never mutate existing ones; PySpark DataFrame reassignment is exempt. (`coding-style.md`)
+- **No Compatibility Shims for Convenience** — never keep an old name, field, or re-export alive just to avoid updating its references (tests and imports included); migrate every caller, then delete the old path (the staged sequence in `sequence-verifiable-units.md` is fine; an old path outliving it is not). Exception: the thing itself is part of a declared, versioned public API or a wire format another system parses. Internal helpers and tests never qualify. (`coding-style.md`)
+- **No Future Annotations** — never add `from __future__ import annotations`; it breaks Pydantic, FastAPI, dataclasses, and runtime type inspection. (`python.md`)
+- **No Optional[X]** — use `X | None`. (`python.md`)
+- **No Lazy Imports** — all imports at the top of the file; only `TYPE_CHECKING` guards are exempt. (`python.md`)
+- **Mock at Boundaries Only** — mock external APIs, databases, time, filesystem; use real instances for internal collaborators. (`references/common/testing.md`)
+- **Dependencies as Parameters** — functions and classes receive collaborators as parameters rather than creating them inline. If testing needs `mock.patch` more than one level deep, restructure. (`references/common/dependency-injection.md`)
+- **No Log Capture Tests** — test the behavior that produces the log, not the log output. (`references/common/testing.md`)
+- **Evidence Before Claims** — never claim work is done without command output proving it. (`verification.md`)
+- **No `any`** (TypeScript) — use `unknown` for external data and narrow before use. (`references/common/typescript.md`)
+- **No `as` Casts** (TypeScript) — except after full validation at system boundaries, and branded type constructors whose preceding validation is the only path to the type. (`references/common/typescript.md`)
+- **No Enums** (TypeScript) — use `as const` objects or union types. (`references/common/typescript.md`)
+- **Functional Components Only** — no React/Preact class components. (`references/common/frontend.md`)
+- **Effect Cleanup** — every `useEffect` that subscribes, listens, or opens a connection returns a cleanup function. (`references/common/frontend.md`)
+- **Input Validation at Boundaries** — external data (user input, API responses, file reads, env vars) is validated and parsed at the boundary; internal code trusts it. (`references/common/security.md`)
+- **Timeouts on External Calls** — every external call has an explicit timeout. (`references/common/reliability.md`)
+- **Shared State Protection** — first ask whether sharing is necessary; if not, give each actor its own state. When it is, protect it with locks, queues, or atomic operations. (`references/common/reliability.md`)
+- **Parallel Executor Isolation** — 2+ subagents writing to the git working directory in parallel each use `isolation: "worktree"` — shared directories lose changes to index races and pre-commit stash collisions. (`references/common/agents.md`)
+- **Library Code Never Configures Logging** — imported modules call `logging.getLogger()` and nothing else; no `basicConfig()`, handlers, or `setLevel()`. (`logging.md`)
 
 ### Should
 
-#### Test Co-location
-Code and its unit tests ship in the same commit. Integration tests may follow; unit tests may not be deferred.
-**Exemptions:** generated code, type definitions, config files, constants, `__init__.py`, docs-only changes, migrations with no business logic.
-**Defined in:** `references/common/testing.md`
-
-#### File Size Limits
-200-400 lines typical, 800 max. Functions <50 lines, nesting <4 levels.
-**Defined in:** `rules/common/coding-style.md`
-
-#### Errors Surfaced Not Swallowed
-Every error path is explicitly handled or propagated. Silent catch-and-ignore hides real failures — use `contextlib.suppress` with a specific exception type when intentional.
-**Defined in:** `references/common/reliability.md`
-
-#### Reproduce Before Fixing
-A bug you cannot reproduce, you cannot prove fixed. Reproduce it yourself before designing a fix.
-**Defined in:** `rules/common/debugging-discipline.md`
-
-#### "Pre-existing" Means Verified Against the Default Branch
-Before calling something "pre-existing," "baseline," or "not introduced by this change," verify it against the actual default branch per the procedure in `rules/common/pre-existing-verification.md` (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one) — not a stash, a run's captured starting commit, or an earlier commit on the same branch. Those are real but narrower claims; state them as such instead. This applies to claims that a failure or issue predates the change, not to routine uses of "baseline" as a captured measurement snapshot (test/lint baselines, screenshot baselines, performance traces).
-**Defined in:** `rules/common/pre-existing-verification.md`
-
-#### Pause Safely on Unplanned Interruption
-When mid-task work is interrupted unexpectedly: stop at an atomic boundary, commit with `wip:` prefix, write a resume note to `/tmp/<slug>-resume.md`, then report position to the user.
-**Defined in:** `rules/common/pause-safely.md`
-
-#### Pin Behavior Before Refactoring
-Before restructuring, capture current behavior with a characterization test. Type checks and lint are not a pin.
-**Defined in:** `rules/common/refactoring-discipline.md`
-
-#### Exit Condition Before Iterating
-Define done as a checkable predicate before the first iteration of a long-running task.
-**Defined in:** `rules/common/autonomous-run-discipline.md`
-
-#### Self-Contained Comments
-A comment must make sense to a reader with no memory of how it got there — no narrating a specific incident or reviewer catch. State the durable invariant instead.
-**Defined in:** `rules/common/coding-style.md`
-
-#### No Dark Operations
-Every error recovery path (`except` that doesn't re-raise) and external I/O boundary (API call, DB query, file operation) must log its outcome on failure. If a failure path emits no signal, it's a dark operation — invisible until the downstream symptom surfaces.
-**Defined in:** `rules/common/logging.md`
-
-#### Verify Review Findings Before Accepting
-When code review findings arrive, verify each against the actual code before implementing. Reviewers make mistakes. Grep for suggested abstractions — if no callers exist outside the changed files, skip it.
-**Defined in:** `references/common/receiving-code-review.md`
-
-#### Mandatory Challenge in Sketch
-Challenge runs at sketch time and at ship time in `mine-sketch`'s build mode. It is not offered as an option and cannot be skipped.
-**Defined in:** `rules/common/git-workflow.md`
+- **Test Co-location** — code and its unit tests ship in the same commit; integration tests may follow. Exempt: generated code, type definitions, config, constants, `__init__.py`, docs-only changes, logic-free migrations. (`references/common/testing.md`)
+- **File Size Limits** — 200-400 lines typical, 800 max; functions <50 lines, nesting <4 levels. (`coding-style.md`)
+- **Errors Surfaced Not Swallowed** — every error path is handled or propagated; for intentional suppression use `contextlib.suppress` with a specific exception type. (`references/common/reliability.md`)
+- **Reproduce Before Fixing** — reproduce a bug yourself before designing a fix. (`debugging-discipline.md`)
+- **"Pre-existing" Means Verified Against the Default Branch** — verify against the actual default branch (`git-default-branch`, not `git-branch-base`), not a stash or an earlier commit on this branch. Doesn't apply to measurement baselines. (`pre-existing-verification.md`)
+- **Pause Safely on Unplanned Interruption** — stop at an atomic boundary, commit with `wip:`, write `/tmp/<slug>-resume.md`, report position. (`pause-safely.md`)
+- **Pin Behavior Before Refactoring** — capture current behavior with a characterization test first; type checks and lint are not a pin. (`refactoring-discipline.md`)
+- **Exit Condition Before Iterating** — define done as a checkable predicate before a long-running task's first iteration. (`autonomous-run-discipline.md`)
+- **Self-Contained Comments** — no narrating incidents or reviewer catches; state the durable invariant. (`coding-style.md`)
+- **No Dark Operations** — every non-re-raising `except` and every external I/O boundary logs its outcome on failure. (`logging.md`)
+- **Verify Review Findings Before Accepting** — check each finding against the actual code before implementing; reviewers make mistakes. If a suggested abstraction has no callers outside the changed files, skip it. (`references/common/receiving-code-review.md`)
+- **Mandatory Challenge in Sketch** — challenge runs at sketch time and at ship time in `mine-sketch`'s build mode, and is never offered as optional. (`git-workflow.md`)
 
 ### Consider
 
-These principles are defined in `rules/common/` files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain**.
+Defined in `rules/common/` files, so this tier is a scan list only: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain**.
 
-Three more are defined in `references/common/` files, which load only on demand (via the Domain References table below) — so their summaries stay here as the always-present surface:
+These three live in on-demand `references/common/` files, so their summaries stay:
 
-#### AI Prose Self-Audit
-After writing non-code text (PR descriptions, docs, skill files, rules), ask: "What makes this obviously AI-generated?" Fix whatever comes to mind. Em dashes, hedging, significance inflation, and synonym cycling are the common tells.
-**Defined in:** `references/common/writing-quality.md`
-
-#### Screenshot Before and After UI Changes
-Before changing any UI, screenshot the affected pages and sibling pages. After implementing, screenshot again to verify. Visual bugs only appear in screenshots.
-**Defined in:** `references/common/frontend.md`
-
-#### Instruction Quality Checks
-When writing rules or skill files, apply proportionally: diagnostic questions over thresholds, named failure modes, AI-specific bias acknowledgment, a generative value, "why" before "what," and room for judgment.
-**Defined in:** `references/common/instruction-quality.md`
+- **AI Prose Self-Audit** — after writing non-code text, ask "what makes this obviously AI-generated?" and fix it. Common tells: em dashes, hedging, significance inflation, synonym cycling. (`references/common/writing-quality.md`)
+- **Screenshot Before and After UI Changes** — screenshot affected and sibling pages before and after; visual bugs only show in screenshots. (`references/common/frontend.md`)
+- **Instruction Quality Checks** — when writing rules or skills, apply proportionally: diagnostic questions over thresholds, named failure modes, AI-bias acknowledgment, a generative value, "why" before "what", room for judgment. (`references/common/instruction-quality.md`)
 
 ## Domain References
 
-**BLOCKING REQUIREMENT**: Before starting work that matches a row below, Read the reference file. Do NOT proceed with domain work without loading the relevant guidance first.
+**BLOCKING REQUIREMENT**: Before starting work that matches a row below, Read the reference file under `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/`. Do NOT proceed with domain work without loading the relevant guidance first.
 
 | When working with... | Read |
 |----------------------|------|
-| `.ts`, `.tsx`, `.js`, `.jsx` files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/typescript.md` |
-| Frontend components, CSS, UI | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/frontend.md` |
-| Backend services, async code, retries | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/reliability.md`, `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/dependency-injection.md` |
-| Tests, TDD, pytest | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md` |
-| Prose: PR descriptions, docs, skills, rules | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md` |
-| Subagent orchestration, parallel executors | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/agents.md` |
-| Processing code review findings | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/receiving-code-review.md` |
-| Writing rules or skill files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/instruction-quality.md` |
-| Asking the user to pick among options with a recommendation | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md` |
-| API endpoints, auth handlers, user input | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/security.md` |
-| User-facing CLI tools: commands with flags, subcommands, help text, output design | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/cli-ux.md` |
-| Authoring `REVIEW.md` review-question files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/review-questions.md` |
+| `.ts`, `.tsx`, `.js`, `.jsx` files | `typescript.md` |
+| Frontend components, CSS, UI | `frontend.md` |
+| Backend services, async code, retries | `reliability.md`, `dependency-injection.md` |
+| Tests, TDD, pytest | `testing.md` |
+| Prose: PR descriptions, docs, skills, rules | `writing-quality.md` |
+| Subagent orchestration, parallel executors | `agents.md` |
+| Processing code review findings | `receiving-code-review.md` |
+| Writing rules or skill files | `instruction-quality.md` |
+| Asking the user to pick among options with a recommendation | `presenting-decisions.md` |
+| API endpoints, auth handlers, user input | `security.md` |
+| User-facing CLI tools: commands with flags, subcommands, help text, output design | `cli-ux.md` |
+| Authoring `REVIEW.md` review-question files | `review-questions.md` |
 
 ## Adding Invariants
 
-When a code review catches the same violation more than once, or a new rule is added to a rule file that should be checked proactively, add it here with a one-line summary, a tier, and a `Defined in` pointer. Keep Must items tight — they're the "never violate" set. Should and Consider can be more inclusive.
+When a code review catches the same violation more than once, or a new rule is added that should be checked proactively, add a one-line entry under the right tier ending with its defining file. Keep Must items tight — they're the "never violate" set.
