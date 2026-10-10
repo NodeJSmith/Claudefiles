@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-10
+
+### Changed
+
+- `rules/common/invariants.md` is compressed to one-line entries (12.7k → 9.3k chars) so the always-loaded rules fit under Claude Code's 150k-char instruction limit. Every invariant and exception is kept.
+
 ## 2026-10-08
 
 ### Removed
