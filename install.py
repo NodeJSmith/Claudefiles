@@ -211,13 +211,14 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "planning": RuleCategory(
         label="Planning & execution",
-        description="Decomposition, outcome-oriented execution, autonomous runs, safe pausing, design exploration, experience-first, levers, encoding lessons",
+        description="Decomposition, outcome-oriented execution, autonomous runs, safe pausing, design exploration, sketch before building, experience-first, levers, encoding lessons",
         files=(
             "decomposition-discipline.md",
             "outcome-oriented-execution.md",
             "autonomous-run-discipline.md",
             "pause-safely.md",
             "exhaust-the-design-space.md",
+            "sketch-before-building.md",
             "experience-first.md",
             "build-the-lever.md",
             "encode-lessons-in-structure.md",

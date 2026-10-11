@@ -59,7 +59,7 @@ Bare filenames are in `rules/common/`; others are prefixed `references/common/` 
 
 ### Consider
 
-Defined in `rules/common/` files, so this tier is a scan list only: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain**.
+Defined in `rules/common/` files, so this tier is a scan list only: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sketch Before Building, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain**.
 
 These three live in on-demand `references/common/` files, so their summaries stay:
 
