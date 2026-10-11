@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-10-11
 
+### Removed
+
+- `mine-challenge` drops four specialist critics that never earned findings: `agent-definition`, `end-user-reader`, `documentation-architect`, and `web-platform`. Triage now picks from 3 generic and 5 specialist personas. (#624)
+
 ### Changed
 
 - Skills ask far fewer questions: the comb gate fixes and re-combs automatically (two cycles) and asks only for design decisions or a loop that hasn't converged, sketch no longer re-asks decisions the user chose in a challenge or comb walkthrough, and about twenty skills act on the dominant answer instead of confirming it. Gates stay for outward-facing or irreversible actions. (#622)
