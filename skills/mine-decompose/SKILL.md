@@ -138,7 +138,7 @@ AskUserQuestion:
       description: "Acknowledged — no action this session"
 ```
 
-If the user chooses "Build top opportunity", implement the split now. If "File as issues", create one issue per HIGH/MEDIUM opportunity in the project's issue tracker. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`.
+If the user chooses "Build top opportunity", implement the split now. If "File as issues", create one issue per HIGH/MEDIUM opportunity in the project's issue tracker. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`, renaming rather than overwriting if that path already exists.
 
 ## What This Skill Does NOT Do
 
