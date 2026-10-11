@@ -130,7 +130,7 @@ Example shape:
    - `issue-N` or `issue/N`
    - `fix/N-description`, `feat/N-description`, `chore/N-description`, etc.
 2. **Commit messages** — scan `git log` output for GitHub closing keywords followed by an issue number (e.g., `Fixes #123`, `Closes #123`, `Resolves #123`). Do NOT match generic references like `refs #123`.
-3. **Sketch ledger** — if the branch adds or changes a `design.md` with an `**Issues:**` line, take every key on it.
+3. **Sketch ledger** — if the branch builds a sketch ledger, take every key on its `**Issues:**` line. Use judgment about whether the branch is actually that ledger's work: a ledger touched only in passing, such as an Addendum appended to an already-built one, doesn't close its issues.
 - If found, append `Closes #N` per issue.
 - Skip for Azure DevOps.
 

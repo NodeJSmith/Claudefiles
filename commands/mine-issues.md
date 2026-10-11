@@ -53,7 +53,7 @@ Launch subagents **in parallel** when multiple keys are provided. Display all st
 
 If a subagent returns `TRACKER_ERROR`, surface the reason to the user and **stop** — an unusable tracker isn't fixed by asking for a different issue key, so don't fall through to Phase 2's branch-name fallback or to Phase 4.
 
-A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and carry the summaries that did come back through to Phase 4 — one bad key shouldn't discard the others' work. If every key failed, stop.
+A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and carry the summaries that did come back through to Phase 4 — one bad key shouldn't discard the others' work.
 
 ## Phase 4: Next Step (Main Context)
 
