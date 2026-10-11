@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-10-11
 
+### Removed
+
+- `cfl` is removed, along with its `cfl-stop-orphans.sh` and `dispatch-stats.sh` hooks. Challenge findings and the user's choices, plus comb pass counts, now go to `review-log.jsonl` in the feature directory, committed with the ledger. `bin/new-spec-dir` replaces `cfl spec init`. After merging, run `uv run install.py` and `uv tool uninstall cfl` on each machine; `~/.local/share/claudefiles/cfl.db` can be kept as an archive or deleted. (#623)
+
 ### Changed
 
 - Skills ask far fewer questions: the comb gate fixes and re-combs automatically (two cycles) and asks only for design decisions or a loop that hasn't converged, sketch no longer re-asks decisions the user chose in a challenge or comb walkthrough, and about twenty skills act on the dominant answer instead of confirming it. Gates stay for outward-facing or irreversible actions. (#622)
