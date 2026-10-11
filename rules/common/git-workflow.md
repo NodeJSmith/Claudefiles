@@ -82,4 +82,4 @@ A PR description is read by someone with zero session context: a reviewer today,
 
 **Terse is not the same as vague.** A description that omits the actual reasoning ("Fix bug," "various improvements," "Phase 1") is the mirror-image failure — cut the narration, never the rationale itself.
 
-This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule when drafting the body — `skills/mine-create-pr/worker.md` Step 4 mirrors it for the drafting agent, so an edit to one should check the other stays in sync.
+This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule in its Draft PR Body step (`skills/mine-create-pr/SKILL.md`).
