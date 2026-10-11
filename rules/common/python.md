@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Python
 
 ## Never Use `from __future__ import annotations`

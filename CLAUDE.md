@@ -74,6 +74,5 @@ The naive approach — compare `git rev-parse --show-toplevel`'s output against 
 - **Always update `ONBOARDING.md`** when adding a capability a new adopter should know about (new bundle, significant new skill, workflow change)
 - **Always add trigger phrases for new skills** to `rules/common/capabilities-core.md`
 - **When bundling a new plugin:** add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it in the Plugins table in `REFERENCE.md` and the relevant path in `ONBOARDING.md`
-- **When adding a rule to `rules/common/`** — set its `tool:` frontmatter. Portable rules get `tool: claude, antigravity`; Claude-Code-harness-specific rules get `tool: claude  # harness-only: <reason>`. Omitting `tool:` is fail-closed (the rule reaches Claude only).
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.
 - **CodeRabbit reviews are manual.** Auto-review is disabled (`.coderabbit.yaml`). After the full PR workflow is complete (commit, push, PR created and marked ready), comment `@coderabbitai review` on the PR to trigger a review.

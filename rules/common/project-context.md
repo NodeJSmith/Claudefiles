@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Project Context
 
 Projects can declare structured metadata in their CLAUDE.md frontmatter that calibrates how agents assess the work. Currently wired into `mine-challenge` critic dispatch; other skills and reviewers inherit the values via CLAUDE.md context. Without this metadata, agents default to enterprise-grade advice — suggesting RBAC for a personal CLI tool, rate limiting for a self-hosted single-user app, horizontal scaling for a hobby project.

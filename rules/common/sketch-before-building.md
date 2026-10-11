@@ -1,7 +1,3 @@
----
-tool: claude  # harness-only: routes to the mine-sketch skill, which only Claude Code has
----
-
 # Sketch Before Building
 
 An issue, a parent design, or a research brief settles *what* to build. It rarely settles the decisions underneath: data shape, API and module boundaries, edge-case behavior, test strategy. When code gets written straight from one of those, the agent makes those decisions silently as it goes, and the user first sees them in review, after they are expensive to change.

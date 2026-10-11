@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Design Invariants
 
 Named invariants that must hold across all code written in this setup. Each is defined in the rule or reference file named after it; this file promotes them to a proactive checklist. Entries pointing at `rules/common/` are summaries of text normally already loaded; entries pointing at `references/common/` are the only always-present surface for guidance that otherwise loads on demand.

@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Build the Lever
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->

@@ -1,10 +1,6 @@
----
-tool: claude, antigravity
----
-
 # Commit Conventions
 
-Tool-agnostic git and commit hygiene. The Claude-Code-specific git workflow (the review-agent gate, task/issue tooling, worktree dev) lives in `git-workflow.md`.
+Commit message format, local verification, and bug-fix commit sequencing. Hook setup, the review gate, and PR workflow live in `git-workflow.md`.
 
 ## Git Command Style
 

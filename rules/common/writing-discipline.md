@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Writing Discipline
 
 The prose equivalent of `laziness-protocol.md`. LLMs default to completionist writing: including every finding, hedging every claim, expanding scope to cover adjacent topics. Counter it by treating the reader's time as the binding constraint, not coverage.
