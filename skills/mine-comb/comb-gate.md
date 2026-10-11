@@ -17,7 +17,7 @@ Acknowledging a finding and moving on is not allowed. Findings that have a singl
 
 Track how many times the comb has run in this phase (starting at 1). Increment the counter each time the comb re-runs — whether that re-run came from the automatic fix or from resolving a design-decision finding via an applied A/B option (which always triggers a re-comb, regardless of what else was left over): run 2 exists either way. This is internal state — callers do not supply it.
 
-Automatic fixing stops after run 3: two fix-and-re-comb cycles is enough for the significant issues to be resolved, and a loop still failing after that is not converging on its own.
+Automatic fixing stops after run 3: two fix-and-re-comb cycles is enough for the significant issues to be resolved, and a loop still failing after that is not converging on its own. From then on, every run that still blocks asks the user.
 
 ## The gate
 
@@ -65,27 +65,27 @@ Build `<summary>` below from what's actually left — exclude every design-decis
 
 **Only minor findings, `minor_blocks: false`:** note them for the downstream summary and proceed. No fix, no prompt.
 
-**Anything else — any blocking finding, or minor findings with `minor_blocks: true`:** if this is run 3 and a blocking finding remains, go to "When the cap is reached" below instead of fixing. Otherwise fix them. Say what is happening in one line (`Comb run N: <summary> — fixing`), apply `<re_review_instructions>` to the findings in scope (blocking, plus minor when `minor_blocks` is `true`; only the listed findings, don't expand scope), then:
+**Anything else — any blocking finding, or minor findings with `minor_blocks: true`:** if this is run 3 or later and a blocking finding remains, go to "When the cap is reached" below instead of fixing. Otherwise fix them. Say what is happening in one line (`Comb run N: <summary> — fixing`), apply `<re_review_instructions>` to the findings in scope (blocking, plus minor when `minor_blocks` is `true`; only the listed findings, don't expand scope), then:
 
-- **Re-comb from the top** (re-dispatch the agent) when any blocking finding was fixed, or when the minor fixes are substantive enough that they could introduce new problems. At run 3 there is no further re-comb: finish and report.
+- **Re-comb from the top** (re-dispatch the agent) when any blocking finding was fixed, or when the minor fixes are substantive enough that they could introduce new problems. From run 3 on there is no further automatic re-comb: finish and report.
 - **Proceed without re-combing** when only polish-level minor findings were fixed (wording, formatting, a stale reference). The test: could this fix change the meaning or structure of something the comb already judged? If not, it is polish. Report what was fixed.
 
 Untagged findings should be clear corrections; anything needing a decision was handled in the section above. If one still turns out to have no single fix (the agent under-tagged it), stop and ask via `AskUserQuestion` with the options and your recommendation before applying anything, exactly as above — don't make the call autonomously just because it slipped through untagged.
 
 ### When the cap is reached
 
-If run 3 still reports blocking findings, stop fixing automatically and ask. This is a major gate — prepend the `context-pct` result. Use the caller's `<blocking_question>` if one was supplied; otherwise use the default `question` shown here, filling in the run count:
+If run 3 or any later run still reports blocking findings, stop fixing automatically and ask. This is a major gate — prepend the `context-pct` result. Use the caller's `<blocking_question>` if one was supplied; otherwise use the default `question` shown here, filling in the run count:
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] Fine-toothed comb still reports blocking issues on run <N>: <summary>. Two fix-and-re-comb cycles haven't cleared them."
+  question: "[Context: N%] Fine-toothed comb still reports blocking issues on run <N>: <summary>. Fix-and-re-comb cycles haven't cleared them."
   header: "<header>"
   multiSelect: false
   options:
     - label: "Fix and re-review"
       description: "One more fix-and-re-comb cycle"
     - label: "Fix and finish"
-      description: "Fix these findings but skip the next comb — two cycles is enough"
+      description: "Fix these findings but skip the next comb"
     - label: "Stop"
       description: "Halt and address issues manually"
 ```

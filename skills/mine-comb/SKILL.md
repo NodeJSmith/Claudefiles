@@ -66,7 +66,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 - **`minor_blocks`**: `true` — the user invoked this to get what the comb finds, so minor findings are fixed along with blocking ones
 - **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings — don't expand scope), then re-comb from the top
 
-The gate fixes and re-combs on its own, up to two cycles, and asks only about design decisions or a loop that hasn't converged.
+The gate fixes and re-combs on its own for up to two cycles, and asks only about design decisions or a loop that hasn't converged (after which each further blocking run asks again).
 
 When the target was a sweep across many files rather than one artifact, the findings are a worklist of independent items. The gate still applies as written; only `<re_review_instructions>` changes: fix the findings in batches, root causes first (the ones that would keep producing the defect), and re-comb only the files you changed rather than the whole sweep.
 
