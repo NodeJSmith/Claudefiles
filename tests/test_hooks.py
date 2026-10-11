@@ -1324,7 +1324,6 @@ class TestBashHistoryCapture:
                         "description": "Run bad command",
                     },
                     "error": "command not found: bad-command",
-                    "is_interrupt": False,
                     "duration_ms": 42,
                 }
             )
@@ -1343,33 +1342,6 @@ class TestBashHistoryCapture:
             assert "command not found" in row["output_preview"]
             assert row["hook_event"] == "PostToolUseFailure"
             assert row["duration_ms"] == 42
-            assert row["is_interrupt"] == 0
-
-    def test_captures_interrupted_command(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "test.db")
-            stdin = json.dumps(
-                {
-                    "session_id": "test-session",
-                    "tool_use_id": _fake_tool_use_id(),
-                    "cwd": "/tmp",
-                    "hook_event_name": "PostToolUseFailure",
-                    "tool_input": {"command": "sleep 999"},
-                    "error": "interrupted",
-                    "is_interrupt": True,
-                    "duration_ms": 1500,
-                }
-            )
-            run_hook(
-                BASH_HISTORY_HOOK,
-                stdin,
-                tmpdir,
-                extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
-            )
-            rows = _query_db(db_path, "SELECT * FROM commands")
-            assert len(rows) == 1
-            assert rows[0]["is_interrupt"] == 1
-            assert rows[0]["duration_ms"] == 1500
 
     def test_captures_duration_on_success(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1395,7 +1367,6 @@ class TestBashHistoryCapture:
             assert len(rows) == 1
             assert rows[0]["hook_event"] == "PostToolUse"
             assert rows[0]["duration_ms"] == 85
-            assert rows[0]["is_interrupt"] == 0
 
     def test_migrates_existing_db(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1429,11 +1400,37 @@ class TestBashHistoryCapture:
                 tmpdir,
                 extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
             )
-            rows = _query_db(
-                db_path, "SELECT hook_event, duration_ms, is_interrupt FROM commands"
-            )
+            rows = _query_db(db_path, "SELECT hook_event, duration_ms FROM commands")
             assert len(rows) == 1
-            assert rows[0]["is_interrupt"] == 0
+            assert rows[0]["hook_event"] == "PostToolUse"
+
+    def test_drops_retired_is_interrupt_column(self):
+        # First run creates the DB; re-adding the column then simulates a
+        # DB from before the drop, which the second run must migrate.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            stdin = _make_bash_history_payload()
+            run_hook(
+                BASH_HISTORY_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
+            )
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "ALTER TABLE commands ADD COLUMN is_interrupt INTEGER NOT NULL DEFAULT 0"
+            )
+            conn.commit()
+            conn.close()
+            run_hook(
+                BASH_HISTORY_HOOK,
+                _make_bash_history_payload(),
+                tmpdir,
+                extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
+            )
+            rows = _query_db(db_path, "SELECT * FROM commands")
+            assert len(rows) == 2
+            assert "is_interrupt" not in rows[0].keys()
 
     def test_skips_non_dict_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:
