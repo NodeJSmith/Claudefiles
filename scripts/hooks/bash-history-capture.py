@@ -44,8 +44,7 @@ CREATE TABLE IF NOT EXISTS commands (
     output_length INTEGER,
     output_preview TEXT,
     hook_event TEXT,
-    duration_ms INTEGER,
-    is_interrupt INTEGER NOT NULL DEFAULT 0
+    duration_ms INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_commands_session ON commands(session_id);
@@ -54,10 +53,14 @@ CREATE INDEX IF NOT EXISTS idx_commands_cwd ON commands(cwd);
 CREATE INDEX IF NOT EXISTS idx_commands_project ON commands(project_slug);
 """
 
+# Run on every invocation; an entry that has already applied raises
+# OperationalError (duplicate or missing column), which the caller ignores.
 MIGRATIONS = [
     "ALTER TABLE commands ADD COLUMN hook_event TEXT",
     "ALTER TABLE commands ADD COLUMN duration_ms INTEGER",
-    "ALTER TABLE commands ADD COLUMN is_interrupt INTEGER NOT NULL DEFAULT 0",
+    # is_interrupt never recorded a non-zero value (0 of 117k rows across both
+    # PostToolUse and PostToolUseFailure), so it is dropped from existing DBs.
+    "ALTER TABLE commands DROP COLUMN is_interrupt",
 ]
 
 
@@ -152,8 +155,8 @@ def main() -> None:
                     session_id, tool_use_id, cwd, transcript_path, project_slug,
                     command, description, timeout_ms, is_background,
                     status, output_length, output_preview,
-                    hook_event, duration_ms, is_interrupt
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    hook_event, duration_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -170,7 +173,6 @@ def main() -> None:
                     output_preview,
                     payload.get("hook_event_name"),
                     payload.get("duration_ms"),
-                    1 if payload.get("is_interrupt") else 0,
                 ),
             )
             conn.commit()
