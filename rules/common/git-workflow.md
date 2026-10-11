@@ -1,5 +1,5 @@
 ---
-tool: claude  # harness-only: the code-reviewer/wtf-reviewer agent gate, cfl, and mine-* skills are Claude-Code-specific
+tool: claude  # harness-only: the code-reviewer/wtf-reviewer agent gate and mine-* skills are Claude-Code-specific
 ---
 
 # Git Workflow

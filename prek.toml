@@ -115,15 +115,6 @@ always_run = true
 stages = ["pre-commit"]
 
 [[repos.hooks]]
-id = "test-cfl"
-name = "pytest (cfl)"
-entry = "mise run test:cfl"
-language = "system"
-files = "^packages/cfl/"
-pass_filenames = false
-stages = ["pre-push"]
-
-[[repos.hooks]]
 id = "test-ado-api"
 name = "pytest (ado-api)"
 entry = "mise run test:ado-api"

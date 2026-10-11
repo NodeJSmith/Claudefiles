@@ -74,8 +74,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "stale review questions", "REVIEW.md staleness", "review questions affected by this branch" | `check-review-questions` |
 | "missing review questions", "REVIEW.md coverage", "modules without review questions" | `check-review-coverage` |
 | "which REVIEW.md applies", "find applicable review questions for this diff" | `find-review-md` |
-| "spec status", "run status" | `cfl run status` |
-| "query cfl data", "gate blocking rate" | `cfl` |
+| "new spec directory", "next spec number" | `new-spec-dir` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-api logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-api pr` |

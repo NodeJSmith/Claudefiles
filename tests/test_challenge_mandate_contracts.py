@@ -55,9 +55,9 @@ SKETCH_GATE_HEADING = "## Phase 6:"
                 # only place a "silently deleted the mandatory call" mutation
                 # can be caught.
                 ("challenge invocation command", r"Invoke `/mine-challenge"),
-                # FR#11, AC#16: blocking and minor key names
-                ("blocking key in data", r'"blocking"'),
-                ("minor key in data", r'"minor"'),
+                # The durable findings record, written after resolution
+                ("review log parameter", r"`<review_log>`"),
+                ("review log append", r"jq -c \. <file> >> <review_log>"),
             ],
         ),
     ],

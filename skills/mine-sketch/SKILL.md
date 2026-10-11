@@ -19,11 +19,11 @@ $ARGUMENTS — a description of what to build, or a feature directory path. Can 
 
 ## Routing
 
-If $ARGUMENTS points to a directory containing `design.md`, read its header and route by the first row that matches. A directory with only a `brief.md` takes the last row.
+If $ARGUMENTS points to a directory containing `design.md`, that directory is `<feature_dir>`; read the ledger's header and route by the first row that matches. A directory with only a `brief.md` takes the last row.
 
 | Ledger | Do |
 |---|---|
-| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Run Phase 1's cfl setup but not its scan, then continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
+| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Skip Phase 1 and continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
 | `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
 | `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
 | `**Status:** archived` or `abandoned` | Report the status and stop. |
@@ -48,35 +48,15 @@ Keep it fast. You're looking for conventions, constraints, and the decisions the
 
 If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions.
 
-### Initialize CFL tracking
+### Create the feature directory
 
-For a new request, derive a `<slug>` (kebab-case, max 40 chars) and create the spec:
-
-```bash
-cfl spec init <slug>
-```
-
-Record `dir` as `<feature_dir>` and `number` as `<spec_number>`. When the request is a feature directory with a brief, skip `cfl spec init`: that directory is `<feature_dir>`. Take `<spec_number>` from the directory name and check it with `cfl spec status` exactly as on resume below, including the `spec_not_found` fallback.
-
-On resume, extract the number from the directory name and run `cfl spec status --spec <NNN>`. If it errors with `spec_not_found`, the directory predates cfl tracking: tell the user, and skip every `cfl` call for the rest of this run.
-
-### Start run
-
-Skip if cfl tracking is disabled.
+For a new request, derive a `<slug>` (kebab-case, max 40 chars) and create the directory:
 
 ```bash
-cfl run status --spec <spec_number>
+new-spec-dir <slug>
 ```
 
-- `"exists": true`: an active run exists. Record its `run_id` and continue.
-- `"exists": false`: try `cfl run resume --spec <spec_number>`. If that errors with `no_stopped_run`, or with `run_completed` (the ledger was ratified, then reopened), start a new run:
-
-```bash
-cfl run start --phase sketch --base-commit $(git rev-parse --short HEAD) --spec <spec_number>
-cfl event sketch.started --spec <spec_number>
-```
-
-Record the `run_id`.
+It prints the new directory's path; record it as `<feature_dir>`. When the request is a feature directory with a brief, that directory is `<feature_dir>`.
 
 ---
 
@@ -117,15 +97,7 @@ Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 3. Replace `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D." If the user answered with something not in the table, add it as a column, score it, and ratify that.
 4. When an answer surfaces a new decision, add a `### D<n>` block with `**Ratified:** pending` and ratify it in turn.
 
-When no decision is pending, record that the ledger changed (skip if cfl tracking is disabled):
-
-```bash
-cfl event sketch.design-written --spec <spec_number>
-```
-
-Phase 4's resume check compares against this event, so emit it on every pass through this phase, including a pass after the challenge or after Revise.
-
-On the first pass only, copy `design.md` to `<tmpdir>/ratified-ledger.md`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch`. Keep that path for the rest of the session, since each call prints a new directory. Later passes leave the copy alone. The ledger is usually uncommitted at this point and the challenge and comb edit it in place, so this copy is the only record of what the user ratified; Phase 6 diffs against it.
+When no decision is pending, on the first pass only, copy `design.md` to `<tmpdir>/ratified-ledger.md`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch`. Keep that path for the rest of the session, since each call prints a new directory. Later passes leave the copy alone. The ledger is usually uncommitted at this point and the challenge and comb edit it in place, so this copy is the only record of what the user ratified; Phase 6 diffs against it.
 
 ---
 
@@ -140,24 +112,16 @@ Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<focus_flag>`**: (empty)
 - **`<re_challenge_flag>`**: `--re-challenge` when Phase 6's Revise sent you here, otherwise empty
 - **`<post_resolution>`**: A finding the user answered has already ratified the decision it added or changed; the user's choice is the ratification (the findings protocol's rule for sketch ledgers). The ratifying edit also adds or updates that option's column in the decision's criteria table, so Phase 5's comb finds the table consistent. Only a decision an Auto-apply finding added or changed is back at `**Ratified:** pending`. Run Phase 3 for those, if any, then continue to Phase 5.
+- **`<review_log>`**: `<feature_dir>/review-log.jsonl`
+- **`<ledger>`**: `<feature_dir>/design.md`
 
-Skip the cfl calls inside the gate if cfl tracking is disabled. The challenge itself always runs.
-
-**Resume check.** When entering this phase on resume, skip it only if the challenge already covers the current ledger: run `cfl event list --event challenge.findings-persisted --run <run_id>` and `cfl event list --event sketch.design-written --run <run_id>`. Skip when the newest `challenge.findings-persisted` row whose data has `"gate_type": "sketch-challenge"` has a higher `id` than the newest `sketch.design-written` row. Otherwise the ledger changed since the last challenge, so run it. With cfl tracking disabled, always run it.
+**Resume check.** When entering this phase on resume, skip it only if the challenge already covers the current ledger: `<feature_dir>/review-log.jsonl` has a `sketch-challenge` record, and its newest `sketch-challenge` or `sketch-comb` record has a `ledger_hash` equal to `git hash-object <feature_dir>/design.md` now. The comb record counts because the comb runs after the challenge, so its fixes don't invalidate the challenge. Otherwise the ledger changed since then (or the challenge never finished), so run it.
 
 ---
 
 ## Phase 5: Comb
 
 Comb the ledger once, after the challenge, so the comb also catches inconsistencies the challenge's edits introduced.
-
-Skip the cfl calls if cfl tracking is disabled. The comb itself always runs.
-
-```bash
-cfl dispatch sketch-comb --agent-type fine-toothed-comb --spec <spec_number>
-```
-
-Record the `dispatch_id`.
 
 ```
 Agent:
@@ -177,14 +141,13 @@ Agent:
     Define blocking as: a direct inconsistency, a missing decision, or an error that would mislead the build. A section that could be more detailed is minor, not blocking.
 ```
 
-After the comb completes:
+After the comb completes, and before fixing anything, append a record of its counts to the review log, one per pass, so the log shows how many passes the comb took to converge. Substitute the blocking and minor counts as numbers:
 
 ```bash
-cfl dispatch end <dispatch_id>
-cfl gate sketch-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
+jq -cn --arg date "$(date +%F)" --arg hash "$(git hash-object <feature_dir>/design.md)" \
+  --argjson blocking <N> --argjson minor <M> \
+  '{gate: "sketch-comb", date: $date, ledger_hash: $hash, blocking: $blocking, minor: $minor}' >> <feature_dir>/review-log.jsonl
 ```
-
-Verdict: `blocking` = 0 → PASS, `blocking` > 0 → FAIL.
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 - **`<header>`**: `Sketch comb`
@@ -219,14 +182,7 @@ AskUserQuestion:
 
 ### On "Ratify"
 
-Set `**Status:** ratified` in `design.md`. Then, unless cfl tracking is disabled:
-
-```bash
-cfl event sketch.approved --spec <spec_number>
-cfl run complete --spec <spec_number>
-```
-
-Tell the user: "Ledger ratified at `<feature_dir>/design.md`. Start a fresh session and run `/mine-sketch <feature_dir>` to build it."
+Set `**Status:** ratified` in `design.md`. Tell the user: "Ledger ratified at `<feature_dir>/design.md`. Start a fresh session and run `/mine-sketch <feature_dir>` to build it."
 
 Stop. The build always runs in a fresh session, so this session never continues into build mode.
 
@@ -236,13 +192,13 @@ Ask which decision to reopen, or what new decision to add, and what should chang
 
 ### On "Save and stop"
 
-Leave `**Status:** draft` and the cfl run open. Don't call `cfl run stop`, which would mark the spec approved. Confirm: "Ledger saved at `<feature_dir>`. Resume with `/mine-sketch <feature_dir>`."
+Leave `**Status:** draft`. Confirm: "Ledger saved at `<feature_dir>`. Resume with `/mine-sketch <feature_dir>`."
 
 ---
 
 ## Build Mode
 
-Runs when `/mine-sketch <dir>` finds `**Status:** ratified`. Building doesn't touch cfl: the sketch's run closed at Ratify, so skip every cfl call in Steps 2-4, including those inside `challenge-gate.md`. Only reopening a decision (Step 1) returns to sketch mode, where cfl applies again.
+Runs when `/mine-sketch <dir>` finds `**Status:** ratified`.
 
 ### Step 1: Orient
 
@@ -252,7 +208,7 @@ Read the `## Build` checklist. If no step is ticked, this is a fresh build. If s
 
 The user ran `/mine-sketch <dir>` on a ratified ledger, so the request to build is already explicit. If Orient raised something surprising, resolve that with the user first. Otherwise name the ledger being built (`<feature_dir>/design.md`, `<M>` ratified decisions), note they can say so to reopen a decision before you start, and begin.
 
-If they ask to reopen a decision: ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then follow the sketch-mode flow from Phase 1's cfl setup, as a draft resume.
+If they ask to reopen a decision: ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then resume sketch mode at Phase 3.
 
 ### Step 2: Implement
 
@@ -282,6 +238,8 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<focus_flag>`**: `--focus="The ledger at <feature_dir>/design.md is the reference. (A) Does what landed match its ratified decisions and assumptions, with tests pinning the behavior each one specifies? (B) Where the code diverges, does the ledger's Build section give a sound reason? Check each stated reason against the code. (C) What unintended consequences are there beyond what the ledger covered?"`
 - **`<re_challenge_flag>`**: (empty)
 - **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. A real finding the user left with `disposition: skipped` is recorded as in Step 2; the Severity Gate doesn't apply, since the user already saw it.
+- **`<review_log>`**: `<feature_dir>/review-log.jsonl`
+- **`<ledger>`**: `<feature_dir>/design.md`
 
 Findings resolve inline, as in any challenge. The `## Build` record is the build's stated reasoning, not evidence: the challenge checks it against the code rather than taking it on its word.
 
@@ -296,7 +254,7 @@ Settle `<feature_dir>/known-issues.md`'s `Status: open` entries without a per-en
 
 When an entry's `Recorded:` line names a different branch from this one, it came from an earlier build; say so in the report.
 
-Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger with any known-issues updates. Report what was built, any build-time calls, the known issues fixed, and the known issues left open (marking any that need their own tracker issue). This is a completion gate: run `context-pct` and prepend the result.
+Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger, the review log, and any known-issues updates. Report what was built, any build-time calls, the known issues fixed, and the known issues left open (marking any that need their own tracker issue). This is a completion gate: run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:

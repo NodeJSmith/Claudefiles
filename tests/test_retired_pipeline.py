@@ -1,4 +1,5 @@
-"""Contract guards for spec 1015, which retired define → plan → orchestrate.
+"""Contract guards for retired components: spec 1015 retired define → plan →
+orchestrate, and cfl followed once mine-sketch no longer needed it.
 
 No installed instruction file may name a deleted component, since a skill or
 rule that routes to a missing skill fails only when someone follows it.
@@ -34,7 +35,8 @@ RETIRED = [
     "CONCISE-RETURN-MODE",
     "implementer-prompt.md",
     "staleness-preflight",
-    "cfl archive",
+    "cfl",
+    "dispatch-stats",
     "caliper",
     "known-issues-protocol",
     "design-doc-format",

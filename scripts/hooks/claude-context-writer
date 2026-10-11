@@ -15,7 +15,7 @@
 #                                      model=<model-id>
 #                                    pct read by the context-tier.sh hook;
 #                                    cwd read by child-context-check to join on worktree path;
-#                                    model read by cfl's session.read_model()
+#                                    model read by Dotfiles' reset-nudge.sh
 #
 # Usage in settings.json (or settings.local.json / settings.machine.json):
 #   "statusLine": {
@@ -71,8 +71,8 @@ if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
     _pct=$((_tokens * 100 / _sz))
 
     # Write the .meta sidecar — pct read by context-tier.sh, cwd read by
-    # child-context-check (worktree path join), model read by cfl session
-    # tracking. Best-effort: never let a failure affect downstream rendering.
+    # child-context-check (worktree path join), model read by Dotfiles'
+    # reset-nudge.sh. Best-effort: never let a failure affect downstream rendering.
     _meta_target="/tmp/claude-context-${_sid}.meta"
     _meta_tmp="${_meta_target}.tmp"
     printf 'pct=%d\ncwd=%s\nmodel=%s\n' "$_pct" "${_cwd:-}" "${_model:-}" > "$_meta_tmp" 2> /dev/null &&

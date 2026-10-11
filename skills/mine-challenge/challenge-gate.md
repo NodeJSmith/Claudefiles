@@ -7,46 +7,34 @@ The shared gate applied after the challenge runs at a mandatory call site. Its c
 ## Parameters the caller supplies
 
 - **`<header>`** — the `AskUserQuestion` header chip, e.g. `Challenge`. Keep it ≤12 chars.
-- **`<gate_type>`** — the cfl gate type: `sketch-challenge` or `ship-challenge`.
+- **`<gate_type>`** — the gate's name in the review log: `sketch-challenge` or `ship-challenge`.
 - **`<target>`** — what to pass to `/mine-challenge`: a design doc path or a changed-files list file.
 - **`<critic_flag>`** — `--critics=N` if pinned, or empty string if using triage default.
 - **`<focus_flag>`** — `--focus="<text>"` to steer the critics, or empty string. Callers that don't name it pass empty.
 - **`<re_challenge_flag>`** — `--re-challenge` if this is a re-challenge, or empty string.
-- **`<post_resolution>`** — caller-specific handling after step 6 completes (e.g., sketch's ratification of decisions an Auto-apply edit changed, ship-time's known-issues recording).
+- **`<post_resolution>`** — caller-specific handling after the findings are resolved (e.g., sketch's ratification of decisions an Auto-apply edit changed, ship-time's known-issues recording).
+- **`<review_log>`** — the JSONL file the gate appends its record to. `mine-sketch` passes `<feature_dir>/review-log.jsonl`.
+- **`<ledger>`** — the design file whose hash the record carries as `ledger_hash`, so the caller can later tell whether the ledger changed since this gate. `mine-sketch` passes `<feature_dir>/design.md`.
 
 ## The sequence
 
-1. Record the dispatch (skip if cfl tracking is inactive for this run):
+1. Record `git rev-parse --short HEAD` as `<challenged_commit>`: the code the critics are about to see. Capture it now, because `<post_resolution>` may commit fixes before the record is written.
 
-   ```bash
-   cfl dispatch <gate_type> --agent-type standard-worker
+   Invoke `/mine-challenge <critic_flag> <focus_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
+
+2. Run `<post_resolution>` — the caller's site-specific handling.
+
+3. Append one record to `<review_log>`. The log is the durable history of what challenge found and what the user chose, kept next to the design it critiqued so it lands in git with the change; it exists for later analysis of the skills themselves (which critics earn their place, how often the recommendation is taken). Write it last, after `<post_resolution>`: a record's presence means the whole gate finished, which is what the caller's resume check relies on.
+
+   The record is one JSON object:
+
+   ```json
+   {"gate": "<gate_type>", "date": "YYYY-MM-DD", "commit": "<challenged_commit>", "ledger_hash": "<git hash-object <ledger>>", "findings": [ ... ]}
    ```
 
-   Capture `dispatch_id`. Note: `--spec` is not included here — the caller threads it per its own convention (mine-sketch's sketch mode passes `--spec <spec_number>`; build mode skips cfl entirely).
+   `ledger_hash` is `git hash-object <ledger>` run now, after `<post_resolution>`'s edits. `commit` is `<challenged_commit>` from step 1, locating the code the challenge saw; the `<target>` path itself isn't recorded, since a changed-files list lives in a temp directory. A gate with no findings still writes a record, with an empty `findings` array. Other records in the same log (the sketch comb's counts) have a different shape, so a query filters on `gate` first.
 
-2. Invoke `/mine-challenge <critic_flag> <focus_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
-
-3. Record dispatch end (skip if cfl tracking inactive):
-
-   ```bash
-   cfl dispatch end <dispatch_id>
-   ```
-
-4. Determine verdict from the findings file challenge reported back:
-   - No findings → PASS
-   - Findings but none CRITICAL or HIGH → WARN
-   - Any CRITICAL or HIGH → FAIL
-
-   Record the gate (skip if cfl tracking inactive):
-
-   ```bash
-   cfl gate <gate_type> --verdict <v> --data '{"blocking": <N>, "minor": <M>, "critical": <C>, "high": <H>, "medium": <Me>, "tension": <T>, "applied": <A>, "skipped": <S>, "filed": <F>}'
-   ```
-
-   `blocking` = CRITICAL + HIGH count. `minor` = MEDIUM + TENSION count. The per-severity and per-disposition counts ride alongside as extra keys. Capture `gate_id` from the JSON output.
-
-5. Read the findings file challenge reported. Emit one batch call that writes all findings (skip if cfl tracking inactive):
-   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object using this canonical field-name mapping (markdown label → JSON key). Do not improvise other key names — a wrong key silently produces a missing field rather than writing to the intended column. `record_finding_batch` enforces `finding_num`/`title`/`severity`/`visibility`/`raised_by` as required on every entry, plus `finding_type`/`design_level`/`classification`/`why_it_matters` on any entry whose `visibility` is not `likely-invalid`; a missing required field exits 2 with `invalid_findings_file` rather than writing a NULL column.
+   Build each `findings` entry from the findings file `/mine-challenge` reported back — each `## Finding N:` and each `### LI-N:` entry — using exactly these keys. A wrong key name silently loses the field for every later query, so don't improvise:
 
    | Markdown label (main `## Finding N:` entries) | JSON key |
    |---|---|
@@ -58,37 +46,18 @@ The shared gate applied after the challenge runs at a mandatory call site. Its c
    | `**Classification:**` | `classification` |
    | `**Raised-by:**` | `raised_by` |
    | `**visibility:**` | `visibility` |
-   | `**disposition:**` | `disposition` — **value overridden for `presented` entries, see below; do not copy literally** |
+   | `**disposition:**` | `disposition` |
    | `**Why-it-matters:**` | `why_it_matters` |
    | `**Recommendation:**` or `*(recommended)*` marker on Options | `recommended` |
+   | the option the user picked | `chosen` |
+   | the user's note on that pick, if any | `choice_reason` |
 
-   `recommended` is the option label the agent marked as recommended. For User-directed findings (non-TENSION), extract the label from the `*(recommended)*` marker on the Options list (e.g., `**A** *(recommended)*: add try/except` → `"A: add try/except"`). For TENSION findings, omit — they present two competing sides, not a recommendation. For Auto-apply findings, omit — there is no user-facing recommendation. For `likely-invalid` entries, omit.
+   - **`raised_by`** is a list of persona slugs, not the display names the markdown uses, so the same critic always counts as the same critic. A slug is the persona's file name without `.md`, from `skills/mine-challenge/personas/generic/` or `personas/specialist/` (the markdown's "Skeptical Senior Engineer" is `senior-engineer`; "Contract & Caller Critic" is `contract-caller`). A synthesis-raised finding is `["synthesis"]`.
+   - **`disposition`** is the terminal value challenge's inline resolution wrote into the findings file during step 1: `applied`, `skipped`, or `filed`.
+   - **`recommended`** is the option label marked `*(recommended)*` on a User-directed finding's Options list (`**A** *(recommended)*: add try/except` → `"A: add try/except"`). Omit it for TENSION findings (two competing sides, no recommendation), for Auto-apply findings (no user-facing recommendation), and for likely-invalid entries.
+   - **`chosen`** is the label the user selected, as the findings walkthrough worded it (for example `"A: add try/except"` or `"Side B: keep current approach"`), or their "Other" free text. For an Auto-apply finding, use the `better-approach` text, so "what happened" reads the same across finding types. A finding superseded by a convergence finding (see `findings-protocol.md`, Convergence Findings) gets `disposition: "skipped"` and `chosen: "Superseded by Finding <M>"`.
+   - **`choice_reason`** is the user's notes from `AskUserQuestion`, or their "Other" free text; omit it when they picked a listed option without comment.
 
-   `## Likely Invalid` entries (`### LI-N:`) use the same JSON keys with two differences: the `N` in `LI-N` maps to `finding_num` (its own sequence, independent of the main `## Finding N:` numbering — the two sequences can collide on the same integer, which is why `visibility` is part of the table's uniqueness constraint), and `**Original-severity:**` maps to `severity` (there is no separate `Original-severity` column). `Claimed`/`Actually`/`Why-invalid` have no corresponding columns and are not written, the same precedent as the protocol's `Evidence`/`Design-challenge` fields being deliberately excluded from the schema. A convergence finding's `**Converges:**` field is likewise not written; the finding itself is recorded like any other main finding.
+   `## Likely Invalid` entries (`### LI-N:`) use the same keys, with `visibility: "likely-invalid"` and no `disposition`, `recommended`, or `chosen`. Their `N` is its own sequence and can repeat a main finding's number. `**Original-severity:**` maps to `severity`. `Claimed`/`Actually`/`Why-invalid`, `Evidence`, `Design-challenge`, and a convergence finding's `**Converges:**` field are not recorded.
 
-   Take `visibility` from each entry's own `**visibility:**` markdown field per the mapping table above — synthesis writes it once and it never changes (`synthesis-procedure.md` step 3 for main findings, step 7 for entries moved to Likely Invalid). Fall back to a section-based default only when the field is genuinely absent: `presented` for a main finding, `likely-invalid` for an LI entry.
-
-   `disposition` is **not** copied from the markdown for a `presented` entry. By the time this step runs, step 2's inline resolution has already rewritten the markdown's `**disposition:**` field to its terminal value (`applied`/`skipped`/`filed`) — but step 6 below is what applies that terminal value to the database row and stamps `resolved_at`; if this step wrote the terminal value too, step 6's `disposition = 'pending'` guard would match zero rows and `resolved_at` would never get set. So write `disposition: pending` for every `presented` entry unconditionally, regardless of what the markdown currently shows. For `likely-invalid` entries, `disposition` stays absent (NULL), since it never enters the resolution flow. Set every parsed finding object's `target` to the caller-supplied `<target>` value (the same value passed to `/mine-challenge` in step 2) — all findings from one gate examined the same artifact. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
-
-   ```bash
-   cfl finding record-batch --gate-id <gate_id> --file <findings_json_path> --source challenge
-   ```
-
-6. For each finding resolved during step 2 (disposition is `applied`, `skipped`, or `filed`), emit (skip if cfl tracking inactive):
-
-   ```bash
-   cfl finding resolve --gate-id <gate_id> --finding-num <N> --disposition <d> \
-       --chosen "<selected option label>" [--choice-reason "<reason>"]
-   ```
-
-   `--chosen` is the label the user selected in the AskUserQuestion prompt (e.g., `"A: add try/except"`, `"Side B: keep current approach"`, `"Skip — defer to later"`, `"File as issue"`, or the user's free text from "Other"). For Auto-apply findings (no user interaction), pass the `better-approach` text as `--chosen` — there's no recommendation to contrast against, but recording what was applied keeps the "what happened" data uniform across finding types. `--choice-reason` is the user's notes/annotation from AskUserQuestion if any were provided, or the "Other" free text when the user typed a custom response — omit when the user picked a listed option without annotation. A finding superseded by a convergence finding (see `findings-protocol.md`, Convergence Findings) is recorded with `--disposition skipped --chosen "Superseded by Finding <M>"`, where `<M>` is the convergence finding's number.
-
-7. Run `<post_resolution>` — the caller's site-specific handling.
-
-8. Emit the persistence-complete marker (skip if cfl tracking inactive):
-
-   ```bash
-   cfl event challenge.findings-persisted --data '{"gate_type": "<gate_type>"}'
-   ```
-
-   The `review.gated` event from step 4 fires before findings are recorded — a resume check that treats it alone as "challenge already ran" can skip re-persisting findings if the run was interrupted between steps 4 and 6. `challenge.findings-persisted` fires only after `<post_resolution>` completes, so it is the marker resume checks must use — a run interrupted anywhere before this point (including mid-`<post_resolution>`, e.g. mid-comb-rerun) re-enters the whole phase from step 1 rather than silently skipping `<post_resolution>`'s own work.
+   Write the object to a temp file (in a `get-skill-tmpdir` directory) and append it with `jq -c . <file> >> <review_log>`; `jq` rejects malformed JSON instead of appending it.

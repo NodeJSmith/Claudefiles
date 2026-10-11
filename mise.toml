@@ -24,11 +24,6 @@
 uv = "0.12.1"
 prek = "0.4.12"
 
-[tasks."test:cfl"]
-description = "pytest for packages/cfl"
-dir = "packages/cfl"
-run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --group dev pytest"
-
 [tasks."test:ado-api"]
 description = "pytest for packages/ado-api"
 dir = "packages/ado-api"

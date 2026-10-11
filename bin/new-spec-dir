@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Create the next numbered feature directory, design/specs/NNN-<slug>/, at the
+# repo root and print its absolute path, so it resolves from any working directory.
+#
+# The number is one past the highest numeric prefix already under design/specs/
+# on this checkout. Two branches that each create a spec before either merges
+# can pick the same number; the slugs keep the directories distinct.
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: new-spec-dir <slug>
+
+Create design/specs/NNN-<slug>/ at the repo root, numbered one past the highest
+existing spec, and print its absolute path.
+
+<slug> must be kebab-case: lowercase letters, digits, and hyphens.
+
+Examples:
+  new-spec-dir webhook-notifications    # /path/to/repo/design/specs/NNN-webhook-notifications
+EOF
+  exit 0
+}
+
+set -euo pipefail
+slug="${1:?usage: new-spec-dir <slug>}"
+if [[ ! "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+  echo "new-spec-dir: slug must be kebab-case (got: $slug)" >&2
+  exit 2
+fi
+
+root="$(git rev-parse --show-toplevel)"
+specs="$root/design/specs"
+mkdir -p "$specs"
+
+max=0
+for d in "$specs"/*/; do
+  name="$(basename "$d")"
+  [[ "$name" =~ ^([0-9]+)- ]] || continue
+  # 10# forces base 10: bash would read a leading-zero prefix like 008 as octal.
+  n=$((10#${BASH_REMATCH[1]}))
+  ((n > max)) && max=$n
+done
+
+dir="$(printf '%s/%03d-%s' "$specs" $((max + 1)) "$slug")"
+mkdir "$dir"
+echo "$dir"
