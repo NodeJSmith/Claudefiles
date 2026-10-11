@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create the next numbered feature directory, design/specs/NNN-<slug>/, at the
-# repo root and print its repo-relative path.
+# repo root and print its absolute path, so it resolves from any working directory.
 #
 # The number is one past the highest numeric prefix already under design/specs/
 # on this checkout. Two branches that each create a spec before either merges
@@ -10,12 +10,12 @@
 Usage: new-spec-dir <slug>
 
 Create design/specs/NNN-<slug>/ at the repo root, numbered one past the highest
-existing spec, and print its repo-relative path.
+existing spec, and print its absolute path.
 
 <slug> must be kebab-case: lowercase letters, digits, and hyphens.
 
 Examples:
-  new-spec-dir webhook-notifications    # design/specs/NNN-webhook-notifications
+  new-spec-dir webhook-notifications    # /path/to/repo/design/specs/NNN-webhook-notifications
 EOF
   exit 0
 }
@@ -40,6 +40,6 @@ for d in "$specs"/*/; do
   ((n > max)) && max=$n
 done
 
-rel="$(printf 'design/specs/%03d-%s' $((max + 1)) "$slug")"
-mkdir "$root/$rel"
-echo "$rel"
+dir="$(printf '%s/%03d-%s' "$specs" $((max + 1)) "$slug")"
+mkdir "$dir"
+echo "$dir"

@@ -28,8 +28,9 @@ def test_first_spec_is_001(tmp_path: Path) -> None:
     result = run_script(repo, "webhooks")
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "design/specs/001-webhooks"
-    assert (repo / "design/specs/001-webhooks").is_dir()
+    created = repo / "design/specs/001-webhooks"
+    assert Path(result.stdout.strip()) == created.resolve()
+    assert created.is_dir()
 
 
 def test_numbers_past_highest_prefix_from_a_subdirectory(tmp_path: Path) -> None:
@@ -42,8 +43,9 @@ def test_numbers_past_highest_prefix_from_a_subdirectory(tmp_path: Path) -> None
     result = run_script(repo / "src", "next-thing")
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "design/specs/1016-next-thing"
-    assert (specs / "1016-next-thing").is_dir()
+    created = specs / "1016-next-thing"
+    assert Path(result.stdout.strip()) == created.resolve()
+    assert created.is_dir()
 
 
 def test_rejects_non_kebab_slug(tmp_path: Path) -> None:

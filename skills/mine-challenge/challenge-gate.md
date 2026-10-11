@@ -18,7 +18,9 @@ The shared gate applied after the challenge runs at a mandatory call site. Its c
 
 ## The sequence
 
-1. Invoke `/mine-challenge <critic_flag> <focus_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
+1. Record `git rev-parse --short HEAD` as `<challenged_commit>`: the code the critics are about to see. Capture it now, because `<post_resolution>` may commit fixes before the record is written.
+
+   Invoke `/mine-challenge <critic_flag> <focus_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
 
 2. Run `<post_resolution>` — the caller's site-specific handling.
 
@@ -27,10 +29,10 @@ The shared gate applied after the challenge runs at a mandatory call site. Its c
    The record is one JSON object:
 
    ```json
-   {"gate": "<gate_type>", "date": "YYYY-MM-DD", "commit": "<git rev-parse --short HEAD>", "ledger_hash": "<git hash-object <ledger>>", "findings": [ ... ]}
+   {"gate": "<gate_type>", "date": "YYYY-MM-DD", "commit": "<challenged_commit>", "ledger_hash": "<git hash-object <ledger>>", "findings": [ ... ]}
    ```
 
-   `ledger_hash` is `git hash-object <ledger>` run now, after `<post_resolution>`'s edits. `commit` locates the code the challenge saw; the `<target>` path itself isn't recorded, since a changed-files list lives in a temp directory. A gate with no findings still writes a record, with an empty `findings` array. Other records in the same log (the sketch comb's counts) have a different shape, so a query filters on `gate` first.
+   `ledger_hash` is `git hash-object <ledger>` run now, after `<post_resolution>`'s edits. `commit` is `<challenged_commit>` from step 1, locating the code the challenge saw; the `<target>` path itself isn't recorded, since a changed-files list lives in a temp directory. A gate with no findings still writes a record, with an empty `findings` array. Other records in the same log (the sketch comb's counts) have a different shape, so a query filters on `gate` first.
 
    Build each `findings` entry from the findings file `/mine-challenge` reported back — each `## Finding N:` and each `### LI-N:` entry — using exactly these keys. A wrong key name silently loses the field for every later query, so don't improvise:
 
