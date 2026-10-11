@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Removed
 
 - `cfl` is removed, along with its `cfl-stop-orphans.sh` and `dispatch-stats.sh` hooks. Challenge findings and the user's choices, plus comb pass counts, now go to `review-log.jsonl` in the feature directory, committed with the ledger. `bin/new-spec-dir` replaces `cfl spec init`. After merging, run `uv run install.py` and `uv tool uninstall cfl` on each machine; `~/.local/share/claudefiles/cfl.db` can be kept as an archive or deleted. (#623)
+- `mine-challenge` drops four specialist critics that never earned findings: `agent-definition`, `end-user-reader`, `documentation-architect`, and `web-platform`. Triage now picks from 3 generic and 5 specialist personas. (#624)
 
 ### Changed
 
