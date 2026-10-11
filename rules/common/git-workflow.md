@@ -24,11 +24,13 @@ Before your first commit in a repo during a session, check for a hook config. Re
 
 Exceptions: documentation-only changes (READMEs, changelogs, comments) or explicit user skip. Skill files, rules, agent prompts, and CLAUDE.md are **not** documentation-only — they are instructions that affect agent behavior and must be reviewed. `/mine-review` routes these to instruction-mode reviewers automatically.
 
+A change that is trivially mechanical and already checked by something else can also skip review: adding a comment, fixing whitespace, adding one case to a parameterized test, or a rename the type checker verifies. Use judgment and err on the side of running: if you have to argue that a change is trivial, it isn't.
+
 ### Code Reviewer Loop
 
 Loop until no CRITICAL/HIGH issues remain:
 1. Auto-fix unambiguous issues; defer to user for judgment calls
-2. Re-run `code-reviewer`
+2. Re-run `code-reviewer`, unless every fix since the last run was trivial in the sense above
 3. Stop when no CRITICAL/HIGH remain
 
 Then run `integration-reviewer` and `wtf-reviewer` in parallel on the final diff.
