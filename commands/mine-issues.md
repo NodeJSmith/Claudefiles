@@ -57,7 +57,7 @@ A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and c
 
 ## Phase 4: Next Step (Main Context)
 
-Ask what to do with each issue via `AskUserQuestion`, one question per issue in a multi-key run. Pick the option that fits the deep dive best and mark it recommended. Write each description around the issue's actual content. The usual options:
+Ask what to do with each issue via `AskUserQuestion`. In a multi-key run, take one issue at a time: ask, carry out the choice, then move to the next. Choosing sketch ends the run, because sketch stops its session once the ledger is ratified, so before handing an issue to it, name the issues still undecided so the user can come back to them. Pick the option that fits the deep dive best and mark it recommended. Write each description around the issue's actual content. The usual options:
 
 - **Sketch it (`/mine-sketch`)**: settle the change's decisions in a ledger before any code is written
 - **Build it directly**: implement now, when the issue leaves nothing to decide
@@ -68,10 +68,10 @@ To choose between sketch and build, ask whether the issue leaves any implementat
 
 If the issue is already fixed, superseded, or no longer valid, offer to close it instead, and show the closing comment before posting it. If **Design docs** lists a ratified ledger for the issue, offer to build from it with `/mine-sketch <feature_dir>` instead of sketching again.
 
-**If the user picks "Sketch it":** invoke `/mine-sketch`, passing the issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description. Sketch one issue at a time.
+**If the user picks "Sketch it":** invoke `/mine-sketch`, passing the issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description.
 
 **If the user picks "Build it directly":** use the issue's structured summary as the change description and implement it.
 
 **If the user picks "Research first":** invoke `/mine-research`, passing the issue context as the proposal to investigate.
 
-**If the user picks "Skip":** stop.
+**If the user picks "Skip":** move to the next issue, or stop if this was the last.
