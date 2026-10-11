@@ -8,22 +8,21 @@ user-invocable: true
 
 ## Step 1: Review-Question Staleness Check
 
-Before creating the PR, run `check-review-questions` (no arguments). It flags on file overlap alone, so its output tells you where to look, not that anything is stale. Read each flagged `REVIEW.md` against the branch diff and decide whether the change made a question wrong or opened a concern no question covers. If nothing did, say so in one line and continue. Otherwise ask, naming the questions that need changing and why:
+Before creating the PR, run `check-review-questions` (no arguments). It flags on file overlap alone, so its output tells you where to look, not that anything is stale. Read each flagged `REVIEW.md` against the branch diff and decide whether the change made a question wrong or opened a concern no question covers. If nothing did, say so in one line and continue. Otherwise update the questions the change made wrong so they match the current code, commit (`docs: update REVIEW.md review questions`), push, and name what you changed in one line. Knowingly opening a PR with stale review questions helps no one, so there is no skip option.
+
+Ask only when the right edit is a real call, such as a question that no longer applies at all and deleting it would drop a concern the module still has:
 
 ```
 AskUserQuestion:
-  question: "<which REVIEW.md questions the branch made stale, and why>. Update them before creating the PR?"
+  question: "<which REVIEW.md question and why the right edit is unclear>. What should happen to it?"
   header: "Review Q's"
   multiSelect: false
   options:
-    - label: "Update now (Recommended)"
-      description: "Update the questions named above"
-    - label: "Skip"
-      description: "Create the PR without updating — questions may be stale"
+    - label: "Remove it"
+      description: "The concern no longer applies"
+    - label: "Rewrite it"
+      description: "Keep the concern, reworded for the current code"
 ```
-
-- **"Update now"**: Update the questions you named to reflect the current code. Commit (`docs: update REVIEW.md review questions`) and push.
-- **"Skip"**: Continue.
 
 If `check-review-questions` produces no output, skip silently.
 

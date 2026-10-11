@@ -208,11 +208,15 @@ If "Adjust items": ask which numbered items to skip or change. For items the use
 
 ### Merge conflict strategy
 
-If conflicts exist, ask the user. Mark your recommendation from the repo's convention rather than a default: check whether the PR branch already has merge commits from the base, whether recent history on the base is linear (rebase/squash style), and whether the repo requires linear history or the PR is already shared (rebasing means a force-push). Recommend rebase when the branch is private and the repo keeps linear history; otherwise recommend merge. Say which signal decided it.
+If conflicts exist, choose the strategy from the repo's convention rather than a default: check whether the PR branch already has merge commits from the base, whether recent history on the base is linear (rebase/squash style), and whether the repo requires linear history or the PR is already shared (rebasing means a force-push). Rebase when the branch is private and the repo keeps linear history; otherwise merge. State which signal decided it in one line and proceed.
+
+The thing being gated is the force-push, not the rebase. A branch under review is shared by default: reviewers or CI may have fetched it, or others may have pushed to it. Treat it as private only when every commit on it is the user's and no review round has fetched it. Always force-push with `--force-with-lease`.
+
+Ask only when the signals conflict, or when the repo wants linear history but the branch is shared:
 
 ```
 AskUserQuestion:
-  question: "Merge conflicts detected. How should I resolve them?"
+  question: "Merge conflicts detected, and the repo's signals disagree: <which>. How should I resolve them?"
   header: "Conflicts"
   options:
     - label: "Merge"

@@ -100,7 +100,7 @@ Dispatch the research to a `researcher` agent. This runs the heavy codebase expl
 
 ## Phase 3: Present & Discuss
 
-### Ask where to save
+### Save the brief
 
 Research briefs are forward-looking — they evaluate a proposed change before committing to an approach. They may feed into a design doc (when a direction is chosen) or be abandoned (if the approach is rejected).
 
@@ -114,29 +114,13 @@ design/research/
     └── ...                   Additional artifacts
 ```
 
-If the repo already has a research location (an existing `design/research/` or `docs/research/` directory), save there without asking and tell the user the path; they can ask to move it or to just show it instead. Ask only when there is no convention:
+Save the brief to the repo's existing research location when there is one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` when the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the destination directory if it doesn't exist. Tell the user the path; they can ask to move it or to just show it instead.
 
-```
-AskUserQuestion:
-  question: "Where should I save the research brief?"
-  header: "Output"
-  multiSelect: false
-  options:
-    - label: "design/research/ (Recommended)"
-      description: "Save as design/research/YYYY-MM-DD-<topic>/research.md — with room for prereq breakdowns"
-    - label: "docs/research/"
-      description: "Save as docs/research/YYYY-MM-DD-<topic>.md"
-    - label: "Just show me"
-      description: "Display in the conversation, don't save a file"
-```
-
-Create the destination directory if it doesn't exist (nothing to create for "Just show me").
-
-**Copy** (never move) the brief from the temp file to the user's chosen location, or display it inline if they chose "Just show me". The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
+**Copy** (never move) the brief from the temp file to the save location, or display it inline if the user asked to just see it. The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
 
 After the save step, set `<research_brief_path>`:
 - If saved to a permanent location: `<research_brief_path>` = the saved file path
-- If "Just show me": `<research_brief_path>` = `<tmpdir>/brief.md`
+- If the user asked to just see it: `<research_brief_path>` = `<tmpdir>/brief.md`
 
 Present the key findings conversationally, then ask what the user wants to do next.
 
@@ -160,7 +144,7 @@ Sort the open questions by what it takes to answer each:
 - **Needs more investigation** (more code reading, docs, a library's actual behavior, a read-only command) — investigate directly, or dispatch a `researcher`/`standard-worker` for anything broad. Running read-only commands or a throwaway probe in the tmpdir is fine: a probe observes existing behavior and leaves nothing to keep.
 - **Needs a real prototype** — say so and leave it open; a prototype is build work, not research.
 
-Update the brief at `<research_brief_path>` as answers land: check off each resolved question with its answer, and revise any Feasibility, Options, Concerns, or Recommendation content the answers change. (If the user chose "Just show me", update the tmpdir copy.) Then summarize what changed and return to the next-step gate, rebuilding the options from the updated brief.
+Update the brief at `<research_brief_path>` as answers land: check off each resolved question with its answer, and revise any Feasibility, Options, Concerns, or Recommendation content the answers change. (If the user asked to just see it, update the tmpdir copy.) Then summarize what changed and return to the next-step gate, rebuilding the options from the updated brief.
 
 ### Dispatching the chosen step
 

@@ -16,7 +16,7 @@ $ARGUMENTS — optional skill name or description. If provided, use as starting 
 
 ## Phase 1: Requirements
 
-Ask these one at a time. Skip any already answered by $ARGUMENTS.
+The purpose is the one thing only the user knows. If $ARGUMENTS doesn't already describe the task the skill should handle, ask:
 
 ```
 AskUserQuestion:
@@ -24,29 +24,13 @@ AskUserQuestion:
   header: "Purpose"
 ```
 
-```
-AskUserQuestion:
-  question: "What trigger phrases should invoke it? (e.g., when the user says 'audit the codebase')"
-  header: "Triggers"
-```
+Derive the rest from the purpose and the codebase, and present it in the draft for correction instead of asking up front:
 
-```
-AskUserQuestion:
-  question: "What does the output look like? (e.g., a file, a report, a question, an action)"
-  header: "Output"
-```
+- **Triggers** — phrases a user would say, in the style of the existing entries in `rules/common/capabilities-core.md`.
+- **Output** — a file, a report, a question, or an action, whichever the purpose implies.
+- **Invocability** — user-invocable unless the purpose is clearly a reference loaded by other skills.
 
-```
-AskUserQuestion:
-  question: "Should this be user-invocable in Claude Code or a reference skill loaded by other skills only?"
-  header: "Invocability"
-  multiSelect: false
-  options:
-    - label: "User-invocable"
-      description: "Can be called directly via /mine-<name> in Claude Code"
-    - label: "Reference only"
-      description: "Loaded by other skills, not directly callable"
-```
+Ask again only when the purpose is ambiguous between a new skill and an extension of an existing one.
 
 Then explore the codebase for related skills, patterns, or existing work that should inform the new skill's design.
 

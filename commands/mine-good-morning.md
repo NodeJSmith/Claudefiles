@@ -39,27 +39,14 @@ Format:
 > **Next up:** <first 2-3 concrete next steps>
 
 Add these only if relevant:
-- Uncommitted changes noted in the handoff: "Heads up: there were uncommitted changes yesterday on `<branch>` — want me to check if they're still there?"
+- Uncommitted changes noted in the handoff: run `git status --short` and report the current state: "Heads up: there were uncommitted changes yesterday on `<branch>` — 2 files still modified" or "— tree is clean now"
 - Open questions from the handoff: "Open from yesterday: <question>"
 
-## Step 3: Ask
+## Step 3: Pick Up
 
-Offer "Yes, continue" only when the handoff names a next step; if it doesn't, drop that option and lead with "Different direction". When it does, recommend "Yes, continue" unless the handoff flagged something to resolve first.
+The handoff was written to be picked up, so the user running this command is the request to resume.
 
-```
-AskUserQuestion:
-  question: "Want to pick up where you left off?"
-  header: "Resume"
-  multiSelect: false
-  options:
-    - label: "Yes, continue"
-      description: "Start on the next steps from the handoff"
-    - label: "Show full handoff"
-      description: "Print the complete handoff document, then stop"
-    - label: "Different direction"
-      description: "Work on something else today"
-```
+- **The handoff names a next step, flagged nothing to resolve first, and the step is local and reversible** (reading, editing, running tests; the branch and PR state still match the handoff): after the summary, begin executing it. The user can redirect in their next message.
+- **The step is outward-facing or irreversible** (push, merge, post, delete), **or the handoff flagged something to resolve first, or names no next step:** state the step and end the summary by asking what to do first. Plain text, no menu. The handoff is a day old, so its notes about outward-facing actions may be stale.
 
-- **"Yes, continue":** Begin executing the first next step from the handoff.
-- **"Show full handoff":** Print the full file contents. Do not re-ask — the user can run `/mine-good-morning` again or start working directly.
-- **"Different direction":** Say "OK — what would you like to work on?"
+The handoff file was deleted in Step 2. The full text is in this conversation; print it if the user asks for it.

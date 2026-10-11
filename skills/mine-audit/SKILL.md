@@ -169,16 +169,16 @@ The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel 
 
 Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and field definitions.
 
-Audit findings use the User-directed model with explicit option letters (A/B/C). Present each finding one at a time via AskUserQuestion:
+Audit findings use the User-directed model with explicit option letters (A/B/C). Present CRITICAL and HIGH findings one at a time via AskUserQuestion. List the MEDIUM and lower findings together as numbered message text, then ask once which to file as issues ("Which of these should I file? Unselected ones are noted in the summary only"), taking the numbers as free text, since they are rarely worth a separate stop each and a multiSelect holds at most four. The options for an individual finding are:
 - **`A`** (or `fix`) — implement the fix now, using the finding's description.
 - **`B`** — create an issue in the project's issue tracker for this finding
 - **`C`** (or `skip`) — noted in session summary, no action
 
 **Multiple findings selected for build**: if several findings are being fixed, suggest an order of attack — highest impact first, dependency-aware (e.g., fix the circular dependency before refactoring the modules caught in the cycle).
 
-## Phase 4: Save Report (optional)
+## Phase 4: Save Report
 
-After findings are resolved, offer to save the audit to the repo. Audits are backward-looking snapshots that feed into future design docs and refactors.
+After findings are resolved, save the audit to the repo and tell the user the path. Audits are backward-looking snapshots that feed into future design docs and refactors.
 
 Recommended convention — date-stamped directory under `design/audits/`:
 

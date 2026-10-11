@@ -156,7 +156,7 @@ Present findings conversationally, then use `AskUserQuestion` to determine next 
 
 ### Ask what to do
 
-Tie the options to the verdict you just wrote and recommend the matching one:
+For *Adopt with confidence* and *Avoid* the verdict is the answer: end with it and no question. The user can reply if they want more. For the other verdicts, tie the options to the verdict you just wrote and recommend the matching one:
 
 - *Adopt with confidence* → "Adopt it"
 - *Adopt with caution* → "Dig deeper", naming the gaps worth checking
@@ -186,7 +186,7 @@ AskUserQuestion:
 
 If the user picks **Build it yourself**, implement the wrapper now, through the normal pre-commit reviewers: cover only what the user's project needs from the underlying API, borrowing from the evaluated repo's approach where its code was sound. Do this before Cleanup removes the clone.
 
-If the user wants to **dig deeper**, ask what specifically concerns them and focus investigation there.
+If the user wants to **dig deeper**, investigate the weakest-rated dimensions and the red flags you listed, then report. Ask only if they name something else.
 
 If the user wants to **look for alternatives**, use `WebSearch` to find competing projects, then offer to evaluate the top 2-3 candidates with the same process (abbreviated — skip the full subagent sweep, focus on the health signals matrix for comparison).
 

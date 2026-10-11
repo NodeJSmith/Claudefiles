@@ -69,25 +69,11 @@ Use the answers to calibrate depth, tone, and which sections to include. A one-p
 
 ## Phase 2: Scope Lock
 
-Before outlining, define the **closed-world scope**: what this writeup covers and what it does not. State it back to the user:
+Before outlining, define the **closed-world scope**: what this writeup covers and what it does not. Carry it into the outline as one line above the outline itself:
 
-> "Based on the source material and what you've told me, here's what I think belongs in the writeup: [list]. Everything else stays in the source docs."
+> "In scope: [list]. Everything else stays in the source docs."
 
-Then confirm:
-
-```yaml
-AskUserQuestion:
-  question: "Does this scope look right? Add or remove items before I outline."
-  header: "Scope"
-  multiSelect: false
-  options:
-    - label: "Looks right"
-      description: "Lock the scope and proceed to outline"
-    - label: "Adjust"
-      description: "I'll tell you what to add or remove"
-```
-
-If "Adjust": apply the user's changes, then re-confirm. Once confirmed, the scope is locked. Do not add topics, sections, or findings outside this scope unless the user asks.
+The outline approval in Phase 3 is the single gate for both scope and structure: a reader who disagrees with the scope sees it there. Once the outline is approved, the scope is locked. Do not add topics, sections, or findings outside it unless the user asks.
 
 ---
 
@@ -129,16 +115,16 @@ The So What and Forwarding tests in section 3 are duplicated from `rules/common/
 
 ### Outline Approval
 
-Show the proposed outline as a bullet list with one-line descriptions of what each section will contain.
+Show the scope line, then the proposed outline as a bullet list with one-line descriptions of what each section will contain.
 
 ```yaml
 AskUserQuestion:
-  question: "Here's the outline. Approve, adjust, or cut sections before I start writing."
+  question: "Here's the scope and outline. Approve, adjust, or cut anything before I start writing."
   header: "Outline"
   multiSelect: false
   options:
     - label: "Approved"
-      description: "Start writing section by section"
+      description: "Write the full draft"
     - label: "Adjust"
       description: "I'll tell you what to change or cut"
 ```
@@ -149,7 +135,7 @@ If "Adjust": apply changes and re-confirm. No prose is written until the outline
 
 ## Phase 4: Write
 
-Write section by section, showing each to the user before moving to the next. Append to the writeup file as each section is approved.
+Write the full draft to the writeup file once the outline is approved, then present it for review. If the user wants a section rewritten, cut, or shortened, edit it in place.
 
 ### The Three Layers
 

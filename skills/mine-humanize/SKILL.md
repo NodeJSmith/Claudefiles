@@ -1,6 +1,6 @@
 ---
 name: mine-humanize
-description: "Use when the user says: \"humanize this\", \"unslop this\", \"de-slop this\", \"fix AI writing\", \"remove AI tells\", \"clean up AI prose\". Edits prose to remove AI writing patterns and add human voice. Analyzes first, then asks how to fix. Prose complement to mine-clean-code."
+description: "Use when the user says: \"humanize this\", \"unslop this\", \"de-slop this\", \"fix AI writing\", \"remove AI tells\", \"clean up AI prose\". Edits prose to remove AI writing patterns and add human voice. Analyzes, then fixes. Prose complement to mine-clean-code."
 user-invocable: true
 ---
 
@@ -89,27 +89,17 @@ Group by file, then by category (AI Vocabulary, Structural, Style, Communication
 
 End with a summary: `Found N issues across M files (X vocabulary, Y structural, Z style)`.
 
-### Ask how to proceed
+### Choose the fix mode
 
 If there are zero findings, say "No AI writing patterns found." and stop.
 
-Otherwise recommend a mode from the count and type of issues: surgical edits for a few scattered vocabulary or style issues, a full rewrite when the issues are structural and pervasive (most paragraphs affected), and cherry-pick when some findings look like intentional voice. Say why in the recommended option's description.
+The user invoking this skill is the request to fix, so choose the mode from the count and type of issues and go:
 
-```yaml
-AskUserQuestion:
-  question: "Found {N} issues. How should I fix them?"
-  header: "Fix mode"
-  multiSelect: false
-  options:
-    - label: "Surgical edits"
-      description: "Minimal targeted fixes — swap words, restructure sentences, cut filler"
-    - label: "Full rewrite"
-      description: "Reconstruct from scratch preserving meaning and technical content"
-    - label: "Cherry-pick"
-      description: "I'll tell you which finding numbers to apply (e.g. 1,3,5)"
-    - label: "Done"
-      description: "Report noted, no changes needed"
-```
+- **Surgical edits** (default): a few scattered vocabulary or style issues.
+- **Full rewrite**: the issues are structural and pervasive (most paragraphs affected). It has its own accept step per file.
+- **Cherry-pick**: only when the user said which findings to apply or skip, in the request or in a reply to the findings list. Apply exactly those; don't ask again.
+
+Say which mode you chose and why in one line. Git can restore a tracked file with no uncommitted changes; a target that is untracked or has uncommitted changes has no such copy, so write a backup to `get-skill-tmpdir mine-humanize` before editing it and say where it is.
 
 ## Phase 3: Fix
 
@@ -169,7 +159,7 @@ Only call Edit on Accept. Rewrite from scratch in the target register -- preserv
 
 ### Cherry-pick
 
-Show the finding numbers from Phase 2. Ask: "Which finding numbers should I apply? (e.g. 1,3,5)". Apply only the specified findings, report which were applied and which were skipped.
+Apply only the findings the user named (by the numbers from Phase 2), and report which were applied and which were skipped.
 
 ## What This Skill Does NOT Do
 
