@@ -6,7 +6,7 @@ You are triaging every piece of review feedback on a pull request. Your output i
 
 ## Why the ledger exists
 
-Review rounds often treat each finding as an isolated local patch. When findings across rounds keep landing on one mechanism, that pattern is itself the most important finding: the mechanism may be wrong, not under-patched, and each local fix may be hardening a design that should be reconsidered. No single finding shows this. Only the full set, laid side by side with the same fields, does.
+Review rounds often treat each finding as an isolated local patch. When findings, in one round or across several, keep landing on one mechanism, that pattern is itself the most important finding: the mechanism may be wrong, not under-patched, and each local fix may be hardening a design that should be reconsidered. No single finding shows this. Only the full set, laid side by side with the same fields, does.
 
 ## Input
 
@@ -85,6 +85,7 @@ A **convergence** is a set of distinct findings that land on the same mechanism,
 - Findings on one mechanism across **multiple review rounds**, especially where a later finding is caused by, or cites "fresh evidence beyond", the fix for an earlier one. A mechanism hit again in the round right after it was patched is enough to ask.
 - Several fixes that **add** state, guards, special cases, or mirrored fields to the same mechanism.
 - Distinct findings from **different reviewers** on one mechanism.
+- Several findings in **one round**, from one reviewer or several, that all trace to the same mechanism. A first round can converge on its own; no history is needed.
 
 Findings that only touch the same file are not a convergence. Several unrelated small findings are not a convergence either. A real convergence names one specific change to the mechanism that would make at least two members' local fixes unnecessary; findings that share a subject but would each still need their own fix are not one. One concern restated by several reviewers (rows that list each other in `related`) counts as a single finding: a convergence needs at least two findings that are distinct after collapsing restatements.
 

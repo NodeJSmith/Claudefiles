@@ -48,31 +48,19 @@ AskUserQuestion:
 
 If "Suggest a subject": scan the codebase for documentation candidates — look at directory structure, recently modified files (`git log -n 20 --diff-filter=M --name-only --format=`), and large files. Identify 2-3 subsystems that are complex enough to benefit from a durable explanation. Present them via `AskUserQuestion` with a brief rationale for each.
 
-Then decide where the output goes. If the repo already has one of `docs/` or `design/` with existing documents, use it and tell the user the path; if both exist, use the one holding similar documents. Ask only when there is no convention:
-
-```
-AskUserQuestion:
-  question: "Where should I write the document?"
-  header: "Output"
-  multiSelect: false
-  options:
-    - label: "docs/ directory"
-      description: "Write to docs/document-<slug>.md"
-    - label: "design/ directory"
-      description: "Write to design/document-<slug>.md"
-```
+Then decide where the output goes. If the repo already has one of `docs/` or `design/` with existing documents, use it and tell the user the path; if both exist, use the one holding similar documents. When there is no convention, default to `docs/` and say where the document went in the final summary.
 
 Derive `<slug>` from the subject (kebab-case, max ~40 chars). Determine the full output path from the chosen directory + slug.
 
-**Existing file check:** If the target path already exists, read its content and hold it as `<prior-content>` — it will be passed to investigation/synthesis agents in Phase 2 so manually-added material can be preserved. Confirm with the user before proceeding:
+**Existing file check:** If the target path already exists, read its content and hold it as `<prior-content>` — it will be passed to investigation/synthesis agents in Phase 2 so manually-added material can be preserved. If the file is tracked and has no uncommitted changes (`git status --porcelain -- <path>` is empty), git holds the prior version: say "Refreshing the existing document at <path> (prior content kept as context)" and proceed. If it has uncommitted changes or is untracked, overwriting could lose work git can't restore, so ask:
 
 ```
 AskUserQuestion:
-  question: "A document already exists at <path>. Re-investigate and overwrite?"
+  question: "<path> has uncommitted changes (or isn't tracked). Re-investigate and overwrite it?"
   header: "Overwrite"
   multiSelect: false
   options:
-    - label: "Overwrite (Recommended)"
+    - label: "Overwrite"
       description: "Re-investigate and replace — prior content will be passed as context to preserve hand-edits where supported"
     - label: "Cancel"
       description: "Keep the existing file unchanged"

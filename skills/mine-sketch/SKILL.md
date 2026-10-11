@@ -123,7 +123,9 @@ When no decision is pending, record that the ledger changed (skip if cfl trackin
 cfl event sketch.design-written --spec <spec_number>
 ```
 
-Phase 4's resume check compares against this event, so emit it on every pass through this phase, including re-ratification after the challenge and after Revise.
+Phase 4's resume check compares against this event, so emit it on every pass through this phase, including a pass after the challenge or after Revise.
+
+On the first pass only, copy `design.md` to `<tmpdir>/ratified-ledger.md`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch`. Keep that path for the rest of the session, since each call prints a new directory. Later passes leave the copy alone. The ledger is usually uncommitted at this point and the challenge and comb edit it in place, so this copy is the only record of what the user ratified; Phase 6 diffs against it.
 
 ---
 
@@ -137,7 +139,7 @@ Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<critic_flag>`**: `--critics=2`
 - **`<focus_flag>`**: (empty)
 - **`<re_challenge_flag>`**: `--re-challenge` when Phase 6's Revise sent you here, otherwise empty
-- **`<post_resolution>`**: A resolved finding that added or changed a decision has set it back to `**Ratified:** pending` (the findings protocol's rule for sketch ledgers). Run Phase 3 for those decisions, then continue to Phase 5.
+- **`<post_resolution>`**: A finding the user answered has already ratified the decision it added or changed; the user's choice is the ratification (the findings protocol's rule for sketch ledgers). The ratifying edit also adds or updates that option's column in the decision's criteria table, so Phase 5's comb finds the table consistent. Only a decision an Auto-apply finding added or changed is back at `**Ratified:** pending`. Run Phase 3 for those, if any, then continue to Phase 5.
 
 Skip the cfl calls inside the gate if cfl tracking is disabled. The challenge itself always runs.
 
@@ -187,13 +189,19 @@ Verdict: `blocking` = 0 → PASS, `blocking` > 0 → FAIL.
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 - **`<header>`**: `Sketch comb`
 - **`minor_blocks`**: `false`
-- **`<re_review_instructions>`**: fix the findings in `design.md`, then re-run this phase. A fix that adds or changes a decision sets it back to `**Ratified:** pending` and runs it through Phase 3 first.
+- **`<re_review_instructions>`**: fix the findings in `design.md`, then re-run this phase. A fix you made on your own that adds or changes a decision sets it back to `**Ratified:** pending` and runs it through Phase 3 first. A design-decision option the user picked at the gate is already their ratification: write the `**Ratified:**` sentence in the same edit.
 
 ---
 
 ## Phase 6: Ledger Gate
 
-Present the full ledger as text, with its path. This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
+Every decision was ratified one at a time, by the user's own answer. This applies on the first pass only. A pass that returns here from "Revise a decision" always shows the gate.
+
+Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. If every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and say they can reopen a decision at the start of the build session.
+
+Otherwise show the gate, because ratification was per-decision and this read is the only place a cross-decision inconsistency an automatic edit introduced would show up.
+
+Present the full ledger as text, with its path, and show what changed since the last ratified decision. This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:
@@ -263,7 +271,7 @@ Commit as you judge best. Every repo squash-merges, so there's no required commi
 
 ### Step 3: Ship-time Challenge
 
-Write the branch's changed files to a list: the union of `git-branch-diff-files`, `git diff --name-only HEAD`, and `git ls-files --others --exclude-standard`, deduplicated. Make sure `<feature_dir>/design.md` is in it. Write the list to `<tmpdir>/challenge-changed-files.txt`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch`.
+Write the branch's changed files to a list: the union of `git-branch-diff-files`, `git diff --name-only HEAD`, and `git ls-files --others --exclude-standard`, deduplicated. Make sure `<feature_dir>/design.md` is in it. Write the list to `<tmpdir>/challenge-changed-files.txt`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch` (or the one this session already has).
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
 
@@ -279,23 +287,16 @@ Findings resolve inline, as in any challenge. The `## Build` record is the build
 
 ### Step 4: Finish
 
-If `<feature_dir>/known-issues.md` has `Status: open` entries, walk all of them before the Ship? gate, one question per entry, batched up to 4 questions per `AskUserQuestion` call (major gate: run `context-pct` and prepend it to the first). In each question, say when the entry's `Recorded:` line names a different branch from this one, since that entry came from an earlier build. Recommend fixing when it's contained, filing when it needs its own change, keeping it open when it's tied to this feature's follow-up work:
+Settle `<feature_dir>/known-issues.md`'s `Status: open` entries without a per-entry walkthrough:
 
-```
-AskUserQuestion:
-  question: "[Context: N%] KI-<NNN>: <title>. <one-line issue>. What now?"
-  header: "KI-<NNN>"
-  multiSelect: false
-  options:
-    - label: "Fix now"
-      description: "Fix it through the pre-commit reviewers (no re-challenge); Status becomes `resolved — fixed before ship`"
-    - label: "File as issue"
-      description: "Create a tracker issue; Status becomes `filed (<issue-key>)`"
-    - label: "Keep open"
-      description: "Status stays `open` for later"
-```
+- An entry from a finding the user already saw and chose to skip in the ship-time challenge stays `open`. It was their call.
+- A contained fix that the pre-commit reviewers can verify: fix it now, and set Status to `resolved — fixed before ship`.
+- An entry tied to this feature's follow-up work stays `open`.
+- An entry that needs its own change should become a tracker issue. Filing is outward-facing, so offer it as an option in the Ship? question below; Status becomes `filed (<issue-key>)` only if the user takes it, and stays `open` otherwise.
 
-Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger with any known-issues updates. Report what was built, any build-time calls, and the known issues left open. This is a completion gate: run `context-pct` and prepend the result.
+When an entry's `Recorded:` line names a different branch from this one, it came from an earlier build; say so in the report.
+
+Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger with any known-issues updates. Report what was built, any build-time calls, the known issues fixed, and the known issues left open (marking any that need their own tracker issue). This is a completion gate: run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:
@@ -305,8 +306,11 @@ AskUserQuestion:
   options:
     - label: "Ship via /mine-ship"
       description: "Push and open a PR"
+    # Include only when some known issues need their own tracker issue:
+    - label: "File the <N> issues, then ship"
+      description: "Open a tracker issue per entry (KI-<NNN>, ...), then push and open a PR"
     - label: "Stop here"
       description: "Leave the branch as is"
 ```
 
-On "Ship via /mine-ship": invoke `/mine-ship`.
+On "Ship via /mine-ship": invoke `/mine-ship`. On "File the <N> issues, then ship": create the issues, update each entry's Status, commit the ledger, then invoke `/mine-ship`.

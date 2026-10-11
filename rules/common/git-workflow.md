@@ -24,11 +24,13 @@ Before your first commit in a repo during a session, check for a hook config. Re
 
 Exceptions: documentation-only changes (READMEs, changelogs, comments) or explicit user skip. Skill files, rules, agent prompts, and CLAUDE.md are **not** documentation-only — they are instructions that affect agent behavior and must be reviewed. `/mine-review` routes these to instruction-mode reviewers automatically.
 
+A change that is trivially mechanical and already checked by something else can also skip review: adding a comment, fixing whitespace, adding one case to a parameterized test, or a rename the type checker verifies. Use judgment and err on the side of running: if you have to argue that a change is trivial, it isn't.
+
 ### Code Reviewer Loop
 
 Loop until no CRITICAL/HIGH issues remain:
 1. Auto-fix unambiguous issues; defer to user for judgment calls
-2. Re-run `code-reviewer`
+2. Re-run `code-reviewer`, unless every fix since the last run was trivial in the sense above
 3. Stop when no CRITICAL/HIGH remain
 
 Then run `integration-reviewer` and `wtf-reviewer` in parallel on the final diff.
@@ -82,4 +84,4 @@ A PR description is read by someone with zero session context: a reviewer today,
 
 **Terse is not the same as vague.** A description that omits the actual reasoning ("Fix bug," "various improvements," "Phase 1") is the mirror-image failure — cut the narration, never the rationale itself.
 
-This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule when drafting the body — `skills/mine-create-pr/worker.md` Step 4 mirrors it for the drafting agent, so an edit to one should check the other stays in sync.
+This governs PR body prose specifically. `commit-conventions.md` covers commit messages; `writing-discipline.md` covers general prose discipline that this section specializes for PR bodies. `mine-create-pr` applies this rule in its Draft PR Body step (`skills/mine-create-pr/SKILL.md`).

@@ -1,12 +1,12 @@
 ---
 name: mine-brainstorm
-description: "Use when the user says: \"brainstorm options\", \"generate ideas\", \"explore ideas\", \"what are our options\", or wants divergent thinking before committing to an approach. Four parallel thinkers generate ideas, rank by user-chosen criteria."
+description: "Use when the user says: \"brainstorm options\", \"generate ideas\", \"explore ideas\", \"what are our options\", or wants divergent thinking before committing to an approach. Four parallel thinkers generate ideas, rank by criteria weighted from your constraints."
 user-invocable: true
 ---
 
 # Brainstorm
 
-Open-ended idea generation. Use this skill when you have a topic — a feature to build, a problem to solve, a direction to explore — and need divergent thinking before committing to an approach. Four parallel thinkers generate ideas independently, findings are collected and deduplicated, then ranked by criteria you choose.
+Open-ended idea generation. Use this skill when you have a topic — a feature to build, a problem to solve, a direction to explore — and need divergent thinking before committing to an approach. Four parallel thinkers generate ideas independently, findings are collected and deduplicated, then ranked on all criteria, weighted by your constraints.
 
 ## How This Differs From Other Skills
 
@@ -156,32 +156,21 @@ Read all four temp files. Merge into a unified idea list:
 
 Aim for 8–15 distinct ideas total. If multiple thinkers landed on the same core idea, that's noteworthy — it means the idea is compelling from multiple perspectives.
 
-## Phase 4: Present Ideas and Ask for Ranking Criteria
+## Phase 4: Present Ideas
 
 Present the deduplicated ideas as a brief unranked list (one sentence each + origin lens). Call out any ideas where multiple thinkers converged.
 
-Then ask:
+Then go straight to scoring. Score every idea on all five criteria below, so the ranking doesn't wait on the user. The user can ask to re-rank by any one of them afterward.
 
-```
-AskUserQuestion:
-  question: "Here are the ideas. What should I rank them by?"
-  multiSelect: true
-  options:
-    - label: "Feasibility"
-      description: "How realistic is this given our constraints?"
-    - label: "User impact"
-      description: "How much does this improve things for the user?"
-    - label: "Originality"
-      description: "Ideas we wouldn't have thought of otherwise"
-    - label: "Fit to existing codebase"
-      description: "How naturally does this extend what already exists?"
-    - label: "Speed to ship"
-      description: "How quickly could we have something working?"
-```
+- **Feasibility**: how realistic is this given our constraints?
+- **User impact**: how much does this improve things for the user?
+- **Originality**: ideas we wouldn't have thought of otherwise
+- **Fit to existing codebase**: how naturally does this extend what already exists?
+- **Speed to ship**: how quickly could we have something working?
 
 ## Phase 5: Score and Present Ranked List
 
-Score each idea against the chosen criteria (1–5 per criterion, averaged). Present as a ranked list.
+Score each idea against all five criteria (1–5 per criterion, averaged). Present as a ranked list, with the per-criterion scores in a compact table. When the constraints the user gave in Phase 1 stress one criterion (a deadline stresses speed to ship), flag it and show the weighted ranking beside the unweighted one.
 
 ### Per-idea format (top 3)
 
@@ -207,29 +196,13 @@ Ask `"What's the primary next step for the top idea?"` (header `Next step`), rec
 - **Build it**: implement the top idea now
 - **Keep exploring**: run another round with a different framing or constraint
 
-Then, if anything in the session is worth keeping (a ranked result with ideas worth revisiting, or ideas worth filing), ask about housekeeping. If nothing is, skip the question.
+When the session has a ranked result, write it to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md` before asking and mention the path.
 
-```
-AskUserQuestion:
-  question: "Any housekeeping before we proceed?"
-  header: "Housekeeping"
-  multiSelect: true
-  options:
-    - label: "Save the session"
-      description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
-    - label: "Create issues"
-      description: "File ideas as tracked issues"
-    - label: "Nothing — proceed"
-      description: "Skip housekeeping and go straight to the next step"
-```
-
-If "Challenge the top idea first" is selected: if the session was saved (housekeeping), invoke `/mine-challenge --mode=passthrough <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text: `/mine-challenge --mode=passthrough <text>`. After challenge completes, loop back to this gate.
+If "Challenge the top idea first" is selected: if the session was saved, invoke `/mine-challenge --mode=passthrough <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text: `/mine-challenge --mode=passthrough <text>`. After challenge completes, loop back to this gate.
 
 ### Creating issues
 
-If selected, create one issue per idea in the project's issue tracker.
-
-**Execution order for housekeeping**: (1) create issues, (2) save the session, then proceed to the primary next step.
+Filing is outward-facing, so do it only when the user asks (they can say so alongside the next-step answer; mention the offer in one line after the ranked list). Create one issue per idea named, in the project's issue tracker, then proceed to the primary next step.
 
 Issue template:
 
@@ -264,5 +237,5 @@ These files contain each thinker's unfiltered output and are available for the d
 2. **Convergence is signal** — when multiple thinkers with different lenses land on the same idea, that's meaningful. Make it visible.
 3. **The wildcard earns its place** — the Wildly Imaginative lens exists to surface insights the pragmatic thinkers filter out. Treat its ideas as containing a kernel worth extracting, not as jokes.
 4. **Constraints are data** — what's off the table shapes the search space. State them clearly to the thinkers so they don't waste output on dead ends.
-5. **The user picks the criteria** — ideas aren't inherently good or bad. They're good or bad relative to what matters. Let the user define that before scoring.
+5. **Weight by the user's constraints** — ideas aren't inherently good or bad. They're good or bad relative to the constraints the user gave. Score on every criterion, weight by those constraints, and say so.
 6. **Handoff, don't dead-end** — the output of brainstorming is a decision, not a document. Always offer a next step.

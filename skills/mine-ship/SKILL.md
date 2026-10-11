@@ -28,32 +28,23 @@ After Phase 1 completes (changes committed and pushed), run `/mine-clean-code` o
 
 When mine-clean-code presents its own next-steps prompt, choose "Note and move on" — this phase handles the fix/skip/stop decision.
 
-If mine-clean-code produces findings, decide which are worth fixing. If none are, say so in one
-line and proceed to Phase 2. Otherwise present the gate below, naming those findings and why. This is a
-major gate (clean code gate result, see `interaction.md`) — run `context-pct` and prepend the
-result to the question:
+If mine-clean-code produces findings, decide which are worth fixing. If none are, say so in one line and proceed to Phase 2. Otherwise fix those, top-to-bottom, inline (no subagent), re-run the tests and linter, then stage, commit (`refactor: address clean-code findings`), and push before proceeding to Phase 2 — mine-create-pr verifies the branch is fully pushed. State in one line what was fixed and what was left as not worth fixing.
+
+Escalate instead of fixing when a fix is no longer mechanical and needs your judgment about intent: it changes a public interface or observable behavior, spreads across many files, or leaves the tests failing after one attempt. This is a major gate (clean code gate result, see `interaction.md`) — run `context-pct` and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] Stylistic review found findings. <Which are worth fixing and why.> What next?"
+  question: "[Context: N%] Stylistic review found findings that need a judgment call: <which and why>. What next?"
   header: "Clean code"
   multiSelect: false
   options:
-    - label: "Address findings (Recommended)"
-      description: "Fix the ones worth fixing, then proceed to PR creation"
     - label: "Ship anyway"
       description: "Proceed to PR creation with findings noted"
     - label: "Stop here"
       description: "Pause; I'll address findings manually"
 ```
 
-- **"Address findings"**: fix the findings you called worth fixing, top-to-bottom, inline (no subagent), then stage, commit (`refactor: address clean-code findings`), and push before proceeding to Phase 2 — mine-create-pr verifies the branch is fully pushed
-- **"Ship anyway"**: proceed to Phase 2
-- **"Stop here"**: stop
-
-If mine-clean-code produces no findings, proceed to Phase 2 automatically.
-
-If any checker subagent fails to complete, skip that checker's findings and note "unavailable" in the gate question — do not block PR creation for checker failures.
+If any checker subagent fails to complete, skip that checker's findings and say "unavailable" in the summary line — do not block PR creation for checker failures.
 
 ### Phase 2 — Create PR
 

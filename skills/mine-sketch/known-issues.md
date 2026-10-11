@@ -47,7 +47,9 @@ Some issues can't be deferred silently. The gate applies only to findings the us
 - The core workflow is blocked entirely for all users, not an edge case or a degraded-but-usable path.
 - `code-reviewer` or `integration-reviewer` rated it CRITICAL or HIGH.
 
-If one does, stop and ask. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result. Recommend from the finding: "Fix now" when the fix is contained and verifiable, "Stop here" when it needs a design decision or reaches across many files, "Ship anyway" only when the risk is real but outside this change's scope.
+If one does and the fix is contained and verifiable, fix it now through the normal pre-commit reviewers, record nothing, and mention it in the build report. Asking permission to fix a severe issue you can fix is not a decision.
+
+Ask only when the fix needs a design decision, reaches across many files, or the risk is real but outside this change's scope. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result. Recommend "Stop here" when it needs a design decision or reaches across many files, "Ship anyway" only when the risk is real but outside this change's scope.
 
 ```
 AskUserQuestion:
@@ -55,15 +57,13 @@ AskUserQuestion:
   header: "Severe issue"
   multiSelect: false
   options:
-    - label: "Fix now"
-      description: "Fix just this issue before continuing the build"
     - label: "Stop here"
       description: "Pause the build; I'll handle this myself"
     - label: "Ship anyway"
       description: "I understand the risk — record it as a known issue and continue"
 ```
 
-On "Fix now", fix it through the normal pre-commit reviewers and record nothing. On "Stop here", leave the ledger at `**Status:** ratified` and stop. On "Ship anyway", record the entry and say in `Why deferred:` that the user accepted the risk after seeing the Severity Gate trip.
+On "Stop here", leave the ledger at `**Status:** ratified` and stop. On "Ship anyway", record the entry and say in `Why deferred:` that the user accepted the risk after seeing the Severity Gate trip.
 
 ## Entry Format
 
@@ -92,4 +92,4 @@ Acceptance criteria:
 - <how to know the follow-up resolved it>
 ```
 
-A new entry's `Status:` is `open`. The pre-ship walkthrough covers every open entry and changes it to `resolved — fixed before ship` or `filed (<issue-key>)`, or leaves it `open`. `Recorded:` tells the user which build an entry came from; it doesn't filter the walk.
+A new entry's `Status:` is `open`. The pre-ship step changes it to `resolved — fixed before ship` or `filed (<issue-key>)`, or leaves it `open`. `Recorded:` tells the user which build an entry came from.

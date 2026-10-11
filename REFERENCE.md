@@ -10,7 +10,7 @@ Full component tables for Claudefiles. For context on what each component type d
 |-------|-------------|
 | `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI. Review feedback, including earlier rounds, is triaged into a ledger by an Opus subagent; findings that converge on one mechanism stop the run for discussion before anything is patched |
 | `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
-| `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
+| `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas scored on all criteria and ranked by constraint-weighted average, with handoff to research or planning |
 | `mine-challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
 | `mine-clean-code` | Stylistic quality review — dispatches llm-checker, lazy-checker, and nitpicker in parallel; flags LLM-bias patterns, deferred debt, and hyper-critical style issues |
 | `mine-commit-push` | Commit and push changes to the current branch |
@@ -33,7 +33,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-review` | Comprehensive branch review — dispatches code/integration/readability reviewers for code changes, or consistency/instruction-quality/writing-quality reviewers for instruction files; consolidates findings into one prioritized report |
 | `mine-review-pr` | Review someone else's open PR read-only — dispatches the reviewer trio against the PR diff, verifies findings against the code, PR description, and existing threads, then optionally posts new findings as comment threads (GitHub or ADO) |
 | `mine-ship` | Commit, push, and create a PR in one step |
-| `mine-sketch` | Structured design — surfaces every decision a change needs into a decision ledger (design.md), ratified one decision at a time, then challenged and combed. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, recording any real issue it leaves unfixed in `known-issues.md` and walking those before ship, with a ship-time challenge against the ledger |
+| `mine-sketch` | Structured design — surfaces every decision a change needs into a decision ledger (design.md), ratified one decision at a time, then challenged and combed. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, recording any real issue it leaves unfixed in `known-issues.md` and settling those before ship, with a ship-time challenge against the ledger |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 | `mine-writeup` | Turn technical research or investigation notes into a structured, scannable document for a specific audience. Answer-first structure, scope lock, editorial discipline |

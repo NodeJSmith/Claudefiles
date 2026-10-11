@@ -25,10 +25,8 @@ Determine mode and scope from `$ARGUMENTS`.
 - Default date range: 90 days
 
 **Exploratory mode** (no args):
-- Use AskUserQuestion to get scope:
-  - Date range: last 30 / 60 / 90 days / all time
-  - Project filter: current project only, all projects
-- Default date range if user says "all time": use no `--since` flag
+- Default scope: last 90 days, all projects. State it in one line ("Scanning the last 90 days across all projects; say so if you want it narrower") and proceed.
+- If the user then asks for "all time", use no `--since` flag
 
 ## Phase 2: Archaeology
 
@@ -236,7 +234,7 @@ Draft and file the issue immediately.
 2. Create the issue in the project's issue tracker with the drafted title, passing `<dir>/body.md` to the tracker's `--body-file`/`--description-file` flag (or its stdin equivalent). Using the file is mandatory, not optional — the body above is multi-line Markdown with backticks in it, and passing that as a raw shell argument mangles quotes, backticks, and other metacharacters.
 
 **Update capabilities:**
-If the tool is missing from the appropriate `rules/common/capabilities-*.md` file or has a thin entry, offer to draft the section. Say what you'd add and ask for confirmation before writing.
+If the tool is missing from the appropriate `rules/common/capabilities-*.md` file or has a thin entry, draft the section and add it, then say what you added. It lands in the diff the user reviews before committing. When the session isn't rooted in the repo that owns that file, draft an issue for that repo with the exact text, show it, and file it only if the user says so: it's an outward-facing write the Phase 4 choices didn't cover.
 
 ## What This Skill Does NOT Do
 

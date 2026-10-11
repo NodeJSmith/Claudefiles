@@ -166,9 +166,7 @@ Lead with the recommendation and the 1-2 most surprising or relevant patterns. D
 
 If web research was thin, say so explicitly: "Coverage was limited — only N sources found. These patterns may not represent the full landscape."
 
-End with: `Brief saved at <tmpdir>/brief.md — say "save it" if you want to keep it permanently.`
-
-If the user asks to save, write to `design/research/YYYY-MM-DD-<topic>/research.md` (create the directory if needed, sanitize topic to lowercase-hyphenated slug, 40 chars max).
+Save the brief to `design/research/YYYY-MM-DD-<topic>/prior-art.md` (create the directory if needed, sanitize topic to lowercase-hyphenated slug, 40 chars max) and end by giving the path. Prior-art briefs are worth keeping even when the immediate question is settled, and the `prior-art.md` name lets it sit beside a `/mine-research` brief on the same topic.
 
 ## What This Skill Does NOT Do
 
