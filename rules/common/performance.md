@@ -1,7 +1,3 @@
----
-tool: claude  # harness-only: model selection and the agent-model registry are Claude-Code-specific
----
-
 # Model Selection
 
 **Haiku** — Lightweight/worker agents, frequent invocation, the cheapest tier

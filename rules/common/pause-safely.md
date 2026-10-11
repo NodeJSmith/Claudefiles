@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Pause Safely
 
 For planned session boundaries, use `mine-end-of-day`. This covers **unplanned mid-task interruptions**: going offline unexpectedly, context about to compact, system restart, process killed mid-run.

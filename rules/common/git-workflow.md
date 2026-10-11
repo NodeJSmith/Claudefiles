@@ -1,10 +1,6 @@
----
-tool: claude  # harness-only: the code-reviewer/wtf-reviewer agent gate and mine-* skills are Claude-Code-specific
----
-
 # Git Workflow
 
-Claude-Code-specific git workflow. Tool-agnostic git and commit hygiene lives in `commit-conventions.md`.
+Hook setup, the pre-commit review gate, issue creation, and PR content. Commit message format and local verification live in `commit-conventions.md`.
 
 ## Pre-commit Hook Validation
 

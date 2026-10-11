@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Logging
 
 <!-- SYNC: rules/common/invariants.md — update the "Library Code Never Configures Logging" invariant entry when changing this section. -->

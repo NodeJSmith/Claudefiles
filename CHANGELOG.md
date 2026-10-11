@@ -11,6 +11,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
+- Agents propose `/mine-sketch` when a change still has decisions the user would want a say in, through a new `sketch-before-building` rule. `/mine-issues` now offers Sketch it / Build it directly / Research first, and can offer to close an invalid issue. (#627)
 - Skills ask far fewer questions: the comb gate fixes and re-combs automatically (two cycles) and asks only for design decisions or a loop that hasn't converged, sketch no longer re-asks decisions the user chose in a challenge or comb walkthrough, and about twenty skills act on the dominant answer instead of confirming it. Gates stay for outward-facing or irreversible actions. (#622)
 - `mine-create-pr` runs in the main agent instead of dispatching a subagent; `worker.md` is folded into `SKILL.md`. (#622)
 

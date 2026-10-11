@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Sequence Verifiable Units
 
 Order multi-step work as a proof sequence: each unit ends in a verifiable state, and the sequence itself reads as an argument to a reviewer rather than a pile of changes to trust.

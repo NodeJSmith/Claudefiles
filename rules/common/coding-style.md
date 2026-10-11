@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Coding Style
 
 ## Immutability

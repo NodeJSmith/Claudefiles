@@ -35,7 +35,7 @@ For **each** issue key in the arguments, use the **Agent** tool (`subagent_type:
 >
 > If the issue does not exist, or the fetch fails for a reason specific to this one key, return exactly `LOOKUP_FAILED` and nothing else. Reserve `TRACKER_ERROR: <reason>` for the tracker itself being unusable — no tools for the configured tracker, auth rejected, tracker unreachable — since that condition would fail every key equally, not just this one. The caller's branch-name fallback only makes sense for a key that might be wrong, so don't report an unusable tracker as one.
 >
-> Then scan the codebase for files and areas mentioned in or related to the issue (grep for keywords, check referenced file paths, look at relevant modules).
+> Then scan the codebase for files and areas mentioned in or related to the issue (grep for keywords, check referenced file paths, look at relevant modules). Also look for design docs that reference the issue: a spec directory or `design.md` naming its key, or a parent design the issue body points to.
 >
 > Return this structured summary and nothing else:
 >
@@ -43,6 +43,7 @@ For **each** issue key in the arguments, use the **Agent** tool (`subagent_type:
 > ## Issue <KEY> — Title
 > - **Description**: [condensed from body, 2-3 sentences max]
 > - **Key comments**: [relevant discussion points, or "None" if no useful comments]
+> - **Design docs**: [each doc's path, its `**Status:**` line if it has one, and what it decides for this issue, or "None"]
 > - **Affected areas**: [files/modules identified from codebase scan]
 > - **Estimated scope**: [small/medium/large with brief reasoning]
 > - **Suggested approach**: [1-2 sentences]
@@ -56,16 +57,21 @@ A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and c
 
 ## Phase 4: Next Step (Main Context)
 
-Hand the deep-dive context off to implementation. Use `AskUserQuestion`:
+Issues passed together are meant to be worked together: one change, one sketch, one build. Ask once for the whole set via `AskUserQuestion`, not once per issue. Push back when the deep dives say they don't belong together, such as unrelated areas with no shared decisions, or a combined change too large for one ledger. Say why in the message, and offer the split you'd suggest as an option in place of the least relevant usual one. A sketch session ends once its ledger is ratified, so a split means working one group now and naming the others for a later run. Pick the option that fits best and mark it recommended. Write each description around the issues' actual content. The usual options:
 
-- **Build it** — Implement the issue now
-- **Research first** — Run `/mine-research` to investigate feasibility before committing to an approach
-- **Skip** — Done for now, I'll come back to this later
+- **Sketch it (`/mine-sketch`)**: settle the change's decisions in a ledger before any code is written
+- **Build it directly**: implement now, when the change leaves nothing to decide
+- **Research first**: run `/mine-research` when it's unclear whether or how the change can be done
+- **Skip**: done for now
 
-Use the issue's **Estimated scope** from Phase 3 to recommend: small/medium → "Build it"; large or uncertain approach → mention "Research first" is worth considering. Phrase the recommendation, but let the user choose.
+To choose between sketch and build, ask whether the change leaves any implementation decision unmade: data shape, boundaries, edge-case behavior, test strategy. If it does, recommend sketch. Size alone doesn't answer this. A parent design or a detailed issue body settles *what* to build, not the decisions underneath it, so "the design is already decided" is not by itself a reason to build directly.
 
-**If the user picks "Build it":** use the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description and implement it.
+If an issue is already fixed, superseded, or no longer valid, offer to close it, and show the closing comment before posting it; the rest of the set carries on without it. If **Design docs** lists a ratified ledger covering the issues, offer to build from it with `/mine-sketch <feature_dir>` instead of sketching again.
 
-**If the user picks "Research first":** invoke `/mine-research`, passing the issue context as the proposal to investigate.
+**If the user picks "Sketch it":** invoke `/mine-sketch` once, passing every remaining issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description, and ask it to list the keys on the ledger's `**Issues:**` line so the eventual PR closes all of them.
+
+**If the user picks "Build it directly":** use the remaining issues' structured summaries as the change description and implement them together. Put a `Closes #N` line for each key in a commit message (GitHub) so the PR closes all of them.
+
+**If the user picks "Research first":** invoke `/mine-research`, passing the issues' context as one proposal to investigate.
 
 **If the user picks "Skip":** stop.

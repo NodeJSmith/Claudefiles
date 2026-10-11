@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Redesign from First Principles
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->

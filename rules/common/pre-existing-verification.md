@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # "Pre-existing" Means Verified Against the Default Branch, Nothing Else
 
 "Pre-existing," "baseline," "already broken," and "predates this change" get used as if they all point at the same reference: the repo's default branch (`main`, `master`, or whatever it's actually called — resolve it, never assume the name). They don't. Each of these is also routinely used to mean something narrower — the state before your own uncommitted edit, a run's captured starting commit, an earlier commit on the same branch — and none of those prove the thing is actually on the default branch. Asserting the narrow claim while implying the broad one lets a regression you (or an earlier task in the same session) introduced get waved off as unrelated debt.

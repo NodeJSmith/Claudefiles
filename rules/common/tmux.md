@@ -1,7 +1,3 @@
----
-tool: claude  # harness-only: the claude-tmux helper and drift hook are Claude-Code-specific
----
-
 # Tmux Session Naming
 
 ## Convention

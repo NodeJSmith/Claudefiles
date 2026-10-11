@@ -1,7 +1,3 @@
----
-tool: claude, antigravity
----
-
 # Verification Before Completion
 
 Never claim work is done without concrete evidence. "Should work" is not verification.
