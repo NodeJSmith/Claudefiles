@@ -12,7 +12,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Its c
 - **`<critic_flag>`** — `--critics=N` if pinned, or empty string if using triage default.
 - **`<focus_flag>`** — `--focus="<text>"` to steer the critics, or empty string. Callers that don't name it pass empty.
 - **`<re_challenge_flag>`** — `--re-challenge` if this is a re-challenge, or empty string.
-- **`<post_resolution>`** — caller-specific handling after step 6 completes (e.g., sketch's re-ratification of changed decisions, ship-time's known-issues recording).
+- **`<post_resolution>`** — caller-specific handling after step 6 completes (e.g., sketch's ratification of decisions an Auto-apply edit changed, ship-time's known-issues recording).
 
 ## The sequence
 

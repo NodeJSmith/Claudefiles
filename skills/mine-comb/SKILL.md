@@ -63,10 +63,11 @@ The agent classifies findings and returns a `## Summary` line plus grouped findi
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Comb`
-- **`minor_blocks`**: `true` — the user invoked this to make a call on what it finds, so surface minor findings too
-- **`<proceed_label>` / `<proceed_description>`**: `Fix and finish` / "Fix the findings but skip the next comb — I'm done here"
+- **`minor_blocks`**: `true` — the user invoked this to get what the comb finds, so minor findings are fixed along with blocking ones
 - **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings — don't expand scope), then re-comb from the top
+
+The gate fixes and re-combs on its own, up to two cycles, and asks only about design decisions or a loop that hasn't converged.
 
 When the target was a sweep across many files rather than one artifact, the findings are a worklist of independent items. The gate still applies as written; only `<re_review_instructions>` changes: fix the findings in batches, root causes first (the ones that would keep producing the defect), and re-comb only the files you changed rather than the whole sweep.
 
-On a clean comb (or once findings are fixed), report the final result to the user: the summary and any remaining minor findings.
+When the comb is clean (or the gate has finished), report the final result to the user: what was fixed across runs, the final summary, and any findings left open.

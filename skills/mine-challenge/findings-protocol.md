@@ -210,8 +210,11 @@ Auto-apply, User-directed, and TENSION alike — follows the Content Rules in
 `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`. In
 particular, don't restate a fact that already lives elsewhere in the doc —
 cite its existing home instead. In a sketch ledger, a finding that adds or
-changes a decision edits that decision's `### D<n>` block and sets its
-`**Ratified:**` line back to `pending`, so the sketch re-ratifies it.
+changes a decision edits that decision's `### D<n>` block. When the user chose
+the option (a User-directed or TENSION answer), that choice is the ratification:
+write the `**Ratified:**` sentence ("Chose X over Y, to achieve Q, accepting D.")
+in the same edit, and add or update that option's column in the decision's criteria table, so the sketch doesn't ask again and the comb finds the table consistent. Only an edit the user never
+chose between (an Auto-apply edit) sets `**Ratified:**` back to `pending`.
 
 **Show the reasoning before every question.** Before each User-directed and
 TENSION `AskUserQuestion` below, write the finding's `**Deciding-factor:**`,
