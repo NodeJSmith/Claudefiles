@@ -168,7 +168,7 @@ If web research was thin, say so explicitly: "Coverage was limited — only N so
 
 End with: `Brief saved at <tmpdir>/brief.md — say "save it" if you want to keep it permanently.`
 
-If the user asks to save, write to `design/research/YYYY-MM-DD-<topic>/research.md` (create the directory if needed, sanitize topic to lowercase-hyphenated slug, 40 chars max). Don't overwrite an existing brief at that path, such as one `/mine-research` saved today on the same topic; rename instead.
+If the user asks to save, write to `design/research/YYYY-MM-DD-<topic>/research.md` (create the directory if needed, sanitize topic to lowercase-hyphenated slug, 40 chars max).
 
 ## What This Skill Does NOT Do
 

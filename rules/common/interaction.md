@@ -20,6 +20,12 @@ When a task needs structured planning, launch the Agent tool with
 planner's output to the user via `AskUserQuestion` for approval before
 executing.
 
+## Saving Artifacts
+
+Saving a report, brief, or session record into the repo doesn't need a question: it's local and reversible, so write it and tell the user the path. It stays reversible only if it replaces nothing. Before writing, check whether the destination exists (a dated path collides when the same skill runs twice in a day), and if it does, pick a new name rather than overwriting it: an untracked file that gets overwritten is gone for good. This is about creating a new artifact: editing a working file you are iterating on (a sketch's `design.md`, a doc under revision) is a normal edit, and a file that exists to be replaced each run (the end-of-day handoff) is consumed or superseded by design, so neither needs a new name.
+
+Anything outward-facing (filing an issue, posting a comment, writing to another repo) is not covered by this and still waits for the user to ask.
+
 ## Progress Tracking
 
 Use TaskCreate to track multi-step tasks. The todo list reveals out-of-order

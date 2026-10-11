@@ -189,7 +189,7 @@ design/audits/
     └── ...
 ```
 
-Create `design/audits/` if it doesn't exist. If the project already saves audits elsewhere, follow the existing convention. Don't overwrite an earlier audit at the same path (the same audit run twice in a day); rename the new one instead.
+Create `design/audits/` if it doesn't exist. If the project already saves audits elsewhere, follow the existing convention.
 
 ## What This Skill Does NOT Do
 

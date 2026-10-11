@@ -114,7 +114,7 @@ design/research/
     └── ...                   Additional artifacts
 ```
 
-Save the brief to the repo's existing research location when there is one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` when the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the destination directory if it doesn't exist. Never overwrite an existing brief (an earlier run on the same topic today lands on the same path); rename the new one instead. Tell the user the path; they can ask to move it or to just show it instead.
+Save the brief to the repo's existing research location when there is one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` when the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the destination directory if it doesn't exist. Tell the user the path; they can ask to move it or to just show it instead.
 
 **Copy** (never move) the brief from the temp file to the save location, or display it inline if the user asked to just see it. The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
 

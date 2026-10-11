@@ -196,7 +196,7 @@ Ask `"What's the primary next step for the top idea?"` (header `Next step`), rec
 - **Build it**: implement the top idea now
 - **Keep exploring**: run another round with a different framing or constraint
 
-When the session has a ranked result, write it to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md` before asking and mention the path. It is a local, reversible write as long as it doesn't overwrite anything: if that path already exists (an earlier run on the same topic today), pick a different name rather than replacing it.
+When the session has a ranked result, write it to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md` before asking and mention the path.
 
 If "Challenge the top idea first" is selected: if the session was saved, invoke `/mine-challenge --mode=passthrough <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text: `/mine-challenge --mode=passthrough <text>`. After challenge completes, loop back to this gate.
 
@@ -216,7 +216,7 @@ Issue template:
 
 ### Saving the session
 
-If saving: write to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md`, renaming rather than overwriting if that path already exists.
+If saving: write to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md`
 
 Include an appendix with the four temp file paths so individual thinker output is accessible after the session:
 
