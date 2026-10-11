@@ -106,7 +106,7 @@ Review comments are triaged into a **ledger**: one row per piece of feedback, re
 
 If the feedback holds no threads, review bodies, or conversation comments, skip the ledger and the convergence gate; the plan then covers only merge conflicts and CI.
 
-A convergence doesn't need several rounds: one round in which a reviewer lists a handful of findings that all trace back to the same mechanism is enough. Otherwise, use judgment about whether the ledger is worth building, and err on the side of building it. Skip it only when convergence is plainly impossible, for example a couple of unrelated findings, or a later round that is only typo and documentation fixes. When you skip it, say why in one line and triage the feedback directly. You then build the plan and the Phase 3 responses yourself instead of from `plan.json`, in the same shape: every open item gets an entry and a response, and a thread that an earlier run already replied to only needs resolving.
+A convergence doesn't need several rounds: one round in which a reviewer lists a handful of findings that all trace back to the same mechanism is enough. Otherwise, use judgment about whether the ledger is worth building, and err on the side of building it. Skip it only when convergence is plainly impossible, for example a couple of unrelated findings, or a later round that is only typo and documentation fixes. When you skip it, say why in one line and leave out every step below that builds or reads `ledger.json` or `plan.json` (the skeleton, the `deep-worker`, `pr-ledger-check check` and `plan`, and the convergence gate). Triage the feedback yourself, and build the plan and the Phase 3 response list by hand in the same shape: every open item gets an entry and a response, and a thread that an earlier run already replied to only needs resolving.
 
 First write the skeleton: one row per input item, with every field that can be read off the feedback (ids, sources, authors, author kinds, rounds, thread status) already filled in, so the subagent spends its judgment only where judgment is needed:
 
@@ -174,7 +174,7 @@ pr-ledger-check plan <tmpdir>/feedback.json <tmpdir>/ledger.json > <tmpdir>/plan
 
 It walks every **open** row once; resolved rows are history and appear nowhere. `entries` has one entry per open row that carries a concern, with `also_answers` listing the open duplicates answered along with it. `responses` is every reply and PR comment Phase 3 will post. `unanswered` lists the open rows that get no response, each with the reason. Every open row lands in exactly one entry and in exactly one response or `unanswered`, so the plan and the replies can't drift apart. Read `plan.json` with `Read`, and look up each row's other fields in the ledger by id.
 
-Start with one count line from `counts`, whose parts add up to `open_rows`: "Ledger: N open items — A actionable, B already addressed, C not acting on, D duplicates answered with them."
+Start with one count line (from `counts` when there is a ledger, whose parts add up to `open_rows`; your own tally otherwise): "Ledger: N open items — A actionable, B already addressed, C not acting on, D duplicates answered with them."
 
 Print the plan as a numbered list **before** the AskUserQuestion. Each `actionable` entry is one item, grouped under its `mechanism` (entries sharing a mechanism are fixed together as one logical group in Phase 3). Each item must include:
 
@@ -286,7 +286,7 @@ Push once after all commits.
 
 ### Responses
 
-After push is confirmed, act on every item in `plan.json`'s `responses`, in order. Each item says what is still needed: post a message when `reply` is true (one message per item, one line per entry in its `lines`), and resolve the thread when `resolve` is true. The two are separate because they are separate calls: an item with `reply` false and `resolve` true is a thread an earlier run replied to but did not manage to resolve, so resolve it without posting again. Drop lines for rows the user skipped in the plan, and post nothing for an item whose lines are all dropped; resolve it only if `reply` is false, since that resolve finishes a reply an earlier run already posted. Otherwise act exactly on what the list says: it already covers every open row, and already leaves out anything an earlier run finished.
+After push is confirmed, act on every item in `plan.json`'s `responses` (or your hand-built response list when the ledger was skipped), in order. Each item says what is still needed: post a message when `reply` is true (one message per item, one line per entry in its `lines`), and resolve the thread when `resolve` is true. The two are separate because they are separate calls: an item with `reply` false and `resolve` true is a thread an earlier run replied to but did not manage to resolve, so resolve it without posting again. Drop lines for rows the user skipped in the plan, and post nothing for an item whose lines are all dropped; resolve it only if `reply` is false, since that resolve finishes a reply an earlier run already posted. Otherwise act exactly on what the list says: a `plan.json` list already covers every open row and leaves out anything an earlier run finished, and a hand-built one must do the same.
 
 Each line's `answer` sets its wording. `with` names the row that carries the concern for a duplicate; link that row's thread or item.
 - `fixed`: "Fixed — [what changed]." With `with`: "Fixed together with [link] — [what changed]."
@@ -318,7 +318,7 @@ Present a structured summary:
 - PR comments: P [answering review bodies, conversation comments, and their embedded findings]
 - Already addressed: K items [answered with the evidence]
 - Not acting on: J items [answered with the reason from the ledger]
-- No reply: U items [each with its reason from `unanswered`]
+- No reply: U items [each with its reason, from `unanswered` or your own triage]
 - Convergences: none, or each mechanism and whether it was patched individually by choice
 
 ### Merge Conflicts
