@@ -106,6 +106,8 @@ Review comments are triaged into a **ledger**: one row per piece of feedback, re
 
 If the feedback holds no threads, review bodies, or conversation comments, skip the ledger and the convergence gate; the plan then covers only merge conflicts and CI.
 
+A convergence doesn't need several rounds: one round in which a reviewer lists a handful of findings that all trace back to the same mechanism is enough. Otherwise, use judgment about whether the ledger is worth building, and err on the side of building it. Skip it only when convergence is plainly impossible, for example a couple of unrelated findings, or a later round that is only typo and documentation fixes. When you skip it, say why in one line and triage the feedback directly. You then build the plan and the Phase 3 responses yourself instead of from `plan.json`, in the same shape: every open item gets an entry and a response, and a thread that an earlier run already replied to only needs resolving.
+
 First write the skeleton: one row per input item, with every field that can be read off the feedback (ids, sources, authors, author kinds, rounds, thread status) already filled in, so the subagent spends its judgment only where judgment is needed:
 
 ```bash
@@ -230,7 +232,7 @@ AskUserQuestion:
 ### Fix each logical group (serial)
 
 For each group from the plan, launch a **`standard-worker` subagent** with:
-- The review comment(s) to address (bodies, file paths, line numbers, and the ledger row's `root_cause`)
+- The review comment(s) to address (bodies, file paths, line numbers, and the root cause: the ledger row's `root_cause`, or your own triage when the ledger was skipped)
 - The approved proposed fix from the plan (what the user agreed to)
 - For `[DECISION NEEDED]` items: the resolved decision
 - The investigation depth (`light`, `medium`, or `deep`): the deepest `depth` among the group's rows, so no row in the group is under-investigated
@@ -266,7 +268,7 @@ After all subagents complete:
 
 1. Run **code-reviewer** agent on modified files
 2. For each CRITICAL or HIGH finding: auto-fix when unambiguous, defer to user when judgment is needed
-3. If any auto-fixes applied, re-run **code-reviewer** (max 3 iterations)
+3. If any auto-fixes applied, re-run **code-reviewer** (max 3 iterations), unless they were all trivial in the sense `git-workflow.md` defines
 4. Stop when no CRITICAL/HIGH issues remain or 3 iterations reached
 5. Run **integration-reviewer** once on the final diff
 
