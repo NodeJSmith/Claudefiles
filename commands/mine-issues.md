@@ -53,25 +53,25 @@ Launch subagents **in parallel** when multiple keys are provided. Display all st
 
 If a subagent returns `TRACKER_ERROR`, surface the reason to the user and **stop** — an unusable tracker isn't fixed by asking for a different issue key, so don't fall through to Phase 2's branch-name fallback or to Phase 4.
 
-A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and carry the summaries that did come back through to Phase 4 — one bad key shouldn't discard the others' work.
+A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and carry the summaries that did come back through to Phase 4 — one bad key shouldn't discard the others' work. If every key failed, stop.
 
 ## Phase 4: Next Step (Main Context)
 
-Ask what to do with each issue via `AskUserQuestion`. In a multi-key run, take one issue at a time: ask, carry out the choice, then move to the next. Choosing sketch ends the run, because sketch stops its session once the ledger is ratified, so before handing an issue to it, name the issues still undecided so the user can come back to them. Pick the option that fits the deep dive best and mark it recommended. Write each description around the issue's actual content. The usual options:
+Issues passed together are meant to be worked together: one change, one sketch, one build. Ask once for the whole set via `AskUserQuestion`, not once per issue. Push back when the deep dives say they don't belong together, such as unrelated areas with no shared decisions, or a combined change too large for one ledger. Say why in the message, and offer the split you'd suggest as an option in place of the least relevant usual one. A sketch session ends once its ledger is ratified, so a split means working one group now and naming the others for a later run. Pick the option that fits best and mark it recommended. Write each description around the issues' actual content. The usual options:
 
 - **Sketch it (`/mine-sketch`)**: settle the change's decisions in a ledger before any code is written
-- **Build it directly**: implement now, when the issue leaves nothing to decide
+- **Build it directly**: implement now, when the change leaves nothing to decide
 - **Research first**: run `/mine-research` when it's unclear whether or how the change can be done
 - **Skip**: done for now
 
-To choose between sketch and build, ask whether the issue leaves any implementation decision unmade: data shape, boundaries, edge-case behavior, test strategy. If it does, recommend sketch. Size alone doesn't answer this. A parent design or a detailed issue body settles *what* to build, not the decisions underneath it, so "the design is already decided" is not by itself a reason to build directly.
+To choose between sketch and build, ask whether the change leaves any implementation decision unmade: data shape, boundaries, edge-case behavior, test strategy. If it does, recommend sketch. Size alone doesn't answer this. A parent design or a detailed issue body settles *what* to build, not the decisions underneath it, so "the design is already decided" is not by itself a reason to build directly.
 
-If the issue is already fixed, superseded, or no longer valid, offer to close it instead, and show the closing comment before posting it. If **Design docs** lists a ratified ledger for the issue, offer to build from it with `/mine-sketch <feature_dir>` instead of sketching again.
+If an issue is already fixed, superseded, or no longer valid, offer to close it, and show the closing comment before posting it; the rest of the set carries on without it. If **Design docs** lists a ratified ledger covering the issues, offer to build from it with `/mine-sketch <feature_dir>` instead of sketching again.
 
-**If the user picks "Sketch it":** invoke `/mine-sketch`, passing the issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description.
+**If the user picks "Sketch it":** invoke `/mine-sketch` once, passing every remaining issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description, and ask it to list the keys on the ledger's `**Issues:**` line so the eventual PR closes all of them.
 
-**If the user picks "Build it directly":** use the issue's structured summary as the change description and implement it.
+**If the user picks "Build it directly":** use the remaining issues' structured summaries as the change description and implement them together. Put a `Closes #N` line for each key in a commit message (GitHub) so the PR closes all of them.
 
-**If the user picks "Research first":** invoke `/mine-research`, passing the issue context as the proposal to investigate.
+**If the user picks "Research first":** invoke `/mine-research`, passing the issues' context as one proposal to investigate.
 
-**If the user picks "Skip":** move to the next issue, or stop if this was the last.
+**If the user picks "Skip":** stop.

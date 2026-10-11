@@ -8,6 +8,7 @@ Write the ledger to `<feature_dir>/design.md` using this template:
 **Date:** YYYY-MM-DD
 **Status:** draft
 **Mode:** sketch
+**Issues:** [tracker keys this change resolves, e.g. #123, #124; omit the line if none]
 
 ## Summary
 
