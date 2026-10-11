@@ -76,10 +76,10 @@ After each answer, walk down any decision branches it opens — follow each thre
 After the interrogation, write a brief to the feature directory. If no feature directory exists yet, create one:
 
 ```bash
-cfl spec init <slug>
+new-spec-dir <slug>
 ```
 
-Record the returned `dir` field — you will write the brief there.
+It prints the new directory's path — you will write the brief there.
 
 Write to `<feature_dir>/brief.md`:
 

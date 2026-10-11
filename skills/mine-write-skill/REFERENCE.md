@@ -42,7 +42,7 @@ $ARGUMENTS — <what arguments it accepts, or "none">
   - `header` ≤12 characters
   - Maximum 4 options per question
   - When the right options depend on what the skill just found (findings, open questions, whether anything changed), describe them as a menu the agent builds from: which options exist, when each fits, and what to recommend. Don't hardcode a fixed list with a pinned "(Recommended)". If the agent can already tell the question is pointless, let it skip the question. Example: "Ask what's next (header `Ship or fix?`): offer Ship when there are no CRITICAL/HIGH findings, lead with Fix and re-review (naming the findings) when there are, and always offer Stop." The header, `multiSelect`, and the labels that "On 'X'" handlers match still belong in the prose.
-- Use `cfl`, `get-skill-tmpdir`, and other `bin/` helpers where appropriate — don't reinvent
+- Use `get-skill-tmpdir` and other `bin/` helpers where appropriate — don't reinvent
 - If the skill needs scripts, add them to `bin/` (shared), not inside the skill directory
 
 ## Size Target

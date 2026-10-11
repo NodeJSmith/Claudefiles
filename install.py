@@ -127,7 +127,7 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "wtf-reviewer",
                 # END GENERATED
             ),
-            packages=("cfl", "merge-settings"),
+            packages=("merge-settings",),
             always_installed=True,
         ),
         "engineering": Bundle(

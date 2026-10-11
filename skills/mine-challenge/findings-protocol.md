@@ -80,7 +80,7 @@ match 1:1 with findings — no gaps.
 `**Deciding-factor:**`, `**Criteria:**`, and `**Pick-instead-if:**` follow
 `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
 They are presentation fields, like `**Evidence:**`: synthesis fills them in
-before choosing the recommendation, and they are not written to cfl.
+before choosing the recommendation, and they are not written to the review log.
 
 ## Convergence Findings
 

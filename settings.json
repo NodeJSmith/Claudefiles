@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Edit(//tmp/**)",
-      "Bash(cfl:*)",
       "Bash(get-skill-tmpdir:*)",
       "Bash(get-tmp-filename)",
       "Bash(ruff:*)",
@@ -87,11 +86,6 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/subagent-compaction-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/dispatch-stats.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 5000
           }
         ]
       },
@@ -169,15 +163,6 @@
           {
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/tmux-remind.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 5000
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/cfl-stop-orphans.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           }
         ]

@@ -154,20 +154,9 @@ Each worktree gets its own context, isolated from the main working tree.
 
 The result is a consistent development environment that works the same way every session, regardless of which codebase you're in.
 
-## Run State: cfl
+## Review Log
 
-`cfl` is the run-state CLI, part of the base bundle, backed by a durable SQLite database at `~/.local/share/claudefiles/cfl.db` (overridable via `$CFL_DB`). `/mine-sketch` records each sketch's spec, run, gate results, subagent dispatches, and events there.
-
-Key commands:
-
-```bash
-cfl run status          # current run state
-cfl spec status         # spec-level state including active run
-cfl gate                # record a gate evaluation result
-cfl event               # append a free-form event to the audit trail
-```
-
-`mine-sketch` calls `cfl` automatically — you rarely need to invoke it directly.
+`/mine-sketch` appends one JSON line per challenge and comb pass to `review-log.jsonl` in the feature directory: each challenge's findings (severity, which critic raised it, what was recommended, what you chose) and each comb pass's blocking/minor counts. The two record shapes differ, so filter on the `gate` field first. It's committed with the ledger, so later questions about the skills themselves — which critics earn their place, how often the recommendation is taken — are a `jq` query over `design/specs/*/review-log.jsonl`.
 
 ## Customizing
 
