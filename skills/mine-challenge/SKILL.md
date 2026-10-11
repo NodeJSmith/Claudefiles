@@ -20,7 +20,7 @@ $ARGUMENTS — optional scope:
 - `--target-type=<type>` — override heuristic classification. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`
 - `--mode=passthrough` — present summary only; skip inline resolution (mine-brainstorm, mine-research)
 - `--no-specialists` — triage selects from generic personas only
-- `--critics=N` — pin the critic count to exactly N, clamped to the number of eligible personas (12 total: 3 generic, 9 specialist — fewer if `--no-specialists` is also set). Overrides triage's default 1–3 range and the re-challenge cap of 2. When `--focus` forces a specialist, that specialist occupies one of the N slots rather than adding to them.
+- `--critics=N` — pin the critic count to exactly N, clamped to the number of eligible personas (8 total: 3 generic, 5 specialist — fewer if `--no-specialists` is also set). Overrides triage's default 1–3 range and the re-challenge cap of 2. When `--focus` forces a specialist, that specialist occupies one of the N slots rather than adding to them.
 - `--re-challenge` — mark this run as a re-challenge. Replaces the file-based detection.
 
 ## How to Analyze
@@ -91,14 +91,10 @@ Note re-challenge status in context for Phase 2 critic selection.
 - `adversarial-reviewer.md` — Adversarial Reviewer: wrong solution entirely, UX failures, "should this exist?"
 
 **Specialists:**
-- `agent-definition.md` — Agent Definition Critic: agent file quality, executor compatibility, scope leakage
 - `contract-caller.md` — Contract & Caller Critic: output schema fragility, breaking change surface, implicit contracts
 - `data-integrity.md` — Data Integrity Critic: transaction safety, partial writes, cache/source-of-truth divergence
-- `documentation-architect.md` — Documentation Architect Critic: doc set structure, mode confusion, findability gaps
-- `end-user-reader.md` — End-User Reader Critic: assumed prerequisites, missing steps, error path silence
 - `operational-resilience.md` — Operational Resilience Critic: resource exhaustion, upstream failures, recovery behavior
 - `structural-minimalist.md` — Structural Minimalist Critic: speculative layers, single-consumer abstractions, bolted-on requirements, designs that could be half the size
-- `web-platform.md` — Web Platform Critic: re-renders, data fetching patterns, accessibility, CSS architecture
 - `workflow-ux.md` — Workflow & UX Critic: phase transitions, unhelpful defaults, unnecessary friction
 
 **Triage subagent instructions:** Return a JSON block with:
