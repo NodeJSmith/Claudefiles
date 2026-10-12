@@ -60,7 +60,7 @@ Conversation memory (recall, resume) now ships as the external
 | Agent | Description |
 |-------|-------------|
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
-| `cold-reader` | Cold-read reader for writeups. Reads one document as a persona with explicit knowledge boundaries and returns a teach-back plus a typed walkthrough as JSON; `mine-writeup` dispatches it after drafting |
+| `cold-reader` | Cold-read reader for writeups. Reads one document as a persona with explicit knowledge boundaries and returns JSON with a teach-back, typed findings, and the passages that work; `mine-writeup` dispatches it after drafting |
 | `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis and the `mine-address-pr-issues` review ledger. The caller supplies the full task methodology in its prompt |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
 | `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against quality dimensions |

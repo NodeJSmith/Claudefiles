@@ -196,6 +196,8 @@ If it returns `{"error": "incomplete brief", ...}`, fill in the named fields and
 - A finding that asks for content outside the Phase 2 scope (a cost analysis the sources don't contain, a new section): don't add it. List it for the user as a possible follow-up. The scope lock still holds.
 - Everything else: decide whether it's real for this audience. Set it aside if not, and give a one-line reason.
 
+Keep the reader's `works_well` passages intact when planning fixes: a revision that removes what already worked leaves the reader worse off. A verified fix still wins when the passage itself is the problem, such as a wrong number or content outside the scope. Flag that conflict next to the fix.
+
 ### Present
 
 Show the user, before the draft:
@@ -203,7 +205,7 @@ Show the user, before the draft:
 1. The takeaway table (takeaway → landed / partly / missed / misread), plus the perceived ask if it's wrong.
 2. The verified findings you plan to fix, grouped by section, each with the quote and the fix.
 3. Out-of-scope requests and set-aside findings, each with its one-line reason.
-4. The reader's `overall_verdict` and `forwardable` answer.
+4. The reader's `overall_verdict`, its `forwardable` answer, and the `works_well` passages.
 
 If every takeaway landed and nothing verified needs fixing, say so and present the draft. There's nothing to ask. If the verdict is `lost`, or several takeaways were missed or misread, line-level fixes won't help: recommend restructuring the sections that lost the reader, and offer it as an option in place of "Pick fixes". Otherwise ask:
 

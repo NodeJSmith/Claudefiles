@@ -2,7 +2,7 @@
 name: cold-reader
 model: sonnet
 effort: medium
-description: Cold-read reader for writeups. Reads one document as a caller-defined persona and returns JSON with a teach-back of what landed and a typed section-by-section walkthrough. Use after drafting a document for a specific reader, before presenting it.
+description: Cold-read reader for writeups. Reads one document as a caller-defined persona and returns JSON with a teach-back of what landed, typed findings, and the passages that work. Use after drafting a document for a specific reader, before presenting it.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: base
 ---
@@ -67,22 +67,37 @@ Go section by section. For each problem, record a finding:
 
 - `section`: the heading text.
 - `type`: exactly one of:
-  - `undefined-term`: a term the persona doesn't know, used without a definition.
+  - `undefined-term`: a term the persona doesn't know, used without a definition. This includes a symbol or variable with no plain-word label, and a word the persona knows that the document uses in a different sense.
   - `lost-thread`: the reader loses the argument, or can't tell how this connects to what came before.
   - `unsupported-number`: a number taken on faith, or one that doesn't reconcile with another number. Put your arithmetic in `reaction`.
-  - `unmotivated-section`: a section whose reason for being here isn't clear to this reader.
+  - `unmotivated-section`: a section, sentence, or aside whose reason for being here isn't clear to this reader.
   - `missing-so-what`: a fact with no stated consequence for the reader's goal.
   - `next-question`: the obvious question this reader would ask next, left unanswered.
-  - `too-dense`: more detail than this reader can take in at this point.
+  - `too-dense`: more detail than this reader can take in at this point, a sentence you had to read twice, or a label (such as a table header) that's ambiguous without the surrounding text.
   - `jargon`: a field-specific term with an everyday alternative.
+  - `misplaced-emphasis`: the visual weight (bullet level, bold, callout) doesn't match how much the point matters.
 
   When types overlap: a term that is never defined is `undefined-term`. A term that is defined but has a plain-word alternative is `jargon`. A passage that defines its terms but carries too much at once is `too-dense`.
 - `quote`: the exact text.
 - `reaction`: what the reader thinks, in first person.
 - `suggestion`: what would fix it.
 
-Then assess the whole document:
+## Step 3: Line pass
 
+The walkthrough pulls your attention toward numbers and arguments. Line-level problems lose that competition unless they get a pass of their own. Read the document a second time, looking only at how it reads, and walk each of these inventories one item at a time:
+
+- **Every formula, symbol, and variable name.** The reader can't follow a calculation whose parts have no names. `rate = d ÷ n` means nothing until the document says what `rate`, `d`, and `n` each count. Record an unlabeled one as `undefined-term`.
+- **Every bold phrase, callout, and top-level bullet.** Readers take visual weight as importance. A side caveat given main-point weight (a peer bullet among findings, its own callout) is `misplaced-emphasis`, and so is a key point left in plain text inside a paragraph. Check this against your teach-back: a point you only partly took away is often one the document never emphasized.
+- **Every word from the persona's own field.** A domain word used in an unusual sense misleads an expert more than jargon does, because the reader brings the usual meaning and doesn't notice the switch. Record it as `undefined-term`.
+- **Every table header, read on its own.** Readers scan tables by their headers. Record a header that's ambiguous without the surrounding text as `too-dense`.
+- **Every sentence you had to read twice.** Two common causes are a sentence that packs two unrelated facts, and a sentence carrying three or more parallel items that should be a list. Record it as `too-dense`.
+- **Every aside.** A sentence that raises a question the document never answers costs the reader more than it gives. So does a sentence that recounts how the work got here (earlier versions, abandoned settings) without changing what the reader understands now. Record it as `unmotivated-section`.
+
+Add these to `findings`, the same as walkthrough findings. Walk every inventory, but don't manufacture findings to fill one. A clean inventory is a fine result, and every finding still quotes exact text.
+
+## Step 4: Whole-document assessment
+
+- `works_well`: passages that landed for this reader, such as a definition, callout, example, or table that made something click. Quote each one exactly and say why it worked. The caller keeps these intact through revisions, so name them as specifically as findings. Leave the list empty if nothing stood out.
 - `skippable_sections`: sections this reader could skip without missing anything they need.
 - `forwardable`: `{"answer": "yes" | "no", "why": "..."}`. Could the reader forward this as-is to someone with even less context?
 - `time_to_bottom_line`: how far into the document the reader gets before they know the main point.
@@ -103,6 +118,9 @@ Return a single JSON object and nothing else:
   },
   "findings": [
     {"section": "...", "type": "unsupported-number", "quote": "...", "reaction": "...", "suggestion": "..."}
+  ],
+  "works_well": [
+    {"quote": "...", "why": "..."}
   ],
   "skippable_sections": ["..."],
   "forwardable": {"answer": "no", "why": "..."},
