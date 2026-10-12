@@ -253,6 +253,32 @@ def test_history_row_id_must_carry_the_history_prefix() -> None:
     ]
 
 
+def test_history_row_needs_author_and_round() -> None:
+    ledger = filled_ledger()
+    row = add_history(ledger, "history:known-issues.md#KI-001")
+    row["author"] = ""
+    row["round"] = None
+
+    problems = check_ledger(FEEDBACK, ledger)
+
+    assert problems == [
+        "history row history:known-issues.md#KI-001 has no author",
+        "history row history:known-issues.md#KI-001 has no round",
+    ]
+
+
+def test_history_row_cannot_be_related_to_a_pr_row() -> None:
+    ledger = filled_ledger()
+    row = add_history(ledger, "history:known-issues.md#KI-001")
+    row["related"] = ["PRRT_b"]
+    at(ledger, "PRRT_c")["related"] = ["history:known-issues.md#KI-001"]
+
+    problems = check_ledger(FEEDBACK, ledger)
+
+    assert len(problems) == 2
+    assert all("a recurrence is a distinct finding" in p for p in problems)
+
+
 def test_convergence_of_only_history_rows_is_rejected() -> None:
     ledger = filled_ledger()
     for n in (12, 13):

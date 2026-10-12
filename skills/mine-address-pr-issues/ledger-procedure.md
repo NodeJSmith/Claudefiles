@@ -39,7 +39,7 @@ A history row carries the same fields as any other row, with these differences:
 | `outcome` | review log `applied` is `fixed`, `skipped` is `declined`, `filed` is `deferred`; a known issue is `deferred` unless its status says it was fixed |
 | `disposition` | `already-addressed` for an applied finding (cite the file and line, as for any row); `not-actionable` otherwise, with the reason it was skipped or deferred |
 | `embedded_count`, `depth`, `decision` | `null` |
-| `related` | `[]`, or the ids of a PR row raising the same concern |
+| `related` | `[]`, always: `related` means one concern restated, and a recurrence after an earlier patch is a distinct finding, which is what makes the convergence. `check` rejects a link in either direction |
 
 Fill `finding`, `mechanism`, `root_cause`, `proposed_fix`, and `fix_adds` from the record the way you would for a resolved PR row, and label `mechanism` by the same three passes, so a history row and a thread about one mechanism carry the identical string.
 
@@ -131,6 +131,6 @@ Fill in the skeleton ledger in place, keeping its `pr` and `pr_author` keys:
 }
 ```
 
-Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. Each problem it lists breaks one of the rules in this file: a missing or unknown row, an *init* field that no longer matches the feedback, a field its row's status and disposition require that is missing or invalid (including a `fix_adds` that doesn't start with one of its kinds, or a `decision` with fewer than two options), an `embedded_count` that disagrees with the embedded rows, a `related` id that names no row, an open duplicate that names no open substantive row, a restated concern with more or fewer than one substantive row, a history row that isn't `resolved` or whose id lacks the `history:` prefix, or a convergence that is incomplete, is made only of history rows, has a `rounds` that isn't a positive integer, has fewer than two distinct findings, or whose members don't match the rows carrying its `mechanism`. A membership mismatch means a label is wrong; fix the label, not just the list.
+Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. Each problem it lists breaks one of the rules in this file: a missing or unknown row, an *init* field that no longer matches the feedback, a field its row's status and disposition require that is missing or invalid (including a `fix_adds` that doesn't start with one of its kinds, or a `decision` with fewer than two options), an `embedded_count` that disagrees with the embedded rows, a `related` id that names no row, an open duplicate that names no open substantive row, a restated concern with more or fewer than one substantive row, a history row that isn't `resolved`, whose id lacks the `history:` prefix, that has no `author` or `round`, or that is linked through `related`, or a convergence that is incomplete, is made only of history rows, has a `rounds` that isn't a positive integer, has fewer than two distinct findings, or whose members don't match the rows carrying its `mechanism`. A membership mismatch means a label is wrong; fix the label, not just the list.
 
 Reply with one line: the ledger path, the row count (history rows included), and the number of convergences.

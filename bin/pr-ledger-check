@@ -17,7 +17,8 @@ none of this is left to the subagent's self-report.
 History rows (`source: history`, from a ship-time challenge's review log or a
 known-issues file) are the exception: they have no input item to re-derive from,
 so `check` instead requires a `history:` id, `resolved` status, the field
-contract, and, for a convergence, at least one member that is a PR row.
+contract, an author and round, no `related` links, and, for a convergence, at
+least one member that is a PR row.
 
 `plan` turns a passing ledger into the plan entries and the replies and PR
 comments to post, walking every open row once so the plan and the responses
@@ -443,6 +444,22 @@ def history_rows_are_well_formed(ledger: Ledger) -> list[str]:
             problems.append(
                 f"history row {rid} must have status 'resolved', not {row.get('status')!r}"
             )
+        problems += [
+            f"history row {rid} has no {field}"
+            for field in ("author", "round")
+            if not _non_empty_str(row.get(field))
+        ]
+        # A `related` edge makes two rows one concern, so it would collapse a
+        # recurrence and the earlier patch it recurs on into a single finding.
+        if ledger.related_ids(row):
+            problems.append(
+                f"history row {rid} must have empty related: a recurrence is a distinct finding"
+            )
+        problems += [
+            f"row {other} lists history row {rid} as related: a recurrence is a distinct finding"
+            for other, other_row in ledger.by_id.items()
+            if rid in ledger.related_ids(other_row)
+        ]
     return problems
 
 
