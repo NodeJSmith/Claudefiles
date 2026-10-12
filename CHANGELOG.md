@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-12
+
+### Added
+
+- `cold-reader` agent: reads a draft as a persona with explicit knowledge boundaries and returns a teach-back plus a typed section-by-section walkthrough. `mine-writeup` now runs it before presenting a draft, compares what the reader took away against the intended takeaways, and checks its findings against the sources. (#629)
+
 ## 2026-10-11
 
 ### Removed
