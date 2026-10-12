@@ -113,13 +113,23 @@ One line pointing to the full source material for readers who want the evidence.
 
 The So What and Forwarding tests in section 3 are duplicated from `rules/common/writing-discipline.md` by design (this skill must be self-contained). If you change the tests here, update the other file too.
 
+### Reader Brief
+
+Alongside the outline, draft the brief that Phase 5's cold reader will get. Phase 1's audience answer is a label. The reader needs knowledge boundaries, so infer them from the audience answer and the source material:
+
+- **Persona:** the reader's role, what they **know** (their domain, the business context), and what they **do NOT know** (this work's internal vocabulary, methods, earlier drafts, anything only the source docs contain). Be specific: "doesn't know statistics vocabulary (precision, holdout, confidence interval)" beats "non-technical."
+- **Reading goal:** what this reader needs to do with the document, from Phase 1's outcome answer plus anything the user said.
+- **Intent:** `decide` for "Make decisions", `recommend` for "Approve an approach", `describe` for "Understand scope" or "Be informed".
+- **Deliberate positions:** statements the writeup will make on purpose that might look like they break the intent, such as firm requirements in a descriptive writeup. Often none.
+- **Intended takeaways:** the 3–5 things the reader should be able to repeat after one read, with the key number for each where there is one. The reader never sees these. Phase 5 compares them against what the reader reports.
+
 ### Outline Approval
 
-Show the scope line, then the proposed outline as a bullet list with one-line descriptions of what each section will contain.
+Show the scope line, then the proposed outline as a bullet list with one-line descriptions of what each section will contain, then the reader brief.
 
 ```yaml
 AskUserQuestion:
-  question: "Here's the scope and outline. Approve, adjust, or cut anything before I start writing."
+  question: "Here's the scope, outline, and reader brief. Approve, adjust, or cut anything before I start writing."
   header: "Outline"
   multiSelect: false
   options:
@@ -135,7 +145,7 @@ If "Adjust": apply changes and re-confirm. No prose is written until the outline
 
 ## Phase 4: Write
 
-Write the full draft to the writeup file once the outline is approved, then present it for review. If the user wants a section rewritten, cut, or shortened, edit it in place.
+Write the full draft to the writeup file once the outline is approved. Run Phase 5 before presenting it. If the user wants a section rewritten, cut, or shortened, edit it in place.
 
 ### The Three Layers
 
@@ -156,6 +166,64 @@ If a section only works at the 30-minute layer, it needs rewriting.
 - **Tables for parallel structure.** If the same shape repeats 3+ times, use a table.
 
 Re-read the writeup file from disk before every write. Preserve user edits. If the user wants a section rewritten, edit that section in place.
+
+---
+
+## Phase 5: Reader Test
+
+The three-layer check above is the author's self-check, and an author can't un-know what they meant. Before presenting the draft, have a cold reader with the persona's knowledge read it. The reader's findings are hypotheses about the text. The user's scope and the stated intent outrank the reader's reactions.
+
+Skip this phase when the gap is small: a short writeup for a reader who already shares the context, with few numbers to check. Say that you skipped it and why. Run it whenever the reader is far from the work or the writeup leans on numbers.
+
+### Isolate and dispatch
+
+1. Run `get-skill-tmpdir mine-writeup-reader` and copy the writeup into it as `document.<ext>` (keep the original extension). Nothing else goes in this directory.
+2. Run `get-skill-tmpdir mine-writeup-key` and write the intended takeaways to `<key-dir>/intended-takeaways.md`. Never give the reader this path or quote the takeaways in its prompt.
+3. Dispatch the `cold-reader` agent with the brief from Phase 3: `document` (the copied path), `persona` (role, knows, does NOT know), `reading_goal`, `intent`, and `deliberate_positions`. Pass the brief only. Don't add your own commentary about the document.
+
+If it returns `{"error": "incomplete brief", ...}`, fill in the named fields and dispatch again.
+
+### Compare and verify
+
+**Teach-back against takeaways.** For each intended takeaway, mark it `landed`, `partly` (it's there, but late, vague, or missing its key number), `missed`, or `misread`. Also note any teach-back key point that isn't among the takeaways. A point the reader took away that the author didn't intend is often a misreading caused by emphasis.
+
+**Perceived asks against intent.** For `decide` and `recommend`, check that the reader's `perceived_asks` names the actual decision or recommendation. A reader who walks away with the wrong ask is the most expensive failure for those writeups. For `describe`, the reader should perceive no ask. If it does, something in the writeup reads like a request.
+
+**Verify every finding before presenting it.** The reader only has the document, so its findings are hypotheses about the text:
+
+- `unsupported-number`: check it against the source material. Fix it if the number is wrong or doesn't reconcile. If it's right but the document doesn't show why, add the denominator, population, or period.
+- A finding that conflicts with the stated intent or a deliberate position (the reader slipped anyway): set it aside.
+- A finding that asks for content outside the Phase 2 scope (a cost analysis the sources don't contain, a new section): don't add it. List it for the user as a possible follow-up. The scope lock still holds.
+- Everything else: decide whether it's real for this audience. Set it aside if not, and give a one-line reason.
+
+### Present
+
+Show the user, before the draft:
+
+1. The takeaway table (takeaway → landed / partly / missed / misread), plus the perceived ask if it's wrong.
+2. The verified findings you plan to fix, grouped by section, each with the quote and the fix.
+3. Out-of-scope requests and set-aside findings, each with its one-line reason.
+4. The reader's `overall_verdict` and `forwardable` answer.
+
+If every takeaway landed and nothing verified needs fixing, say so and present the draft. There's nothing to ask. If the verdict is `lost`, or several takeaways were missed or misread, line-level fixes won't help: recommend restructuring the sections that lost the reader, and offer it as an option in place of "Pick fixes". Otherwise ask:
+
+```yaml
+AskUserQuestion:
+  question: "The cold reader's results are above. How should I handle the fixes?"
+  header: "Reader"
+  multiSelect: false
+  options:
+    - label: "Apply the fixes"
+      description: "Edit the draft with the verified fixes, then offer a second cold read"
+    - label: "Pick fixes"
+      description: "I'll tell you which to apply"
+    - label: "Skip"
+      description: "Present the draft as-is"
+```
+
+After applying fixes, offer a second cold read when the fixes changed numbers or rewrote whole sections. Use a fresh dispatch on a freshly copied document. A second read finds problems the first missed, especially in numbers that the fixes introduced. Don't loop beyond that unless the user asks.
+
+Then present the draft. From here, Phase 4's editing rules apply: when the user wants a section rewritten, cut, or shortened, edit it in place.
 
 ---
 

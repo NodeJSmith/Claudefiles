@@ -36,7 +36,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-sketch` | Structured design — surfaces every decision a change needs into a decision ledger (design.md), ratified one decision at a time, then challenged and combed. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, recording any real issue it leaves unfixed in `known-issues.md` and settling those before ship, with a ship-time challenge against the ledger |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
-| `mine-writeup` | Turn technical research or investigation notes into a structured, scannable document for a specific audience. Answer-first structure, scope lock, editorial discipline |
+| `mine-writeup` | Turn technical research or investigation notes into a structured, scannable document for a specific audience. Answer-first structure, scope lock, editorial discipline, and a cold-reader test of the draft before presenting it |
 
 Conversation memory (recall, resume) now ships as the external
 [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin (`/ccrecall:ccr-recall`,
@@ -60,6 +60,7 @@ Conversation memory (recall, resume) now ships as the external
 | Agent | Description |
 |-------|-------------|
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
+| `cold-reader` | Cold-read reader for writeups. Reads one document as a persona with explicit knowledge boundaries and returns a teach-back plus a typed walkthrough as JSON; `mine-writeup` dispatches it after drafting |
 | `deep-worker` | Generic worker (opus) for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning; used for `mine-challenge` synthesis and the `mine-address-pr-issues` review ledger. The caller supplies the full task methodology in its prompt |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
 | `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against quality dimensions |

@@ -53,7 +53,7 @@ The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ide
 The base is enough. `/mine-domain-model` maintains a `CONTEXT.md` glossary and ADRs as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes. Included in base.
 
 **"I need to write up technical research for my boss"**
-The base is enough. `/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope at outline approval, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Included in base.
+The base is enough. `/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope at outline approval, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Before showing you the draft, it has a `cold-reader` agent read it as your audience and checks whether the intended takeaways landed and whether the numbers hold up. Included in base.
 
 **"I want conversation memory across sessions"**
 Enable the **`ccrecall`** plugin (wired in `settings.json`; its hook binaries come from the `ccrecall` PyPI package that `install.py` installs). Claude remembers corrections, architectural decisions, and preferences across sessions. `/ccrecall:ccr-recall` searches past sessions; `/ccrecall:ccr-resume` picks up a fresh session after `/clear`.
