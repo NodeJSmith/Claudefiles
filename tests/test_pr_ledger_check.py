@@ -189,6 +189,124 @@ def test_unknown_row_id_is_reported() -> None:
     assert problems[0].startswith("row PRRT_zzz is neither an input item")
 
 
+def add_history(ledger: dict, hid: str, **changes) -> dict:
+    row = {
+        **copy.deepcopy(JUDGMENT_FIELDS),
+        "id": hid,
+        "source": "history",
+        "author": "challenge",
+        "author_kind": "bot",
+        "round": T1,
+    }
+    ledger["rows"].append(fill(row, **{"status": "resolved", **changes}))
+    return row
+
+
+def test_history_row_needs_no_input_item() -> None:
+    ledger = filled_ledger()
+    add_history(ledger, "history:review-log.jsonl#ship-challenge:12")
+
+    assert check_ledger(FEEDBACK, ledger) == []
+
+
+def test_history_row_must_be_resolved() -> None:
+    ledger = filled_ledger()
+    add_history(ledger, "history:known-issues.md#KI-001", status="open")
+
+    problems = check_ledger(FEEDBACK, ledger)
+
+    assert len(problems) == 1
+    assert problems[0].startswith("history row history:known-issues.md#KI-001 must")
+
+
+def test_plan_ignores_history_rows() -> None:
+    ledger = filled_ledger()
+    add_history(ledger, "history:known-issues.md#KI-001")
+
+    plan = MODULE["build_plan"](FEEDBACK, ledger)
+    baseline = MODULE["build_plan"](FEEDBACK, filled_ledger())
+
+    assert plan == baseline
+
+
+def test_input_item_relabelled_as_history_is_still_verified() -> None:
+    ledger = filled_ledger()
+    row = at(ledger, "PRRT_b")
+    row.update(source="history", status="resolved", disposition="not-actionable")
+    row["outcome"] = "declined"
+
+    problems = check_ledger(FEEDBACK, ledger)
+
+    assert any("row PRRT_b has source 'history'" in p for p in problems)
+
+
+def test_history_row_id_must_carry_the_history_prefix() -> None:
+    ledger = filled_ledger()
+    add_history(ledger, "review-log.jsonl#ship-challenge:12")
+
+    problems = check_ledger(FEEDBACK, ledger)
+
+    assert problems == [
+        "history row review-log.jsonl#ship-challenge:12 must have an id starting with 'history:'"
+    ]
+
+
+def test_convergence_of_only_history_rows_is_rejected() -> None:
+    ledger = filled_ledger()
+    for n in (12, 13):
+        add_history(
+            ledger, f"history:review-log.jsonl#ship-challenge:{n}", mechanism="m"
+        )
+    ledger["convergences"] = [
+        convergence(
+            "m",
+            [
+                "history:review-log.jsonl#ship-challenge:12",
+                "history:review-log.jsonl#ship-challenge:13",
+            ],
+        )
+    ]
+
+    problems = check_ledger(FEEDBACK, ledger)
+
+    assert len(problems) == 1
+    assert "needs at least one PR row" in problems[0]
+
+
+def test_history_row_still_needs_the_field_contract() -> None:
+    ledger = filled_ledger()
+    row = add_history(ledger, "history:known-issues.md#KI-001")
+    row["outcome"] = None
+
+    assert any("invalid outcome" in p for p in check_ledger(FEEDBACK, ledger))
+
+
+def test_history_rows_join_a_convergence_with_a_pr_thread() -> None:
+    ledger = filled_ledger(PRRT_b={"mechanism": "announce sequence"})
+    add_history(
+        ledger,
+        "history:review-log.jsonl#ship-challenge:12",
+        mechanism="announce sequence",
+    )
+    add_history(
+        ledger,
+        "history:review-log.jsonl#ship-challenge:13",
+        mechanism="announce sequence",
+    )
+    ledger["convergences"] = [
+        convergence(
+            "announce sequence",
+            [
+                "PRRT_b",
+                "history:review-log.jsonl#ship-challenge:12",
+                "history:review-log.jsonl#ship-challenge:13",
+            ],
+        )
+    ]
+
+    assert check_ledger(FEEDBACK, ledger) == []
+
+
 def test_row_without_id_and_duplicate_ids_are_reported() -> None:
     ledger = filled_ledger()
     ledger["rows"] += [{"mechanism": "m"}, dict(at(ledger, "PRRT_b"))]

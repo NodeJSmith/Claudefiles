@@ -102,13 +102,15 @@ Triage covers three groups: **review comments**, **merge conflicts**, **CI failu
 
 ### Review comments: build the ledger
 
-Review comments are triaged into a **ledger**: one row per piece of feedback, resolved history included, each with the same fields (mechanism, root cause, proposed fix, what the fix adds, disposition). Laying every finding side by side is what reveals a **convergence**: distinct findings, often across review rounds, that keep landing on the same mechanism. That pattern means the mechanism may be wrong rather than under-patched, and no single finding shows it.
+Review comments are triaged into a **ledger**: one row per piece of feedback, resolved history included, each with the same fields (mechanism, root cause, proposed fix, what the fix adds, disposition). Laying every finding side by side is what reveals a **convergence**: distinct findings, often across review rounds, that keep landing on the same mechanism. Earlier rounds aren't only PR threads: when the PR builds a sketch ledger, its ship-time challenge findings (`review-log.jsonl`) and known issues (`known-issues.md`) go in the ledger as history rows, because a mechanism a challenge already patched twice is the clearest convergence there is. That pattern means the mechanism may be wrong rather than under-patched, and no single finding shows it.
 
 If the feedback holds no threads, review bodies, or conversation comments, skip the ledger and the convergence gate; the plan then covers only merge conflicts and CI.
 
-A convergence doesn't need several rounds: one round in which a reviewer lists a handful of findings that all trace back to the same mechanism is enough. Otherwise, use judgment about whether the ledger is worth building, and err on the side of building it. Skip it only when convergence is plainly impossible, for example a couple of unrelated findings, or a later round that is only typo and documentation fixes. When you skip it, say why in one line and leave out every step below that builds or reads `ledger.json` or `plan.json` (the skeleton, the `deep-worker`, `pr-ledger-check check` and `plan`, and the convergence gate). Triage the feedback yourself, and build the plan and the Phase 3 response list by hand in the same shape: every open item gets an entry and a response, and a thread that an earlier run already replied to only needs resolving.
+Next find the history files, since the decision to build the ledger depends on them: the PR's changed files name the feature directories it builds (for example `design/specs/<n>-<name>/`); collect each one's `review-log.jsonl` and `known-issues.md` that exists, and note the paths for the dispatch prompt below. If there are none, say so in the plan.
 
-First write the skeleton: one row per input item, with every field that can be read off the feedback (ids, sources, authors, author kinds, rounds, thread status) already filled in, so the subagent spends its judgment only where judgment is needed:
+A convergence doesn't need several rounds: one round in which a reviewer lists a handful of findings that all trace back to the same mechanism is enough. Otherwise, use judgment about whether the ledger is worth building, and err on the side of building it. Skip it only when convergence is plainly impossible, for example a couple of unrelated findings, or a later round that is only typo and documentation fixes. With history files present, one open item or unrelated resolved threads don't make convergence impossible: the earlier patches may be in the history. When you skip it, say why in one line and leave out every step below that builds or reads `ledger.json` or `plan.json` (the skeleton, the `deep-worker`, `pr-ledger-check check` and `plan`, and the convergence gate). Triage the feedback yourself, and build the plan and the Phase 3 response list by hand in the same shape: every open item gets an entry and a response, and a thread that an earlier run already replied to only needs resolving.
+
+Then write the skeleton: one row per input item, with every field that can be read off the feedback (ids, sources, authors, author kinds, rounds, thread status) already filled in, so the subagent spends its judgment only where judgment is needed:
 
 ```bash
 pr-ledger-check init <tmpdir>/feedback.json <tmpdir>/ledger.json --pr-author <PR author from Phase 1>
@@ -120,6 +122,7 @@ Then dispatch the rest of the ledger to a **`deep-worker` subagent**. It runs at
 >
 > - Review feedback: `<tmpdir>/feedback.json`
 > - The repository is the current working directory, at the PR's head. Read code as needed; do not modify files or run git commands that change state.
+> - History files (earlier ship-time challenge findings and known issues; add history rows per the procedure): `<paths found above, or "none found">`
 > - Skeleton ledger to fill in place: `<tmpdir>/ledger.json`
 
 Then verify it mechanically:
