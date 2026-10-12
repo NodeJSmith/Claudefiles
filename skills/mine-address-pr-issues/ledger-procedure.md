@@ -25,7 +25,7 @@ If a review body or conversation comment contains findings that appear nowhere e
 
 ### History rows
 
-Earlier rounds are not all PR threads. A mechanism that a ship-time challenge already patched twice and a reviewer now flags a third time is a convergence, but only if the earlier patches are rows. So add a row for each history finding that touches a mechanism some PR row also touches. Skip findings about unrelated code: history rows exist to be convergence members, and a log full of unrelated findings is noise. Skip `likely-invalid` entries and sketch-time findings about the design rather than code that now exists.
+Earlier rounds are not all PR threads. A mechanism that a ship-time challenge already patched twice and a reviewer now flags a third time is a convergence, but only if the earlier patches are rows. So add a row for each history finding that touches a mechanism some PR row also touches. Skip findings about unrelated code: history rows exist to be convergence members, and a log full of unrelated findings is noise. Skip `likely-invalid` entries, known issues whose status says they were invalid or retracted (the repository disproved them, so they can't be a round), and sketch-time findings about the design rather than code that now exists.
 
 A history row carries the same fields as any other row, with these differences:
 
@@ -34,7 +34,7 @@ A history row carries the same fields as any other row, with these differences:
 | `id` | `history:<repo-relative path>#<anchor>`: for a review-log finding `<gate>:<date>:<commit first 8>:F<finding_num>` (the commit keeps two same-day runs of a gate apart), for a known issue its `KI-NNN` |
 | `source` | `history` |
 | `author`, `author_kind` | `challenge` and `bot` for a review-log finding; `known-issues` and `self` for a known issue (`self` here is a label: history rows are never planned, so it drives no reply) |
-| `round` | the record's `date`, or the entry's `Recorded:` date |
+| `round` | the record's `date`, or the entry's `Recorded:` date; older known issues have none, so use the date of the commit that added the file (`git log --diff-filter=A --format=%cs -- <path>`, last line) |
 | `status` | always `resolved`: history is never planned or replied to, and `check` rejects an open one |
 | `outcome` | review log `applied` is `fixed`, `skipped` is `declined`, `filed` is `deferred`; a known issue is `deferred` unless its status says it was fixed |
 | `disposition` | `already-addressed` for an applied finding (cite the file and line, as for any row); `not-actionable` otherwise, with the reason it was skipped or deferred |
