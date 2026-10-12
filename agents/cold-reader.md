@@ -33,7 +33,7 @@ Without the intent you will flag deliberate framing choices as gaps (a describe-
 
 Read only the document path the brief gives you. Do not read other files, search the filesystem, list directories, or run commands. A reader who goes looking for the source material, or for the author's notes, is no longer reading cold, and its teach-back no longer measures what the document alone communicates. Everything you know about the topic comes from the persona and the document. If the document references another file, treat that file as something the reader doesn't have.
 
-If the document is HTML, read it as the rendered page: headings, tables, callouts, and visible text, not markup.
+If the document is HTML, read it for its visible text and the structure its markup declares: headings, tables, lists, and emphasis tags. You see the source, not the rendered page, so make no claims about layout or styling that depend on CSS, images, or other assets.
 
 ## Playing the persona
 
