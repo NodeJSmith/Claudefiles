@@ -191,6 +191,8 @@ Every takeaway marked `partly`, `missed`, or `misread` is a fix in its own right
 
 **Perceived asks against intent.** For `decide` and `recommend`, check that the reader's `perceived_asks` names the actual decision or recommendation. A reader who walks away with the wrong ask is the most expensive failure for those writeups. For `describe`, the reader should perceive no ask. If it does, something in the writeup reads like a request.
 
+A wrong, missing, or unwanted perceived ask is a fix too, planned the same way as a takeaway fix: an omitted ask leaves nothing to quote, so the reader may raise no finding about it. State the decision or recommendation plainly and early, or reword the passage that reads as a request. Write it from the scope-locked sources and the stated intent.
+
 **Verify every finding before presenting it.** The reader only has the document, so its findings are hypotheses about the text:
 
 - `unsupported-number`: check it against the source material. Fix it if the number is wrong or doesn't reconcile. If it's right but the document doesn't show why, add the denominator, population, or period.
@@ -205,7 +207,7 @@ Keep the reader's `works_well` passages intact when planning fixes: a revision t
 Show the user, before the draft:
 
 1. The takeaway table (takeaway → landed / partly / missed / misread), plus the perceived ask if it's wrong.
-2. The fixes you plan to make, grouped by section: verified findings, each with the quote and the fix, and takeaway fixes, each with the takeaway and the fix.
+2. The fixes you plan to make, grouped by section: verified findings, each with the quote and the fix, takeaway fixes, each with the takeaway and the fix, and the ask fix, if any, with the perceived and intended ask.
 3. Out-of-scope requests and set-aside findings, each with its one-line reason.
 4. The reader's `overall_verdict`, its `forwardable` answer, and the `works_well` passages.
 
@@ -218,14 +220,14 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Apply the fixes"
-      description: "Edit the draft with the planned fixes; I'll offer a second cold read if they change numbers, rewrite whole sections, or add or move a takeaway"
+      description: "Edit the draft with the planned fixes; I'll offer a second cold read if they change numbers, rewrite whole sections, add or move a takeaway, or change the ask"
     - label: "Pick fixes"
       description: "I'll tell you which to apply"
     - label: "Skip"
       description: "Present the draft as-is"
 ```
 
-After applying fixes, whether all of them or a picked subset, offer a second cold read when the fixes changed numbers, rewrote whole sections, or added or moved a takeaway. Use a fresh dispatch on a freshly copied document. A second read finds problems the first missed, especially in numbers that the fixes introduced. Don't loop beyond that unless the user asks.
+After applying fixes, whether all of them or a picked subset, offer a second cold read when the fixes changed numbers, rewrote whole sections, added or moved a takeaway, or changed the ask. Use a fresh dispatch on a freshly copied document. A second read finds problems the first missed, especially in numbers that the fixes introduced. Don't loop beyond that unless the user asks.
 
 Then present the draft. From here, Phase 4's editing rules apply: when the user wants a section rewritten, cut, or shortened, edit it in place.
 
