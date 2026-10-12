@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
+- `mine-address-pr-issues`'s convergence check now counts earlier ship-time challenge findings and known issues as rounds, as resolved `history` rows in the ledger, so a mechanism a challenge already patched surfaces when a reviewer raises it again. `pr-ledger-check` accepts and validates them. (#630)
 - `cold-reader` agent: reads a draft as a persona with explicit knowledge boundaries and returns a teach-back plus a typed section-by-section walkthrough. `mine-writeup` now runs it before presenting a draft, compares what the reader took away against the intended takeaways, and checks its findings against the sources. (#629)
 
 ## 2026-10-11
