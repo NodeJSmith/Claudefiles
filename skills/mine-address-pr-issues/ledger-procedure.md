@@ -15,11 +15,33 @@ Review rounds often treat each finding as an isolated local patch. When findings
 
 The repository is the current working directory, checked out at the PR's head. Read the code a finding refers to whenever you need it to fill a field accurately.
 
+- **History files** (the dispatching prompt lists them, or says none were found, in which case there are none to look for): `review-log.jsonl` and `known-issues.md` files from a feature directory the PR builds. The review log records each sketch-time and ship-time challenge finding with what the user chose; the known issues are real findings someone chose to leave unfixed. Neither is PR feedback, but both are earlier rounds on the same code.
+
 ## Step 1: one row per input item
 
 The ledger file already exists. `pr-ledger-check init` wrote one row for every thread, review body, and conversation comment, keyed by its `id` (threads, including every ADO thread) or `url` (GitHub review bodies and conversation comments), with every field that can be read straight off the feedback already filled in: `id`, `source`, `author`, `author_kind`, `round`, and on threads `status`. Do not change those fields, remove rows, or run `init` again: `pr-ledger-check check` re-derives them from the feedback and reports any difference. Your job is the fields that need judgment.
 
 If a review body or conversation comment contains findings that appear nowhere else (for example CodeRabbit "Outside diff range" or "Duplicate comments" sections, or failed pre-merge checks in a walkthrough), add a row for each such embedded finding with id `<url>#<n>` (on ADO, where general conversation is a thread, `<thread id>#<n>`), `source` `embedded`, and the parent's `author`, `author_kind`, and `round` copied over. The parent keeps its own row too, and records how many embedded rows you gave it in `embedded_count` — you already read the full text to find them, so this is a declaration, not a re-count. GitHub inline threads never get embedded rows: a thread is one finding, and `embedded_count` is `null` there.
+
+### History rows
+
+Earlier rounds are not all PR threads. A mechanism that a ship-time challenge already patched twice and a reviewer now flags a third time is a convergence, but only if the earlier patches are rows. So add a row for each history finding that touches a mechanism some PR row also touches. Skip findings about unrelated code: history rows exist to be convergence members, and a log full of unrelated findings is noise. Skip `likely-invalid` entries, known issues whose status says they were invalid or retracted (the repository disproved them, so they can't be a round), and sketch-time findings about the design rather than code that now exists.
+
+A history row carries the same fields as any other row, with these differences:
+
+| Field | History row |
+|---|---|
+| `id` | `history:<repo-relative path>#<anchor>`: for a review-log finding `<gate>:<date>:<commit first 8>:F<finding_num>` (the commit keeps two same-day runs of a gate apart), for a known issue its `KI-NNN` |
+| `source` | `history` |
+| `author`, `author_kind` | `challenge` and `bot` for a review-log finding; `known-issues` and `self` for a known issue (`self` here is a label: history rows are never planned, so it drives no reply) |
+| `round` | the record's `date`, or the entry's `Recorded:` date; older known issues have none, so use the date of the commit that added the file (`git log --diff-filter=A --format=%cs -- <path>`, last line) |
+| `status` | always `resolved`: history is never planned or replied to, and `check` rejects an open one |
+| `outcome` | review log `applied` is `fixed`, `skipped` is `declined`, `filed` is `deferred`; a known issue is `deferred` unless its status says it was fixed |
+| `disposition` | `already-addressed` for an applied finding (cite the file and line, as for any row); `not-actionable` otherwise, with the reason it was skipped or deferred |
+| `embedded_count`, `depth`, `decision` | `null` |
+| `related` | `[]`, always: `related` means one concern restated, and a recurrence after an earlier patch is a distinct finding, which is what makes the convergence. `check` rejects a link in either direction |
+
+Fill `finding`, `mechanism`, `root_cause`, `proposed_fix`, and `fix_adds` from the record the way you would for a resolved PR row, and label `mechanism` by the same three passes, so a history row and a thread about one mechanism carry the identical string.
 
 ### Fields
 
@@ -82,7 +104,7 @@ The adding kinds matter: several of them landing on one mechanism means it is be
 
 A **convergence** is a set of distinct findings that land on the same mechanism, where the pattern suggests the mechanism itself should be re-evaluated rather than patched again. Members may all be resolved: a mechanism that earlier rounds already patched several times is exactly the pattern to surface before it is patched again. Use judgment; there is no minimum count. Signals, strongest first:
 
-- Findings on one mechanism across **multiple review rounds**, especially where a later finding is caused by, or cites "fresh evidence beyond", the fix for an earlier one. A mechanism hit again in the round right after it was patched is enough to ask.
+- Findings on one mechanism across **multiple review rounds**, PR threads and history rows alike: a ship-time challenge finding that patched the mechanism, a known issue deferred on it, and a reviewer raising it again are three rounds. A convergence needs at least one PR row; one made only of history concerns an earlier change, not this PR. Especially where a later finding is caused by, or cites "fresh evidence beyond", the fix for an earlier one. A mechanism hit again in the round right after it was patched is enough to ask.
 - Several fixes that **add** state, guards, special cases, or mirrored fields to the same mechanism.
 - Distinct findings from **different reviewers** on one mechanism.
 - Several findings in **one round**, from one reviewer or several, that all trace to the same mechanism. A first round can converge on its own; no history is needed.
@@ -92,7 +114,7 @@ Findings that only touch the same file are not a convergence. Several unrelated 
 For each convergence, record:
 - `mechanism`: the shared mechanism string.
 - `members`: the row ids.
-- `rounds`: how many distinct review rounds the members span.
+- `rounds`: how many distinct review rounds the members span, counting by source record, not by `round` value: each PR review round, each challenge-log record, and each known-issue entry is one round, even when two share a date.
 - `summary`: what the members have in common.
 - `open_questions`: the questions a re-evaluation would need to answer, including whether the mechanism is needed at all. Do **not** answer them: no proposed design, fix, or scope.
 
@@ -109,6 +131,6 @@ Fill in the skeleton ledger in place, keeping its `pr` and `pr_author` keys:
 }
 ```
 
-Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. Each problem it lists breaks one of the rules in this file: a missing or unknown row, an *init* field that no longer matches the feedback, a field its row's status and disposition require that is missing or invalid (including a `fix_adds` that doesn't start with one of its kinds, or a `decision` with fewer than two options), an `embedded_count` that disagrees with the embedded rows, a `related` id that names no row, an open duplicate that names no open substantive row, a restated concern with more or fewer than one substantive row, or a convergence that is incomplete, has a `rounds` that isn't a positive integer, has fewer than two distinct findings, or whose members don't match the rows carrying its `mechanism`. A membership mismatch means a label is wrong; fix the label, not just the list.
+Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. Each problem it lists breaks one of the rules in this file: a missing or unknown row, an *init* field that no longer matches the feedback, a field its row's status and disposition require that is missing or invalid (including a `fix_adds` that doesn't start with one of its kinds, or a `decision` with fewer than two options), an `embedded_count` that disagrees with the embedded rows, a `related` id that names no row, an open duplicate that names no open substantive row, a restated concern with more or fewer than one substantive row, a history row that isn't `resolved`, whose id lacks the `history:` prefix, that has no `author` or `round`, or that is linked through `related`, or a convergence that is incomplete, is made only of history rows, has a `rounds` that isn't a positive integer, has fewer than two distinct findings, or whose members don't match the rows carrying its `mechanism`. A membership mismatch means a label is wrong; fix the label, not just the list.
 
-Reply with one line: the ledger path, the row count, and the number of convergences.
+Reply with one line: the ledger path, the row count (history rows included), and the number of convergences.

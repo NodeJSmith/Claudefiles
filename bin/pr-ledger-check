@@ -14,6 +14,12 @@ function per rule in the procedure, each able to see the whole ledger. A finding
 that silently drops out of triage is indistinguishable from one never raised, so
 none of this is left to the subagent's self-report.
 
+History rows (`source: history`, from a ship-time challenge's review log or a
+known-issues file) are the exception: they have no input item to re-derive from,
+so `check` instead requires a `history:` id, `resolved` status, the field
+contract, an author and round, no `related` links, and, for a convergence, at
+least one member that is a PR row.
+
 `plan` turns a passing ledger into the plan entries and the replies and PR
 comments to post, walking every open row once so the plan and the responses
 come from the same pass and no open row is left unplaced.
@@ -68,6 +74,13 @@ ANSWERS = {
     "already-addressed": "already-addressed",
     "not-actionable": "not-acting",
 }
+
+# Rows for findings from outside the PR (ship-time challenge records, known
+# issues). They exist so a mechanism patched in earlier rounds shows up as a
+# convergence member; they come from no input item, so `check` cannot re-derive
+# their facts, and they must be resolved so the plan never tries to answer one.
+HISTORY_SOURCE = "history"
+HISTORY_ID_PREFIX = "history:"
 
 VALID_STATUSES = {"open", "resolved"}
 VALID_DISPOSITIONS = {"actionable", "already-addressed", "not-actionable", "duplicate"}
@@ -393,9 +406,17 @@ def every_input_item_has_a_row(ledger: Ledger) -> list[str]:
     ]
 
 
+def is_history_row(ledger: Ledger, rid: str) -> bool:
+    """A history row has no input item. An input item labelled as history is not one, so it is still verified."""
+    row = ledger.by_id[rid]
+    return row.get("source") == HISTORY_SOURCE and rid not in ledger.items
+
+
 def derived_fields_match_the_feedback(ledger: Ledger) -> list[str]:
     problems = []
     for rid, row in ledger.by_id.items():
+        if is_history_row(ledger, rid):
+            continue  # no input item to re-derive from; history_rows_are_well_formed covers it
         expected = ledger.expected_facts(rid)
         if expected is None:
             problems.append(
@@ -406,6 +427,38 @@ def derived_fields_match_the_feedback(ledger: Ledger) -> list[str]:
             f"row {rid} has {field} {row.get(field)!r} but the feedback says {value!r}"
             for field, value in expected.items()
             if field != "id" and row.get(field) != value
+        ]
+    return problems
+
+
+def history_rows_are_well_formed(ledger: Ledger) -> list[str]:
+    problems = []
+    for rid, row in ledger.by_id.items():
+        if not is_history_row(ledger, rid):
+            continue
+        if not rid.startswith(HISTORY_ID_PREFIX):
+            problems.append(
+                f"history row {rid} must have an id starting with {HISTORY_ID_PREFIX!r}"
+            )
+        if row.get("status") != "resolved":
+            problems.append(
+                f"history row {rid} must have status 'resolved', not {row.get('status')!r}"
+            )
+        problems += [
+            f"history row {rid} has no {field}"
+            for field in ("author", "round")
+            if not _non_empty_str(row.get(field))
+        ]
+        # A `related` edge makes two rows one concern, so it would collapse a
+        # recurrence and the earlier patch it recurs on into a single finding.
+        if ledger.related_ids(row):
+            problems.append(
+                f"history row {rid} must have empty related: a recurrence is a distinct finding"
+            )
+        problems += [
+            f"row {other} lists history row {rid} as related: a recurrence is a distinct finding"
+            for other, other_row in ledger.by_id.items()
+            if rid in ledger.related_ids(other_row)
         ]
     return problems
 
@@ -535,6 +588,10 @@ def convergences_are_well_formed(ledger: Ledger) -> list[str]:
             f"{label}: row {m} carries this mechanism but is not a member"
             for m in sorted(labelled - members)
         ]
+        if present and all(is_history_row(ledger, m) for m in present):
+            problems.append(
+                f"{label}: every member is a history row; a convergence needs at least one PR row"
+            )
         distinct = len({groups[m] for m in present})
         if distinct < 2:
             problems.append(
@@ -549,6 +606,7 @@ INVARIANTS: tuple[Callable[[Ledger], list[str]], ...] = (
     rows_have_unique_ids,
     every_input_item_has_a_row,
     derived_fields_match_the_feedback,
+    history_rows_are_well_formed,
     rows_satisfy_the_field_contract,
     embedded_counts_match_embedded_rows,
     related_ids_exist,
