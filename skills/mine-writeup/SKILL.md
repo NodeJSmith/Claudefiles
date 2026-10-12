@@ -187,6 +187,8 @@ If it returns `{"error": "incomplete brief", ...}`, fill in the named fields and
 
 **Teach-back against takeaways.** For each intended takeaway, mark it `landed`, `partly` (it's there, but late, vague, or missing its key number), `missed`, or `misread`. Also note any teach-back key point that isn't among the takeaways. A point the reader took away that the author didn't intend is often a misreading caused by emphasis.
 
+Every takeaway marked `partly`, `missed`, or `misread` is a fix in its own right, whether or not the reader raised a finding about it. The reader can only quote text that exists, so a takeaway the draft leaves out may produce no finding at all. Write each fix from the scope-locked sources: add the missing point, move it earlier, or give it its key number. For a `misread`, reword or re-emphasize the passage that misled the reader. If the sources can't support the fix (the key number isn't in them), don't invent it. List the takeaway for the user as a possible follow-up, like an out-of-scope finding.
+
 **Perceived asks against intent.** For `decide` and `recommend`, check that the reader's `perceived_asks` names the actual decision or recommendation. A reader who walks away with the wrong ask is the most expensive failure for those writeups. For `describe`, the reader should perceive no ask. If it does, something in the writeup reads like a request.
 
 **Verify every finding before presenting it.** The reader only has the document, so its findings are hypotheses about the text:
@@ -203,11 +205,11 @@ Keep the reader's `works_well` passages intact when planning fixes: a revision t
 Show the user, before the draft:
 
 1. The takeaway table (takeaway → landed / partly / missed / misread), plus the perceived ask if it's wrong.
-2. The verified findings you plan to fix, grouped by section, each with the quote and the fix.
+2. The fixes you plan to make, grouped by section: verified findings, each with the quote and the fix, and takeaway fixes, each with the takeaway and the fix.
 3. Out-of-scope requests and set-aside findings, each with its one-line reason.
 4. The reader's `overall_verdict`, its `forwardable` answer, and the `works_well` passages.
 
-If every takeaway landed and nothing verified needs fixing, say so and present the draft. There's nothing to ask. If the verdict is `lost`, or several takeaways were missed or misread, line-level fixes won't help: recommend restructuring the sections that lost the reader, and offer it as an option in place of "Pick fixes". Otherwise ask:
+If every takeaway landed and nothing needs fixing, say so and present the draft. There's nothing to ask. If the verdict is `lost`, or several takeaways were missed or misread, line-level fixes won't help: recommend restructuring the sections that lost the reader, and offer it as an option in place of "Pick fixes". Otherwise ask:
 
 ```yaml
 AskUserQuestion:
@@ -216,14 +218,14 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Apply the fixes"
-      description: "Edit the draft with the verified fixes, then offer a second cold read"
+      description: "Edit the draft with the planned fixes; I'll offer a second cold read if they change numbers, rewrite whole sections, or add or move a takeaway"
     - label: "Pick fixes"
       description: "I'll tell you which to apply"
     - label: "Skip"
       description: "Present the draft as-is"
 ```
 
-After applying fixes, offer a second cold read when the fixes changed numbers or rewrote whole sections. Use a fresh dispatch on a freshly copied document. A second read finds problems the first missed, especially in numbers that the fixes introduced. Don't loop beyond that unless the user asks.
+After applying fixes, whether all of them or a picked subset, offer a second cold read when the fixes changed numbers, rewrote whole sections, or added or moved a takeaway. Use a fresh dispatch on a freshly copied document. A second read finds problems the first missed, especially in numbers that the fixes introduced. Don't loop beyond that unless the user asks.
 
 Then present the draft. From here, Phase 4's editing rules apply: when the user wants a section rewritten, cut, or shortened, edit it in place.
 
