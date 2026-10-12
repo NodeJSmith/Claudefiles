@@ -16,7 +16,8 @@ none of this is left to the subagent's self-report.
 
 History rows (`source: history`, from a ship-time challenge's review log or a
 known-issues file) are the exception: they have no input item to re-derive from,
-so `check` only requires them to be resolved and to satisfy the field contract.
+so `check` instead requires a `history:` id, `resolved` status, the field
+contract, and, for a convergence, at least one member that is a PR row.
 
 `plan` turns a passing ledger into the plan entries and the replies and PR
 comments to post, walking every open row once so the plan and the responses
@@ -78,6 +79,7 @@ ANSWERS = {
 # convergence member; they come from no input item, so `check` cannot re-derive
 # their facts, and they must be resolved so the plan never tries to answer one.
 HISTORY_SOURCE = "history"
+HISTORY_ID_PREFIX = "history:"
 
 VALID_STATUSES = {"open", "resolved"}
 VALID_DISPOSITIONS = {"actionable", "already-addressed", "not-actionable", "duplicate"}
@@ -403,11 +405,17 @@ def every_input_item_has_a_row(ledger: Ledger) -> list[str]:
     ]
 
 
+def is_history_row(ledger: Ledger, rid: str) -> bool:
+    """A history row has no input item. An input item labelled as history is not one, so it is still verified."""
+    row = ledger.by_id[rid]
+    return row.get("source") == HISTORY_SOURCE and rid not in ledger.items
+
+
 def derived_fields_match_the_feedback(ledger: Ledger) -> list[str]:
     problems = []
     for rid, row in ledger.by_id.items():
-        if row.get("source") == HISTORY_SOURCE and rid not in ledger.items:
-            continue  # nothing in the feedback to re-derive from; history_rows_are_well_formed covers it
+        if is_history_row(ledger, rid):
+            continue  # no input item to re-derive from; history_rows_are_well_formed covers it
         expected = ledger.expected_facts(rid)
         if expected is None:
             problems.append(
@@ -425,13 +433,11 @@ def derived_fields_match_the_feedback(ledger: Ledger) -> list[str]:
 def history_rows_are_well_formed(ledger: Ledger) -> list[str]:
     problems = []
     for rid, row in ledger.by_id.items():
-        if row.get("source") != HISTORY_SOURCE:
+        if not is_history_row(ledger, rid):
             continue
-        if rid in ledger.items:
-            continue  # a real input item relabelled as history: derived_fields_match_the_feedback reports it
-        if not rid.startswith("history:"):
+        if not rid.startswith(HISTORY_ID_PREFIX):
             problems.append(
-                f"history row {rid} must have an id starting with 'history:'"
+                f"history row {rid} must have an id starting with {HISTORY_ID_PREFIX!r}"
             )
         if row.get("status") != "resolved":
             problems.append(
@@ -565,9 +571,7 @@ def convergences_are_well_formed(ledger: Ledger) -> list[str]:
             f"{label}: row {m} carries this mechanism but is not a member"
             for m in sorted(labelled - members)
         ]
-        if present and all(
-            ledger.by_id[m].get("source") == HISTORY_SOURCE for m in present
-        ):
+        if present and all(is_history_row(ledger, m) for m in present):
             problems.append(
                 f"{label}: every member is a history row; a convergence needs at least one PR row"
             )

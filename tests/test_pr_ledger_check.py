@@ -9,6 +9,8 @@ SCRIPT = Path(__file__).resolve().parent.parent / "bin" / "pr-ledger-check"
 MODULE = runpy.run_path(str(SCRIPT))
 check_ledger = MODULE["check_ledger"]
 init_ledger = MODULE["init_ledger"]
+build_plan = MODULE["build_plan"]
+HISTORY_SOURCE = MODULE["HISTORY_SOURCE"]
 JUDGMENT_FIELDS = MODULE["JUDGMENT_FIELDS"]
 
 PR_AUTHOR = "me"
@@ -84,6 +86,19 @@ def add_embedded(ledger: dict, parent_id: str, n: int, **changes) -> dict:
         "round": parent["round"],
     }
     ledger["rows"].append(fill(row, **changes))
+    return row
+
+
+def add_history(ledger: dict, hid: str, **changes) -> dict:
+    row = {
+        **copy.deepcopy(JUDGMENT_FIELDS),
+        "id": hid,
+        "source": HISTORY_SOURCE,
+        "author": "challenge",
+        "author_kind": "bot",
+        "round": T1,
+    }
+    ledger["rows"].append(fill(row, **{"status": "resolved", **changes}))
     return row
 
 
@@ -189,19 +204,6 @@ def test_unknown_row_id_is_reported() -> None:
     assert problems[0].startswith("row PRRT_zzz is neither an input item")
 
 
-def add_history(ledger: dict, hid: str, **changes) -> dict:
-    row = {
-        **copy.deepcopy(JUDGMENT_FIELDS),
-        "id": hid,
-        "source": "history",
-        "author": "challenge",
-        "author_kind": "bot",
-        "round": T1,
-    }
-    ledger["rows"].append(fill(row, **{"status": "resolved", **changes}))
-    return row
-
-
 def test_history_row_needs_no_input_item() -> None:
     ledger = filled_ledger()
     add_history(ledger, "history:review-log.jsonl#ship-challenge:12")
@@ -223,10 +225,10 @@ def test_plan_ignores_history_rows() -> None:
     ledger = filled_ledger()
     add_history(ledger, "history:known-issues.md#KI-001")
 
-    plan = MODULE["build_plan"](FEEDBACK, ledger)
-    baseline = MODULE["build_plan"](FEEDBACK, filled_ledger())
+    with_history = build_plan(FEEDBACK, ledger)
+    without_history = build_plan(FEEDBACK, filled_ledger())
 
-    assert plan == baseline
+    assert with_history == without_history
 
 
 def test_input_item_relabelled_as_history_is_still_verified() -> None:
