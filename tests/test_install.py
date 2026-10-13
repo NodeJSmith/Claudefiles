@@ -644,7 +644,7 @@ def _setup_full_repo(path: Path) -> None:
         (path / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
     # Hooks
     (path / "scripts" / "hooks").mkdir(parents=True)
-    (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
+    (path / "scripts" / "hooks" / "ccrecall-nudge.sh").write_text("#!/bin/bash")
     # Rules
     _write_rule_files(path)
     refs = path / "references" / "common"
@@ -711,7 +711,7 @@ class TestFullInstallFlow:
         ):
             install.do_install(repo, claude_dir, config, interactive=False)
 
-        assert (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").is_symlink()
+        assert (claude_dir / "scripts" / "hooks" / "ccrecall-nudge.sh").is_symlink()
 
     def test_rules_always_installed(self, tmp_path: Path) -> None:
         """Core rules always install; a config without rule_categories installs all rules."""

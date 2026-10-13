@@ -28,7 +28,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Rules** — coding guidelines that load automatically. They shape how Claude writes code, handles git, runs tests, and approaches security. Always active, no invocation needed.
 
-**Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, sudo handling, tmux session naming). Background infrastructure you don't think about.
+**Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, tmux session naming). Background infrastructure you don't think about.
 
 **Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume).
 
@@ -150,7 +150,7 @@ Each worktree gets its own context, isolated from the main working tree.
 /mine-challenge             → adversarial review of your proposed approach
 ```
 
-**How the pieces interact:** Rules load automatically and shape every response — Claude writes code, handles git, and approaches security according to the rule files in `rules/common/`. Hooks run in the background — the sudo poller handles privilege prompts, the tmux-drift check keeps your session name aligned with your work. Skills and agents sit on top: you invoke a skill, it dispatches the right agents, they report back.
+**How the pieces interact:** Rules load automatically and shape every response — Claude writes code, handles git, and approaches security according to the rule files in `rules/common/`. Hooks run in the background — the tmux-drift check keeps your session name aligned with your work. Skills and agents sit on top: you invoke a skill, it dispatches the right agents, they report back.
 
 The result is a consistent development environment that works the same way every session, regardless of which codebase you're in.
 
