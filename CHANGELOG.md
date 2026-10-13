@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 
-- `sudo-poll.sh` PreToolUse hook. Its "run `sudo -v` in another pane" prompt never reached the user in unattended or remote sessions, and it stalled `ssh host 'sudo ...'` for 30s. `rules/common/sudo.md` now describes the no-TTY behavior directly: hand local sudo to the user or a generated script; remote sudo runs normally. (#632)
+- `sudo-poll.sh` PreToolUse hook. Its "run `sudo -v` in another pane" prompt never reached the user in unattended or remote sessions, and it stalled `ssh host 'sudo ...'` for 30s. `rules/common/sudo.md` is deleted; `bash-tools.md` carries the short no-TTY guidance (hand local sudo to the user or a generated script; remote sudo runs normally). (#632)
 
 ## 2026-10-12
 
