@@ -242,7 +242,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "environment": RuleCategory(
         label="Environment & tooling",
-        description="Bash tool usage, command output capture, sudo handling, tmux conventions",
+        description="Bash tool usage, command output capture, sudo (no-TTY) guidance, tmux conventions",
         files=("bash-tools.md", "command-output.md", "sudo.md", "tmux.md"),
     ),
 }

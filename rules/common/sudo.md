@@ -1,57 +1,21 @@
 # Sudo Operations
 
-Claude Code cannot run `sudo` directly — no TTY for the password prompt. A PreToolUse hook (`sudo-poll.sh`) handles this automatically for most cases.
+Claude Code cannot run `sudo` locally: there is no TTY for the password prompt, so a local `sudo` cannot authenticate. Don't rely on cached credentials, and don't expect a hook or wrapper to handle the prompt.
 
-## How It Works
+## Local sudo
 
-1. You run a command with `sudo` (e.g., `sudo apt install ripgrep`)
-2. The hook detects `sudo`, checks for cached credentials
-3. If not cached, it prints "run `sudo -v` in another pane" and polls for 30s
-4. User authenticates in another terminal → hook detects cached creds → command runs
+Don't run a local `sudo` in a Bash call and hope cached credentials exist. Pick one:
 
-**Prerequisite**: The user's sudoers must have `timestamp_type=global` to share credential cache across TTYs. Without this, `sudo -v` in another pane won't help.
+- **A command or two:** tell the user the exact command and ask them to run it in their own terminal (in the Claude Code CLI, typing `! sudo <cmd>` runs it and lands the output in the conversation). Wait for the result before continuing.
+- **Anything longer, phased, or needing a reviewable artifact:** generate a script (see below) and tell the user the exact run command.
 
-## If the Hook Times Out
+Other escalation mechanisms (`pkexec`, `su -c`) have the same no-TTY problem; use the same two options.
 
-If the hook denies after 30s despite the user running `sudo -v`, the most likely cause is that `timestamp_type=global` is not configured. Diagnose and guide the user:
+## Remote sudo works normally
 
-1. **Check**: `sudo grep -r timestamp_type /etc/sudoers /etc/sudoers.d/ 2>/dev/null` — if no output, the setting is missing
-2. **Explain**: By default, sudo caches credentials per-TTY. Claude runs in a different TTY than the user's terminal, so `sudo -v` in another pane doesn't help unless the cache is global.
-3. **Guide the user** to add the setting:
-   ```
-   sudo visudo
-   ```
-   Then add: `Defaults timestamp_type=global`
-4. **After the change**: The user runs `sudo -v` in any terminal, then retries the failed command.
+`ssh host 'sudo ...'` runs `sudo` on the remote host, which has its own sudoers policy and needs no local credentials. Run it directly, no special prefix or workaround. If the remote host does require a password, the command fails with a prompt error; treat that as a remote configuration issue and report it.
 
-If the user can't or won't modify sudoers (shared machines, policy restrictions), fall back to script generation (see below).
-
-## Just Use Sudo Normally
-
-With the hook active, write `sudo` commands directly in Bash tool calls — no special handling needed. The hook manages the authentication flow transparently.
-
-```bash
-sudo apt install -y ripgrep
-sudo systemctl restart nginx
-sudo chown $USER:$USER /etc/myapp/config.toml
-```
-
-The hook only detects the `sudo` keyword. Other privilege escalation mechanisms (`pkexec`, `su -c`) are not detected — use the fallback script-generation workflow for those.
-
-## Configuration
-
-| Variable | Effect | Default |
-|---|---|---|
-| `CLAUDE_SUDO_SKIP=1` | Disables the hook entirely (no polling, no deny) | unset |
-| `CLAUDE_SUDO_POLL_TIMEOUT=N` | Seconds to poll before denying (max 30) | 30 |
-
-Set these in your shell profile or a per-machine settings layer — not in the repo's committed `settings.json` (that would disable the hook for all machines).
-
-**Per-command skip:** Prefix a single command with `CLAUDE_SUDO_SKIP=1` to bypass the hook for that invocation only (e.g., `CLAUDE_SUDO_SKIP=1 sudo apt install -y foo`). Unlike the env var form, this does not persist across commands. The hook strips quoted strings before checking, so `CLAUDE_SUDO_SKIP=1` inside quotes (e.g., in an ssh command string) is ignored.
-
-## Fallback: Script Generation
-
-For complex multi-step operations (5+ sudo commands, phased execution, or when you need a reviewable artifact), generate a script instead. This is the exception, not the default.
+## Script Generation
 
 Write the script via `get-tmp-filename`, tell the user the exact run command, and read the log afterward.
 
@@ -64,10 +28,10 @@ Key rules for generated scripts:
 
 ## Gate Irreversible Operations
 
-For any irreversible or high-risk command — `rm -rf`, `chmod -R 777`, `curl | bash`, sudoers modification — use `AskUserQuestion` before running, whether via the hook or a generated script.
+For any irreversible or high-risk command — `rm -rf`, `chmod -R 777`, `curl | bash`, sudoers modification — use `AskUserQuestion` before running or handing it to the user, whether directly or via a generated script.
 
 ## Do NOT
 
 - Pipe passwords into sudo (`echo pass | sudo`)
 - Use `eval` in generated scripts — pass commands as arguments (`"$@"`)
-- Assume a command succeeded without checking — if the hook denied after timeout, read the denial reason
+- Assume a command succeeded without checking its output or log
