@@ -34,7 +34,6 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-review-pr` | Review someone else's open PR read-only — dispatches the reviewer trio against the PR diff, verifies findings against the code, PR description, and existing threads, then optionally posts new findings as comment threads (GitHub or ADO) |
 | `mine-ship` | Commit, push, and create a PR in one step |
 | `mine-sketch` | Structured design — surfaces every decision a change needs into a decision ledger (design.md), ratified one decision at a time, then challenged and combed. `/mine-sketch <dir>` on a ratified ledger builds the whole change in one fresh session, recording any real issue it leaves unfixed in `known-issues.md` and settling those before ship, with a ship-time challenge against the ledger |
-| `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 | `mine-writeup` | Turn technical research or investigation notes into a structured, scannable document for a specific audience. Answer-first structure, scope lock, editorial discipline, and a cold-reader test of the draft before presenting it |
 

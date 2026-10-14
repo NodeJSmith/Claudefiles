@@ -110,7 +110,7 @@ fi
 #
 # The second alternative's optional group also covers bash's
 # ${VAR:-default}/:=/:+/:? fallback operators — the repo's own documented
-# idiom, e.g. skills/mine-tool-gaps/SKILL.md's
+# idiom, e.g.
 # `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects`. A default value that
 # itself nests another ${...} expansion isn't covered — not a form this
 # repo uses, and not worth a hand-rolled regex for nesting.
