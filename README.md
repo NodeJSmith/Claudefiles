@@ -20,6 +20,7 @@ The base bundle (the core workflow) always installs. The wizard asks about optio
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) — used by the installer and for package management
+- **Run Claude Code in auto mode or bypass permissions mode.** The skills dispatch many parallel subagents and shell commands; in the default permission mode you'll be prompted constantly. Switch with Shift+Tab, or start with `--permission-mode auto` / `--permission-mode bypassPermissions` (bypass only in an environment you trust).
 - The skills reference tools like `gh` (GitHub CLI), `git`, `pytest`, `ruff`, `pyright` — install what's relevant to your workflow
 
 ## Local Development

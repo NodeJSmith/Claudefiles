@@ -33,7 +33,6 @@
 | "how does X work", "walk me through", "explain this subsystem", "explain how", "trace the flow" | `/mine-how` |
 | "document how X works", "write up how this works", "durable explanation", "explain this for the docs", "document this subsystem" | `/mine-document` |
 | "why is this code like this", "why does this exist", "why was this built this way", "decision rationale", "what's the history behind" | `/mine-why` |
-| "find tool gaps", "session archaeology", "missing cli features" | `/mine-tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine-grill` |
 | "domain model", "glossary", "sharpen terminology", "define this term", "what does X mean in this codebase", "ubiquitous language", "record an architectural decision" | `/mine-domain-model` |
 | "sketch this out", "sketch this feature", "spec this out", "design this change", "lightweight plan", "structured but lightweight", "decision ledger", "build the ratified ledger" | `/mine-sketch` |

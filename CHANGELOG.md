@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-14
+
+### Removed
+
+- `mine-tool-gaps` skill and its trigger phrases. (#633)
+
+### Changed
+
+- README requirements now say to run Claude Code in auto or bypass permissions mode to avoid constant prompts. (#633)
+
 ## 2026-10-13
 
 ### Removed

@@ -1607,7 +1607,7 @@ class TestCcrecallNudgeDetectsTranscriptSearch:
         assert "ccrecall search" in output["hookSpecificOutput"]["additionalContext"]
 
     def test_claude_config_dir_fallback_expansion_form_nudges(self):
-        # This repo's own documented idiom (skills/mine-tool-gaps/SKILL.md):
+        # A common idiom in this repo's scripts:
         # ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects, unexpanded, must match
         result = _run_ccrecall_nudge(
             'find ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects -name "*.jsonl"'
