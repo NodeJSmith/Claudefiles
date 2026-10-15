@@ -14,7 +14,7 @@ $ARGUMENTS — zero or more issue keys, in whatever format the configured tracke
 
 Read `$ISSUE_TRACKER`.
 
-- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and **stop**.
+- If **unset or empty**: use GitHub (`gh`). It is the default tracker.
 - If **set to a tracker you have no tools for**: say which tracker was configured, ask the user how to proceed, and **stop** — don't continue to Phase 2. Don't guess at a tool and don't fall back to a different tracker.
 - Otherwise: proceed — use whatever tool matches that tracker.
 
@@ -31,7 +31,7 @@ Read `$ISSUE_TRACKER`.
 
 For **each** issue key in the arguments, use the **Agent** tool (`subagent_type: light-worker`) with this prompt:
 
-> Check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) to know which platform's tools to use, then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
+> Check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) to know which platform's tools to use; if it is unset or empty, use GitHub (`gh`). Then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
 >
 > If the issue does not exist, or the fetch fails for a reason specific to this one key, return exactly `LOOKUP_FAILED` and nothing else. Reserve `TRACKER_ERROR: <reason>` for the tracker itself being unusable — no tools for the configured tracker, auth rejected, tracker unreachable — since that condition would fail every key equally, not just this one. The caller's branch-name fallback only makes sense for a key that might be wrong, so don't report an unusable tracker as one.
 >

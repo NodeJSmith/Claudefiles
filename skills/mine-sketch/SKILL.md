@@ -223,7 +223,7 @@ When you decide not to fix a real finding (from the pre-commit reviewers here, o
 - If you are deferring it on your own (the user never saw it, as with a pre-commit reviewer finding), check its Severity Gate first.
 - Then record the finding if it qualifies.
 
-Commit as you judge best. Every repo squash-merges, so there's no required commit sequence. The pre-commit reviewers in `git-workflow.md` gate each commit. Tick each `## Build` step, and add each build-time call, in the same commit as the work it describes. When the change needs no doc updates, tick Docs and note "none needed".
+Commit as you judge best. Every repo squash-merges, so there's no required commit sequence. Run the pre-commit reviewers in `git-workflow.md` on each commit that meets its criteria. Tick each `## Build` step, and add each build-time call, in the same commit as the work it describes. When the change needs no doc updates, tick Docs and note "none needed".
 
 ### Step 3: Ship-time Challenge
 

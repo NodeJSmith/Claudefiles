@@ -14,19 +14,17 @@ Before your first commit in a repo during a session, check for a hook config. Re
 
 **Worktree note:** When `core.hooksPath` is not set, all worktrees share `.git/hooks/` via `git-common-dir`.
 
-## Mandatory Code Review Before Commit
+## Code Review Before Commit
 
-**ALWAYS run `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` before committing code changes.** All three run in parallel on the final diff.
+The trio costs minutes and attention, so run it where findings are likely, not as a ritual. Run `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` in parallel on the final diff before committing new or changed logic, config that alters runtime behavior, or instruction files (skills, rules, agent prompts, CLAUDE.md). Instruction files steer agent behavior, so they are never docs-only. `/mine-review` routes them to instruction-mode reviewers automatically.
 
-Exceptions: documentation-only changes (READMEs, changelogs, comments) or explicit user skip. Skill files, rules, agent prompts, and CLAUDE.md are **not** documentation-only — they are instructions that affect agent behavior and must be reviewed. `/mine-review` routes these to instruction-mode reviewers automatically.
-
-A change that is trivially mechanical and already checked by something else can also skip review: adding a comment, fixing whitespace, adding one case to a parameterized test, or a rename the type checker verifies. Use judgment and err on the side of running: if you have to argue that a change is trivial, it isn't.
+Skip review when it couldn't plausibly catch anything the tests and type checker wouldn't: prose-only docs, a comment or whitespace tweak, a small deletion already covered by passing tests, one more parameterized test case, a rename the type checker verifies, or the user said to skip. A one-line logic fix is not automatically in this list; ask what a reviewer would see that the tests don't. Making that call is yours. Don't ask the user whether to review, and don't run the trio just to be safe. Reviewers earn their keep on small diffs mostly by catching inaccurate comments and docstrings, so a change that adds a comment claiming an invariant is worth the run.
 
 ### Code Reviewer Loop
 
-Loop until no CRITICAL/HIGH issues remain:
+When the review above runs, loop until no CRITICAL/HIGH issues remain:
 1. Auto-fix unambiguous issues; defer to user for judgment calls
-2. Re-run `code-reviewer`, unless every fix since the last run was trivial in the sense above
+2. Re-run `code-reviewer`, unless every fix since the last run falls under the skip criteria above
 3. Stop when no CRITICAL/HIGH remain
 
 Then run `integration-reviewer` and `wtf-reviewer` in parallel on the final diff.

@@ -95,11 +95,11 @@ building anything:
 
 - **No out-of-scope findings, or path mode** — use the first gate below.
 - **Out-of-scope findings exist (diff mode)** — resolve `$ISSUE_TRACKER` (captured in Context
-  above) to a tool: `gh` → "GitHub", `jira` → "Jira", `clickup` → "ClickUp", `ado` → "Azure
+  above; unset or empty means `gh`) to a tool: `gh` → "GitHub", `jira` → "Jira", `clickup` → "ClickUp", `ado` → "Azure
   DevOps", anything else → the raw value title-cased. Don't guess at a tool — same check every
   other `$ISSUE_TRACKER` consumer in this repo makes (e.g. `skills/mine-create-issue/worker.md`
-  Step 3). If you have tools for the resolved tracker, use the second gate. If the tracker is
-  unset/empty, or you have no tools for it, use the third gate.
+  Step 3). If you have tools for the resolved tracker, use the second gate. If you
+  have no tools for it, use the third gate.
 
 This is a major gate (clean code gate result, see `interaction.md`) — run `context-pct` and
 prepend the result to the question in whichever gate you use. In each, put the finding counts in the descriptions and recommend from the findings: fix-all when they are mostly mechanical, a single checker's findings when one checker produced most of them, and "Note and move on" when only trivial nitpicks remain. Drop "Fix one checker's findings" when only one checker has findings.

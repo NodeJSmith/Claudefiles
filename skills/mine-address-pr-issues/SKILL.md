@@ -271,7 +271,7 @@ After all subagents complete:
 
 1. Run **code-reviewer** agent on modified files
 2. For each CRITICAL or HIGH finding: auto-fix when unambiguous, defer to user when judgment is needed
-3. If any auto-fixes applied, re-run **code-reviewer** (max 3 iterations), unless they were all trivial in the sense `git-workflow.md` defines
+3. If any auto-fixes applied, re-run **code-reviewer** (max 3 iterations), unless they all fall under the skip criteria in `git-workflow.md` (Code Review Before Commit)
 4. Stop when no CRITICAL/HIGH issues remain or 3 iterations reached
 5. Run **integration-reviewer** once on the final diff
 

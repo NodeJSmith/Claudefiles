@@ -86,7 +86,8 @@ Question: <the user's question>
 Instructions:
 1. Extract keywords from the target (function names, class names, feature terms)
 2. Search issues: check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) for which
-   tracker's tools to use, then search the project's issues for those keywords
+   tracker's tools to use (unset or empty means GitHub), then search the project's issues
+   for those keywords
 3. Search PRs: run `git-platform` for which host's tools to use, then search that
    host's pull requests for the same keywords
 4. For promising matches, read the body and first few comments
@@ -102,7 +103,7 @@ Format:
 - If no issues or PRs reference this code, state that clearly
 - If a search couldn't run at all, write that fact as the finding for that search
   rather than folding it into an empty or ambiguous combined result. For example:
-  "`$ISSUE_TRACKER` not configured, could not search issues" or "PR search
+  "no tools for tracker `<value>`, could not search issues" or "PR search
   failed: <reason>". Report whatever the other search did find alongside it.
   This is the same null-result pattern as above.
 ```
