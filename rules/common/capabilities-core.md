@@ -52,7 +52,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 
 | User says something like... | Run |
 |---|---|
-| "view issue", "create issue", "list issues", "edit issue", "filter issues by milestone", "repo issue conventions", "create a work item" | Use the project's issue tracker CLI, determined by `$ISSUE_TRACKER` |
+| "view issue", "create issue", "list issues", "edit issue", "filter issues by milestone", "repo issue conventions", "create a work item" | Use the project's issue tracker CLI, determined by `$ISSUE_TRACKER` (unset or empty means GitHub) |
 | "list PR threads", "unresolved comments", "reply to PR comment", "respond to review", "resolve PR thread", "mark thread resolved", "create a PR thread", "link a work item to a PR" | Use the project's PR tooling, determined by `git-platform` |
 | "rename tmux session", "new tmux session" | `claude-tmux` |
 | "merge settings", "apply settings" | `claude-merge-settings` |

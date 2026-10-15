@@ -13,6 +13,7 @@ All notable changes to this Claudefiles repository are documented here.
 - README requirements now say to run Claude Code in auto or bypass permissions mode to avoid constant prompts. (#633)
 - The pre-commit review gate is now a judgment call with explicit skip criteria instead of an always-run rule. (#634)
 - The 800-line file limit is now a follow-up note at wrap-up, not a gate that interrupts the change. (#634)
+- An unset `$ISSUE_TRACKER` now defaults to GitHub instead of stopping issue creation, issue lookup, and issue-refiner runs. (#634)
 
 ## 2026-10-13
 

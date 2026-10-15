@@ -14,7 +14,7 @@ $ARGUMENTS — zero or more issue keys, in whatever format the configured tracke
 
 Read `$ISSUE_TRACKER`.
 
-- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and **stop**.
+- If **unset or empty**: use GitHub (`gh`). It is the default tracker.
 - If **set to a tracker you have no tools for**: say which tracker was configured, ask the user how to proceed, and **stop** — don't continue to Phase 2. Don't guess at a tool and don't fall back to a different tracker.
 - Otherwise: proceed — use whatever tool matches that tracker.
 
