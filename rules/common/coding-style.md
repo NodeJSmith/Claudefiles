@@ -12,7 +12,7 @@ Create new objects instead of mutating existing ones: return a copy with the cha
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
-- 200-400 lines typical, 800 max
+- 200-400 lines typical. Past ~800 a file is a decomposition candidate, not a violation. Finish the change, don't split mid-work, and propose one follow-up issue at wrap-up.
 - Organize by feature/domain, not by type
 - Functions <50 lines, nesting <4 levels
 

@@ -4,7 +4,7 @@
 
 When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`.
 
-<!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine-clean-code. wtf-reviewer is mandatory pre-commit (see git-workflow.md) and also dispatched by mine-review / mine-clean-code. nitpicker is dispatched only by skills (mine-clean-code). -->
+<!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine-clean-code. wtf-reviewer runs pre-commit unless the skip criteria in git-workflow.md apply, and is also dispatched by mine-review / mine-clean-code. nitpicker is dispatched only by skills (mine-clean-code). -->
 | User needs... | Use `subagent_type` |
 |---|---|
 | "plan this feature", implementation planning | `planner` |
@@ -29,7 +29,7 @@ When the user's request matches a row below, launch the Agent tool with the corr
 
 No user prompt needed:
 1. Complex feature requests — use **planner** agent
-2. Code just written/modified — **MUST** run **code-reviewer**, **integration-reviewer**, AND **wtf-reviewer** in parallel before committing; exceptions: documentation-only changes, trivially mechanical changes, or explicit user skip (see `rules/common/git-workflow.md`)
+2. Code just written/modified — run **code-reviewer**, **integration-reviewer**, AND **wtf-reviewer** in parallel before committing, unless the skip criteria apply (see Code Review Before Commit in `rules/common/git-workflow.md`)
 
 ## Agent Patterns
 

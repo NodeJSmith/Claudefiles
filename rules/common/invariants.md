@@ -41,7 +41,6 @@ Bare filenames are in `rules/common/`; others are prefixed `references/common/` 
 ### Should
 
 - **Test Co-location** — code and its unit tests ship in the same commit; integration tests may follow. Exempt: generated code, type definitions, config, constants, `__init__.py`, docs-only changes, logic-free migrations. (`references/common/testing.md`)
-- **File Size Limits** — 200-400 lines typical, 800 max; functions <50 lines, nesting <4 levels. (`coding-style.md`)
 - **Errors Surfaced Not Swallowed** — every error path is handled or propagated; for intentional suppression use `contextlib.suppress` with a specific exception type. (`references/common/reliability.md`)
 - **Reproduce Before Fixing** — reproduce a bug yourself before designing a fix. (`debugging-discipline.md`)
 - **"Pre-existing" Means Verified Against the Default Branch** — verify against the actual default branch (`git-default-branch`, not `git-branch-base`), not a stash or an earlier commit on this branch. Doesn't apply to measurement baselines. (`pre-existing-verification.md`)
@@ -55,7 +54,7 @@ Bare filenames are in `rules/common/`; others are prefixed `references/common/` 
 
 ### Consider
 
-Defined in `rules/common/` files, so this tier is a scan list only: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sketch Before Building, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain**.
+Defined in `rules/common/` files, so this tier is a scan list only: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sketch Before Building, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain, File Size** (past ~800 lines: note a follow-up, don't refactor mid-change; functions <50 lines, nesting <4 levels).
 
 These three live in on-demand `references/common/` files, so their summaries stay:
 
