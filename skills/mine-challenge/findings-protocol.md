@@ -267,8 +267,12 @@ Apply chosen option via Edit tool. Set `disposition: applied` for options,
 the project's issue tracker for File as issue. Continue to next finding.
 
 **Convergence findings** use the User-directed prompt above. If the user picks
-**A** (re-evaluate the mechanism), work through the re-evaluation with the user
-and apply what they settle on to the target. Then set `disposition: applied`
+**A** (re-evaluate the mechanism), first check prior art when it applies, per
+`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-prior-art/SKILL.md` (Invoking From
+a Convergence Gate): invoke `/mine-prior-art` with the topic it describes, and
+open the discussion with the brief's recommendation. Then work through the
+re-evaluation with the user and apply what they settle on to the target.
+Accepting the limitation and documenting it is a valid outcome. Then set `disposition: applied`
 on the convergence finding and `disposition: skipped` on every finding in its
 `**Converges:**` list without prompting — the re-evaluation supersedes their
 individual fixes. This includes CRITICAL converging findings: the user decided

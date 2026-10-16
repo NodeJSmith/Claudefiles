@@ -2,6 +2,9 @@
 # SessionStart hook: prompt to fill project context metadata in CLAUDE.md.
 # Checks CLAUDE.md frontmatter for audience/developers/data-sensitivity.
 # If missing, checks a state file for deferral/suppression before prompting.
+# Once those are set, a public GitHub repo is also asked for `peers` (the
+# comparable projects prior-art research searches first). Private and
+# non-GitHub repos are never asked: their peers are rarely public projects.
 # No set -euo pipefail — cosmetic hook; failure should not block session start.
 
 claude_md=""
@@ -18,11 +21,13 @@ has_field() {
   awk 'NR==1 && $0=="---" {p=1; next} p && $0=="---" {exit} p' "$claude_md" | grep -q "^${1}:"
 }
 
+has_base_fields=false
 if has_field audience && has_field developers && has_field data-sensitivity; then
-  exit 0
+  has_base_fields=true
+  has_field peers && exit 0
 fi
 
-# State file — per-repo, mirrors Claude Code's internal project-dir encoding.
+# State files — per-repo, mirrors Claude Code's internal project-dir encoding.
 # Keyed on the shared .git dir (via git-common-dir) rather than pwd, so a
 # worktree's answer persists at the main clone's project dir instead of the
 # worktree's own path — which is deleted once the worktree's task is done.
@@ -37,7 +42,6 @@ else
   repo_key=$(pwd -P)
 fi
 project_dir="$config_dir/projects/$(echo "$repo_key" | tr '/.' '--')"
-state_file="$project_dir/project-meta-prompt.json"
 
 command -v python3 > /dev/null 2>&1 || exit 0
 
@@ -45,6 +49,61 @@ hook_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/defer-suppress.sh
 source "$hook_dir/lib/defer-suppress.sh" || exit 0
 
+# Prints origin's GitHub visibility (PUBLIC, PRIVATE, INTERNAL), or nothing
+# when origin isn't on GitHub or the lookup fails.
+github_visibility() {
+  case "$(git remote get-url origin 2> /dev/null)" in
+    *[@/]github.com[:/]*) ;;
+    *) return ;;
+  esac
+  command -v gh > /dev/null 2>&1 || return
+  local timeout_cmd=()
+  command -v timeout > /dev/null 2>&1 && timeout_cmd=(timeout 3)
+  "${timeout_cmd[@]}" gh repo view --json visibility -q .visibility 2> /dev/null
+}
+
+if [ "$has_base_fields" = true ]; then
+  state_file="$project_dir/project-peers-prompt.json"
+  defer_suppress_should_skip "$state_file" && exit 0
+  visibility=$(github_visibility)
+  [ -z "$visibility" ] && exit 0
+  if [ "$visibility" != "PUBLIC" ]; then
+    # Recorded so later sessions skip the gh call. A failed lookup (offline,
+    # unauthenticated) prints nothing and is retried next session.
+    mkdir -p "$project_dir" && echo '{"status": "resolved"}' > "$state_file"
+    exit 0
+  fi
+
+  cat << PROMPT
+This is a public GitHub project, and its CLAUDE.md frontmatter has no \`peers\` field. \`peers\` names the comparable projects that prior-art research (mine-prior-art, and the convergence gates in mine-challenge and mine-address-pr-issues) searches first, so its advice reflects what similar projects actually do instead of generic enterprise practice.
+
+IMPORTANT: You MUST present this question to the user via AskUserQuestion and wait for their response. Do NOT choose an option on behalf of the user.
+
+First read the README (and pyproject.toml, package.json, or equivalent) to work out what this project is, then pick 2-5 well-known projects that solve the same problem for a similar audience. Prefer projects whose code and issue trackers are public. Then ask with AskUserQuestion:
+
+header: "Peers"
+question: "Prior-art research for this repo would compare against <your candidate list>. Save these as the project's peers?"
+options:
+  - label: "Save these"
+    description: "Add a peers line to CLAUDE.md frontmatter"
+  - label: "Not right now"
+    description: "Skip for this session — I'll ask again in a few days"
+  - label: "Never ask again"
+    description: "Permanently suppress this prompt for this project"
+
+If "Save these", or "Other" with an edited list: write one frontmatter line \`peers: <comma-separated names>\` to CLAUDE.md, using the user's list if they gave one. Then delete the state file at $state_file unless it contains "status": "suppressed".
+
+If "Not right now": write/update the state file ($state_file) with escalating deferral.
+Deferral schedule (days): 3, 7, 14, 30. Read the current tier from the file (default 0), bump by 1 (cap at last index), and write:
+  {"status": "deferred", "tier": <new_tier>, "prompt_after": "<today + schedule[new_tier] days>"}
+
+If "Never ask again": write to $state_file:
+  {"status": "suppressed"}
+PROMPT
+  exit 0
+fi
+
+state_file="$project_dir/project-meta-prompt.json"
 defer_suppress_should_skip "$state_file" && exit 0
 
 cat << PROMPT

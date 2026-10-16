@@ -8,7 +8,9 @@ user-invocable: true
 
 Survey best practices, reference implementations, and established patterns from the broader ecosystem. Web-first research — goes outside the codebase to find how others solve the problem, then brings findings back with relevance to your context.
 
-Typically invoked mid-design or mid-conversation when you hit an architectural question and want to see how others handle it before committing to an approach.
+Typically invoked mid-design or mid-conversation when you hit an architectural question and want to see how others handle it before committing to an approach. The convergence gates in `/mine-challenge` and `/mine-address-pr-issues` also invoke it, to check a mechanism that keeps attracting fixes against what comparable projects do.
+
+A common answer is "they don't bother": peers accept the limitation, document it, or handle it far more simply than the fix on the table. That answer is as valuable as a pattern, and the research has to look for it on purpose, because search results favor writeups about elaborate solutions.
 
 ## How This Differs From Other Skills
 
@@ -27,6 +29,16 @@ $ARGUMENTS — the topic to investigate. Can be:
 - A problem-first query: `/prior-art "how do teams handle config drift across environments"`
 - Empty: ask the user what they want to survey
 
+## Invoking From a Convergence Gate
+
+The convergence gates in `/mine-challenge` (`findings-protocol.md`) and `/mine-address-pr-issues` (`SKILL.md`) send a mechanism here when several findings keep landing on it. Both follow this section so the two gates stay in step.
+
+**Whether to run it.** Run it when the mechanism deals with a problem other projects also face: reconnection, scheduling, retries, caching, state sync between components. Skip it when the mechanism is internal to the codebase, like its own file format or a skill's state file, because there is nothing outside to compare against. A re-evaluation done only inside the session tends to produce a better custom fix when comparable projects use a simpler one, or none.
+
+**The topic.** Name the mechanism, the failure modes the converging findings describe, and the fixes proposed or applied so far. Ask whether comparable projects guard against those failure modes at all, how much machinery they use, or whether they accept and document the limitation.
+
+**After the brief.** The gate opens its discussion with the brief's recommendation. Accepting the limitation and documenting it is a valid outcome of that discussion.
+
 ## Phase 1: Scope the Search
 
 **Keep this fast.** The user already knows what they want to look into.
@@ -38,6 +50,8 @@ AskUserQuestion:
   question: "What topic do you want to survey? (e.g., 'approaches to hot/cold memory in LLM agents', 'how teams handle config drift across environments')"
   header: "Prior art"
 ```
+
+Check the project's CLAUDE.md frontmatter for a `peers` field (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/project-context.md`). If present, those are the comparable projects to search first.
 
 If the topic is clear but ambiguous across domains (e.g., "memory management" could mean OS, LLM context, or database), ask one disambiguation follow-up. Otherwise, proceed directly to Phase 2.
 
@@ -66,8 +80,12 @@ Cite URLs where found. If you can't find a source for a pattern, mark it with [n
 
 You are researching prior art and best practices for: <topic>
 
+<If peers were found: "Comparable projects: <peers>. Search these first: their source, docs, and issue trackers show what projects like this one actually do. If none of them handle the problem, say so.">
+<If peers were not found: "Before searching, name 2-5 projects that solve the same problem for a similar audience as the project described in the topic, and search those first.">
+
 Perform 5-8 targeted web searches using WebSearch covering:
 - How popular open-source projects handle this
+- Where projects deliberately don't handle it: issues closed as won't-fix, documented limitations, FAQ entries explaining why something isn't supported. Accepting a limitation is a pattern; record it as one.
 - Blog posts and experience reports from teams who've solved this
 - Official documentation, RFCs, or style guides if they exist
 - Conference talks or technical writeups
@@ -140,11 +158,11 @@ Same section schema as the subagent `web-research.md` format above — this is a
 
 ## Relevance to Us
 
-[How these patterns map to our specific context. Which patterns align with our existing conventions? Which would require significant changes? What's the gap between where we are and what the best practices suggest?]
+[How these patterns map to our specific context. Which patterns align with our existing conventions? Which would require significant changes? What's the gap between where we are and what the best practices suggest? If the topic includes fixes we're weighing, say plainly where they build more machinery than comparable projects do.]
 
 ## Recommendation
 
-[Which pattern(s) are worth considering, or "none of these fit — here's why." Be honest about gaps in the research.]
+[Which pattern(s) are worth considering, or "none of these fit — here's why." "Accept the limitation and document it" is a valid recommendation when that's what comparable projects do. Be honest about gaps in the research.]
 
 ## Sources
 

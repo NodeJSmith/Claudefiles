@@ -139,7 +139,7 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `git-session-info.sh` | SessionStart | Display git context — worktree, branch, default branch, ahead/behind. Override default branch with `CLAUDE_GIT_DEFAULT_BRANCH` |
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
-| `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md — escalating deferral with suppression option |
+| `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md, then `peers` in public GitHub repos — escalating deferral with suppression option |
 | `ccrecall-nudge.sh` | PreToolUse (Bash) | Nudge toward `ccrecall search` when a command greps recursively across `~/.claude/projects/` transcripts — non-blocking, `CLAUDE_SKIP_CCRECALL_HINT=1` to suppress |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `project-docs-check.sh` | PostToolUse (Edit\|Write) | On the first edit to each distinct project this session (walking up from the touched file to the nearest manifest, or repo root), checks for a non-empty `docs/` — escalating deferral with suppression option, offers to run `/mine-document` if missing |

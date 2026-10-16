@@ -141,19 +141,25 @@ If the ledger has any `convergences`, stop here, **before** planning or fixing a
 
 For each convergence, print: its `mechanism`; its members, one line each with the finding, round, and `outcome` or open status; its `summary`; and its `open_questions` as a list. The open questions are for the user's re-evaluation; do not answer them or propose a redesign here.
 
+Then decide whether prior art applies, per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-prior-art/SKILL.md` (Invoking From a Convergence Gate). If it does, offer the menu below as written. If the mechanism is internal, drop "Check prior art, then discuss" and recommend "Stop and discuss".
+
 ```
 AskUserQuestion:
   question: "Review feedback on PR #{N} keeps converging on {mechanism(s)}. Findings like these often mean the mechanism should be re-evaluated rather than patched again. How do you want to proceed?"
   header: "Converging"
   multiSelect: false
   options:
-    - label: "Stop and discuss (Recommended)"
+    - label: "Check prior art, then discuss (Recommended)"
+      description: "Make no fixes or replies; survey how comparable projects handle this, then talk it through"
+    - label: "Stop and discuss"
       description: "Make no fixes or replies; talk through whether the mechanism should change first"
     - label: "Patch individually"
       description: "Continue to the plan and address the converging findings one by one, like any other finding"
 ```
 
-If "Stop and discuss": end the skill here with no code changes, commits, or thread replies. The ledger at `<tmpdir>/ledger.json` is the reference for that discussion; a later run of this skill builds a fresh one. If "Patch individually": continue, and note in the Phase 4 summary that the convergence was patched individually by choice.
+If "Check prior art, then discuss": invoke `/mine-prior-art` with the topic that section describes. When the brief is done, end the skill exactly as for "Stop and discuss", and open that discussion with the brief's recommendation.
+
+If "Stop and discuss": end the skill here with no code changes, commits, or thread replies. The ledger at `<tmpdir>/ledger.json` is the reference for that discussion; a later run of this skill builds a fresh one. Accepting the limitation is a valid outcome of that discussion: the next run then replies to the converging threads as `not-actionable`, citing where the limitation is documented. If "Patch individually": continue, and note in the Phase 4 summary that the convergence was patched individually by choice.
 
 ### Merge conflicts
 
