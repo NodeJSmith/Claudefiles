@@ -4,7 +4,7 @@ Projects can declare structured metadata in their CLAUDE.md frontmatter that cal
 
 ## Format
 
-Three fields in CLAUDE.md YAML frontmatter:
+Three fields in CLAUDE.md YAML frontmatter, plus an optional fourth (`peers`, below):
 
 ```yaml
 ---
@@ -31,6 +31,14 @@ data-sensitivity: personal
 - `personal` — the developer's own data. No compliance burden; skip PII handling, audit trails, and regulatory patterns.
 - `internal` — business data within an org. Reasonable security, but no regulatory burden.
 - `regulated` — PII, financial, health, or other data subject to compliance requirements. Security and audit trails are non-negotiable.
+
+### Optional: peers
+
+```yaml
+peers: AppDaemon, pyscript, Home Assistant core
+```
+
+**peers** names comparable projects: ones solving the same problem for a similar audience. Prior-art research (`mine-prior-art`, and the convergence gates in `mine-challenge` and `mine-address-pr-issues`) searches these first, so "how do others handle this?" is answered by real peers instead of generic best-practice writing, which skews toward enterprise scale. `project-meta-prompt.sh` asks for it only in public GitHub repos; private and work repos rarely have public peers to compare against. When it's absent, prior-art research picks comparable projects itself.
 
 ## How to Use It
 

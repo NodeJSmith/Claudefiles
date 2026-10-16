@@ -1430,7 +1430,8 @@ class TestBashHistoryCapture:
             )
             rows = _query_db(db_path, "SELECT * FROM commands")
             assert len(rows) == 2
-            assert "is_interrupt" not in rows[0].keys()
+            # sqlite3.Row's `in` checks values, not column names, so .keys() is required.
+            assert "is_interrupt" not in rows[0].keys()  # noqa: SIM118
 
     def test_skips_non_dict_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1734,3 +1735,134 @@ class TestCcrecallNudgeExclusions:
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# project-meta-prompt.sh tests
+# ---------------------------------------------------------------------------
+
+META_PROMPT_HOOK = REPO_ROOT / "scripts" / "hooks" / "project-meta-prompt.sh"
+BASE_FRONTMATTER = (
+    "audience: personal tool\ndevelopers: solo\ndata-sensitivity: personal\n"
+)
+
+
+def _run_meta_prompt(
+    repo: Path, config_dir: str, gh_visibility: str
+) -> subprocess.CompletedProcess:
+    """Run the hook in `repo` with a stub `gh` on PATH that reports
+    `gh_visibility`, so the test never reaches the real GitHub API."""
+    bin_dir = repo.parent / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    stub = bin_dir / "gh"
+    stub.write_text(f"#!/usr/bin/env bash\necho {gh_visibility}\n")
+    stub.chmod(0o755)
+    env = _git_env()
+    env["CLAUDE_CONFIG_DIR"] = config_dir
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+    return subprocess.run(
+        [str(META_PROMPT_HOOK)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+        check=False,
+    )
+
+
+def _meta_repo(root: str, frontmatter: str, origin: str) -> Path:
+    repo = Path(root).resolve() / "proj"
+    repo.mkdir()
+    (repo / "CLAUDE.md").write_text(f"---\n{frontmatter}---\n\n# Proj\n")
+    _git_init(repo)
+    subprocess.run(
+        ["git", "remote", "add", "origin", origin],
+        cwd=repo,
+        check=True,
+        env=_git_env(),
+    )
+    return repo
+
+
+class TestMetaPromptPeers:
+    """The peers prompt fires only for public GitHub repos whose base fields are set."""
+
+    def test_public_github_repo_without_peers_prompts(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as cfg,
+        ):
+            repo = _meta_repo(root, BASE_FRONTMATTER, "git@github.com:me/proj.git")
+            result = _run_meta_prompt(repo, cfg, "PUBLIC")
+            assert result.returncode == 0
+            assert 'header: "Peers"' in result.stdout
+
+    def test_private_github_repo_silent(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as cfg,
+        ):
+            repo = _meta_repo(root, BASE_FRONTMATTER, "https://github.com/me/proj.git")
+            result = _run_meta_prompt(repo, cfg, "PRIVATE")
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+            # Recorded, so later sessions skip the gh call entirely.
+            encoded = str(repo).replace("/", "-").replace(".", "-")
+            state = Path(cfg) / "projects" / encoded / "project-peers-prompt.json"
+            assert json.loads(state.read_text()) == {"status": "resolved"}
+
+    def test_non_github_repo_silent(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as cfg,
+        ):
+            repo = _meta_repo(
+                root, BASE_FRONTMATTER, "https://dev.azure.com/org/proj/_git/proj"
+            )
+            result = _run_meta_prompt(repo, cfg, "PUBLIC")
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+    def test_peers_present_silent(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as cfg,
+        ):
+            repo = _meta_repo(
+                root,
+                BASE_FRONTMATTER + "peers: AppDaemon, pyscript\n",
+                "git@github.com:me/proj.git",
+            )
+            result = _run_meta_prompt(repo, cfg, "PUBLIC")
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+    def test_suppressed_peers_prompt_silent(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as cfg,
+        ):
+            repo = _meta_repo(root, BASE_FRONTMATTER, "git@github.com:me/proj.git")
+            encoded = str(repo).replace("/", "-").replace(".", "-")
+            state_dir = Path(cfg) / "projects" / encoded
+            state_dir.mkdir(parents=True)
+            (state_dir / "project-peers-prompt.json").write_text(
+                json.dumps({"status": "suppressed"})
+            )
+            result = _run_meta_prompt(repo, cfg, "PUBLIC")
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+    def test_missing_base_fields_asks_base_prompt_not_peers(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as cfg,
+        ):
+            repo = _meta_repo(
+                root, "audience: personal tool\n", "git@github.com:me/proj.git"
+            )
+            result = _run_meta_prompt(repo, cfg, "PUBLIC")
+            assert result.returncode == 0
+            assert 'header: "Project meta"' in result.stdout
+            assert 'header: "Peers"' not in result.stdout

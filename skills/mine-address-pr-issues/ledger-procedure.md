@@ -116,7 +116,7 @@ For each convergence, record:
 - `members`: the row ids.
 - `rounds`: how many distinct review rounds the members span, counting by source record, not by `round` value: each PR review round, each challenge-log record, and each known-issue entry is one round, even when two share a date.
 - `summary`: what the members have in common.
-- `open_questions`: the questions a re-evaluation would need to answer, including whether the mechanism is needed at all. Do **not** answer them: no proposed design, fix, or scope.
+- `open_questions`: the questions a re-evaluation would need to answer, including whether the mechanism is needed at all and whether the failure modes are worth handling or are a limitation to accept and document. Do **not** answer them: no proposed design, fix, or scope.
 
 ## Output
 
