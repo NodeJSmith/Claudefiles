@@ -1785,6 +1785,12 @@ def _meta_repo(root: str, frontmatter: str, origin: str) -> Path:
     return repo
 
 
+def _peers_state_path(config_dir: str, repo: Path) -> Path:
+    """Mirror the hook's project-dir encoding (`tr '/.' '--'`)."""
+    encoded = str(repo).replace("/", "-").replace(".", "-")
+    return Path(config_dir) / "projects" / encoded / "project-peers-prompt.json"
+
+
 class TestMetaPromptPeers:
     """The peers prompt fires only for public GitHub repos whose base fields are set."""
 
@@ -1808,8 +1814,7 @@ class TestMetaPromptPeers:
             assert result.returncode == 0
             assert result.stdout.strip() == ""
             # Recorded, so later sessions skip the gh call entirely.
-            encoded = str(repo).replace("/", "-").replace(".", "-")
-            state = Path(cfg) / "projects" / encoded / "project-peers-prompt.json"
+            state = _peers_state_path(cfg, repo)
             assert json.loads(state.read_text()) == {"status": "resolved"}
 
     def test_non_github_repo_silent(self):
@@ -1844,12 +1849,9 @@ class TestMetaPromptPeers:
             tempfile.TemporaryDirectory() as cfg,
         ):
             repo = _meta_repo(root, BASE_FRONTMATTER, "git@github.com:me/proj.git")
-            encoded = str(repo).replace("/", "-").replace(".", "-")
-            state_dir = Path(cfg) / "projects" / encoded
-            state_dir.mkdir(parents=True)
-            (state_dir / "project-peers-prompt.json").write_text(
-                json.dumps({"status": "suppressed"})
-            )
+            state = _peers_state_path(cfg, repo)
+            state.parent.mkdir(parents=True)
+            state.write_text(json.dumps({"status": "suppressed"}))
             result = _run_meta_prompt(repo, cfg, "PUBLIC")
             assert result.returncode == 0
             assert result.stdout.strip() == ""

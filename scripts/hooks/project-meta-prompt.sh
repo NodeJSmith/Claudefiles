@@ -49,30 +49,30 @@ hook_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/defer-suppress.sh
 source "$hook_dir/lib/defer-suppress.sh" || exit 0
 
-# Takes the peers state file, which it marks resolved for a non-public repo.
-is_public_github_repo() {
-  local visibility
+# Prints origin's GitHub visibility (PUBLIC, PRIVATE, INTERNAL), or nothing
+# when origin isn't on GitHub or the lookup fails.
+github_visibility() {
   case "$(git remote get-url origin 2> /dev/null)" in
     *[@/]github.com[:/]*) ;;
-    *) return 1 ;;
+    *) return ;;
   esac
-  command -v gh > /dev/null 2>&1 || return 1
+  command -v gh > /dev/null 2>&1 || return
   local timeout_cmd=()
   command -v timeout > /dev/null 2>&1 && timeout_cmd=(timeout 3)
-  visibility=$("${timeout_cmd[@]}" gh repo view --json visibility -q .visibility 2> /dev/null)
-  # A confirmed non-public repo is recorded so later sessions skip the gh
-  # call; a failed lookup (offline, unauthenticated) leaves visibility empty
-  # and is retried next session.
-  if [ -n "$visibility" ] && [ "$visibility" != "PUBLIC" ]; then
-    mkdir -p "$project_dir" && echo '{"status": "resolved"}' > "$1"
-  fi
-  [ "$visibility" = "PUBLIC" ]
+  "${timeout_cmd[@]}" gh repo view --json visibility -q .visibility 2> /dev/null
 }
 
 if [ "$has_base_fields" = true ]; then
   state_file="$project_dir/project-peers-prompt.json"
   defer_suppress_should_skip "$state_file" && exit 0
-  is_public_github_repo "$state_file" || exit 0
+  visibility=$(github_visibility)
+  [ -z "$visibility" ] && exit 0
+  if [ "$visibility" != "PUBLIC" ]; then
+    # Recorded so later sessions skip the gh call. A failed lookup (offline,
+    # unauthenticated) prints nothing and is retried next session.
+    mkdir -p "$project_dir" && echo '{"status": "resolved"}' > "$state_file"
+    exit 0
+  fi
 
   cat << PROMPT
 This is a public GitHub project, and its CLAUDE.md frontmatter has no \`peers\` field. \`peers\` names the comparable projects that prior-art research (mine-prior-art, and the convergence gates in mine-challenge and mine-address-pr-issues) searches first, so its advice reflects what similar projects actually do instead of generic enterprise practice.
