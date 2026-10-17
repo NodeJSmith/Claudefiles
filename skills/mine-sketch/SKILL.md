@@ -6,7 +6,7 @@ user-invocable: true
 
 # Sketch
 
-Structured design before code. Sketch mode surfaces every decision a change needs into a **decision ledger** (`design.md`) and has the user ratify each one, then challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge.
+Structured design before code. Sketch mode first settles the change's posture and checks where its new pieces fit. It then surfaces every decision the change needs into a **decision ledger** (`design.md`), has the user ratify each one, and challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge.
 
 The value is in the decisions. A judgment call made silently is the failure this skill exists to prevent, so every choice that would change the code gets surfaced, reasoned, and ratified before any code is written. One session builds the whole change, gated by the normal pre-commit reviewers.
 
@@ -23,7 +23,7 @@ If $ARGUMENTS points to a directory containing `design.md`, that directory is `<
 
 | Ledger | Do |
 |---|---|
-| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. Skip Phase 1 and continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
+| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. If `## Posture` is missing or still holds template placeholders, run Phase 1's Posture step first and write it into the ledger. Otherwise skip Phase 1 and continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
 | `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
 | `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
 | `**Status:** archived` or `abandoned` | Report the status and stop. |
@@ -48,6 +48,49 @@ Keep it fast. You're looking for conventions, constraints, and the decisions the
 
 If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions.
 
+### Fit check
+
+For each new piece of state or behavior the change adds, name where it lives. Then ask whether that's where it would go if the requirement had existed on day one (`redesign-from-first-principles.md`). When the honest answer is "on X, but X isn't really about this", that's a **structural gap**: a field stuffed onto an unrelated model, or a responsibility handed to whichever class was nearby. Without this check the draft quietly bolts the change on, and the gap surfaces at the challenge, or never.
+
+Each gap becomes a decision in Phase 2, whatever the posture says. Its options are usually: bolt it on and propose a tracker issue for the debt, model it properly in this change, or land a prerequisite refactor first. To weight the table, ask what happens when the host changes for reasons unrelated to this feature. Does the new piece get dragged along or break? The host's importer count is good evidence. A bolt-on onto something many modules depend on spreads, and one in a leaf module stays contained.
+
+Stay within the places this change has to put something. Structural problems elsewhere in the area are an audit's job, not this sketch's.
+
+### Posture
+
+Ledgers bloat with decisions the user considers unwarranted: one per failure edge case, one per compatibility path, one per "should it also handle X". Most come from a few areas. Settle the change's stance on each one up front, so the draft doesn't turn every case they cover into a decision:
+
+| Axis | The stance to settle |
+|---|---|
+| Failure handling | Happy path with loud failure, or graceful degradation and retries |
+| Compatibility | Callers, config, and stored data can break freely, or there are consumers to protect |
+| Scope | The minimal version that works, or the complete feature |
+| Rollout | Ship it outright, or flag, stage, or migrate |
+| Hardening | Observability, performance, and security at the project's defaults, or raised for this change |
+
+Add an axis when the change turns on one the table lacks, such as concurrency or a data migration.
+
+Infer a stance for each axis from the request, the scan, the CLAUDE.md frontmatter (`audience`, `developers`, `data-sensitivity`; see `project-context.md`), and the repo itself. A public repo with releases or a changelog has consumers, and a private one with no installs usually doesn't. Your defaults skew toward more failure handling, more compatibility, and more scope than a project warrants, and a cautious posture invites a rubber stamp. So infer the minimal stance on each axis unless something you found argues for more, and name that evidence.
+
+Write the proposed posture as message text, one line per axis with what drove it, then ask:
+
+```
+AskUserQuestion:
+  question: "Does this posture fit the change?"
+  header: "Posture"
+  multiSelect: false
+  options:
+    - label: "Use this posture"
+      description: "Draft the ledger within these stances"
+    - label: "Adjust the posture"
+      description: "Say which stances to change"
+    # Include only when the frontmatter declares `peers` and the change adds a new mechanism, not a routine edit:
+    - label: "Check peers first"
+      description: "Run /mine-prior-art on how <peers> handle this, then revisit the posture"
+```
+
+On "Adjust the posture", ask which stances to change. On "Check peers first", invoke `/mine-prior-art` with the mechanism as the topic, and revise the stances its findings bear on. Peers routinely accept limitations a fresh design would engineer around. Either way, show the revised posture and ask again, without the peers option once it has run. Proceed on "Use this posture".
+
 ### Create the feature directory
 
 For a new request, derive a `<slug>` (kebab-case, max 40 chars) and create the directory:
@@ -64,7 +107,9 @@ It prints the new directory's path; record it as `<feature_dir>`. When the reque
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` and `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`. Write `<feature_dir>/design.md` from the template, following both.
 
-- **Find every decision.** Walk the change from entry point to tests and list each place where more than one reasonable answer exists and the answer changes the code: behavior at edge cases, error and retry handling, what gets exposed or logged, compatibility, naming that callers will see. None is resolved silently. When unsure whether something is a decision, make it one; collapsing a small decision costs less than missing one.
+- **Write the posture first.** Record the confirmed posture in `## Posture`. A case a stance settles follows that stance and is not a decision, even one you would otherwise have asked about. A retry policy under "loud failure" is one example, and a deprecation path under "break freely" is another. The ledger's value is the decisions the user wants a say in, not an exhaustive enumeration.
+- **Find every decision the posture leaves open.** Walk the change from entry point to tests and list each place where more than one reasonable answer exists and the answer changes the code: behavior at edge cases, error and retry handling, what gets exposed or logged, compatibility, naming that callers will see. None is resolved silently. When unsure whether a case is covered, ask whether the user would be surprised to see it settled by the posture. If yes, it's a decision. Every structural gap from the fit check is a decision.
+- **Name each home.** The Summary names where each new piece of state or behavior lives, so the comb and the build can check it.
 - **Resumable work state.** When the change owns work state across invocations (a background worker, batch job, queue consumer, scheduler, or persistent retry state), its lifecycle is a set of decisions: completion, retry eligibility and bounds, recovery from states that need user action, repeated-run convergence, and visible progress and failure accounting.
 - **Fill each table before recommending.** Ground the criteria in what the scan found, and cite files.
 - **Assumed** gets the facts the build relies on, each with evidence.
@@ -109,9 +154,9 @@ Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<gate_type>`**: `sketch-challenge`
 - **`<target>`**: `<feature_dir>/design.md`
 - **`<critic_flag>`**: `--critics=2`
-- **`<focus_flag>`**: (empty)
+- **`<focus_flag>`**: (empty; `/mine-challenge` reads the ledger's `## Posture` itself)
 - **`<re_challenge_flag>`**: `--re-challenge` when Phase 6's Revise sent you here, otherwise empty
-- **`<post_resolution>`**: A finding the user answered has already ratified the decision it added or changed; the user's choice is the ratification (the findings protocol's rule for sketch ledgers). The ratifying edit also adds or updates that option's column in the decision's criteria table, so Phase 5's comb finds the table consistent. Only a decision an Auto-apply finding added or changed is back at `**Ratified:** pending`. Run Phase 3 for those, if any, then continue to Phase 5.
+- **`<post_resolution>`**: A finding the user answered has already ratified the decision it added or changed; the user's choice is the ratification (the findings protocol's rule for sketch ledgers). The ratifying edit also adds or updates that option's column in the decision's criteria table, so Phase 5's comb finds the table consistent. Only a decision an Auto-apply finding added or changed is back at `**Ratified:** pending`. Run Phase 3 for those, if any, then continue to Phase 5. A finding the user accepted that changes a posture stance is not applied here: note it, leave `## Posture` alone, and carry it to Phase 6 as a stance change.
 - **`<review_log>`**: `<feature_dir>/review-log.jsonl`
 - **`<ledger>`**: `<feature_dir>/design.md`
 
@@ -133,7 +178,8 @@ Agent:
     Go over it with a fine-toothed comb. Check:
     - Decisions, assumptions, and the summary are consistent: no contradictions, no decision restated elsewhere
     - Each ratified sentence matches an option in its table, and the table scores every option on every criterion
-    - Every judgment call the change needs is a decision; nothing with more than one reasonable answer hides in Assumed or the summary
+    - Every judgment call the change needs is a decision, unless its case follows a stance in Posture; nothing else with more than one reasonable answer hides in Assumed or the summary
+    - The Summary names a home for every new piece of state or behavior, and a home that doesn't fit is a decision, not a silent bolt-on
     - Each assumption has evidence
     - Decisions state behavior a test must pin, not test technique
     - A fresh session with only this file and the repo could build the change
@@ -160,7 +206,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 Every decision was ratified one at a time, by the user's own answer. This applies on the first pass only. A pass that returns here from "Revise a decision" always shows the gate.
 
-Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. If every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and say they can reopen a decision at the start of the build session.
+Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. A stance change carried from Phase 4, or any difference in `## Posture`, always shows the gate, opening on "Revise a decision" for that stance. Otherwise, if every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and say they can reopen a decision at the start of the build session.
 
 Otherwise show the gate, because ratification was per-decision and this read is the only place a cross-decision inconsistency an automatic edit introduced would show up.
 
@@ -188,7 +234,7 @@ Stop. The build always runs in a fresh session, so this session never continues 
 
 ### On "Revise a decision"
 
-Ask which decision to reopen, or what new decision to add, and what should change. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
+Ask which decision to reopen, or what new decision to add, and what should change. To change a posture stance, update `## Posture`, then list the decisions whose answers relied on the old stance and the cases the new stance no longer settles. The user picks which decisions to reopen, and each unsettled case becomes a new decision. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
 
 ### On "Save and stop"
 
@@ -208,7 +254,7 @@ Read the `## Build` checklist. If no step is ticked, this is a fresh build. If s
 
 The user ran `/mine-sketch <dir>` on a ratified ledger, so the request to build is already explicit. If Orient raised something surprising, resolve that with the user first. Otherwise name the ledger being built (`<feature_dir>/design.md`, `<M>` ratified decisions), note they can say so to reopen a decision before you start, and begin.
 
-If they ask to reopen a decision: ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then resume sketch mode at Phase 3.
+If they ask to reopen a decision: ask which one and what should change. Set `**Status:** draft` and that decision's `**Ratified:**` back to `pending`, then resume sketch mode at Phase 3. A posture stance reopens the same way, handled as in [On "Revise a decision"](#on-revise-a-decision).
 
 ### Step 2: Implement
 
@@ -235,7 +281,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<gate_type>`**: `ship-challenge`
 - **`<target>`**: `<tmpdir>/challenge-changed-files.txt`
 - **`<critic_flag>`**: (empty — use triage default 1–3)
-- **`<focus_flag>`**: `--focus="The ledger at <feature_dir>/design.md is the reference. (A) Does what landed match its ratified decisions and assumptions, with tests pinning the behavior each one specifies? (B) Where the code diverges, does the ledger's Build section give a sound reason? Check each stated reason against the code. (C) What unintended consequences are there beyond what the ledger covered?"`
+- **`<focus_flag>`**: `--focus="The ledger at <feature_dir>/design.md is the reference. (A) Does what landed match its ratified decisions and assumptions, with tests pinning the behavior each one specifies? (B) Where the code diverges, does the ledger's Build section give a sound reason? Check each stated reason against the code. (C) What unintended consequences are there beyond what the ledger covered? Its Posture section is accepted scope: a gap it deliberately leaves is not a finding unless the posture itself is wrong for this change."`
 - **`<re_challenge_flag>`**: (empty)
 - **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. A real finding the user left with `disposition: skipped` or `accepted` is recorded as in Step 2; the Severity Gate doesn't apply, since the user already saw it.
 - **`<review_log>`**: `<feature_dir>/review-log.jsonl`
