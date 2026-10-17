@@ -9,6 +9,10 @@ All notable changes to this Claudefiles repository are documented here.
 - Convergence gates in `mine-challenge` and `mine-address-pr-issues` now check prior art before re-evaluating a mechanism, and accepting a documented limitation counts as a resolution. (#635)
 - Optional `peers` CLAUDE.md frontmatter names comparable projects for prior-art research. Public GitHub repos are prompted for it. (#635)
 
+### Changed
+
+- `mine-challenge` tags each finding's likelihood. Rare ones recommend accepting a known limitation instead of a fix, and MEDIUM rare findings are resolved in one batch. (#636)
+
 ## 2026-10-14
 
 ### Removed
