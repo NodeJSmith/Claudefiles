@@ -31,12 +31,15 @@ Each finding is a top-level section:
 **Severity:** CRITICAL | HIGH | MEDIUM | TENSION
 **Type:** <type>
 **Design-level:** Yes | No
+**Likelihood:** routine | plausible | rare
 **Classification:** Auto-apply | User-directed
 **Raised-by:** <critic-name>
 **visibility:** presented | likely-invalid  <!-- lowercase: runtime-written by synthesis, never changes -->
-**disposition:** pending | applied | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution; omit this line entirely for likely-invalid findings, which are NULL -->
+**disposition:** pending | applied | accepted | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution; omit this line entirely for likely-invalid findings, which are NULL -->
 
 **Why-it-matters:** <consequence if left unfixed>
+
+**When-it-bites:** <the concrete trigger and how often it happens for this project>
 
 **Evidence:** <file:line, section reference, quoted text, or URL>
 
@@ -76,6 +79,10 @@ Each finding is a top-level section:
 
 Finding IDs are sequential starting from 1. `## Finding N:` headings must
 match 1:1 with findings — no gaps.
+
+`**Likelihood:**` and `**When-it-bites:**` come from challenge synthesis
+(`synthesis-procedure.md` step 3). Other producers may omit them; a finding
+without `**Likelihood:**` is resolved as if it were not `rare`.
 
 `**Deciding-factor:**`, `**Criteria:**`, and `**Pick-instead-if:**` follow
 `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
@@ -141,6 +148,7 @@ enter the resolution flow:
 |---|---|
 | `pending` | In scope; awaits resolution |
 | `applied` | Resolution executed (auto-apply ran, or user chose an option) |
+| `accepted` | User accepted a `rare` finding as a known limitation and it was recorded (see Rare Findings below). Distinct from `skipped`: the limitation is written down, not left unaddressed. |
 | `skipped` | User explicitly skipped during resolution |
 | `filed` | User chose to create a tracked issue rather than fix in-place. The issue is the durable record; the finding needs no further in-session attention. Distinct from `skipped` — `skipped` means the user declined to act, `filed` means the user acted by creating an issue. |
 
@@ -155,13 +163,13 @@ them — change both together.
 - Critics agree on the fix (no meaningful dissent)
 - Severity is not CRITICAL
 - Fix introduces no behavior change to the design's intent
-- No critic's Why it matters starts with `Audience assumption:`
+- Likelihood is not `rare`
 - Fix adds no state and no guard, reset, or heuristic by which one component guesses at another's state
 
 **User-directed** when ANY of the following hold:
 - Fix requires a judgment call between competing approaches
 - Severity is CRITICAL
-- A critic flagged it as out-of-audience (`Audience assumption:`), so the user can skip it
+- Likelihood is `rare` (this includes every `Audience assumption:` finding), so the user can accept it as a limitation instead of carrying a fix
 - Fix touches multiple sections or has design-level implications
 - Fix adds state, or a guard, reset, or heuristic that guesses at another component's state
 - Critics disagreed on the resolution
@@ -231,8 +239,10 @@ trade-offs in view to push back on it.
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
 
-**User-directed** (`Classification: User-directed`, `disposition: pending`): Emit one
-AskUserQuestion per finding — do not batch. This is a major gate (finding walkthrough,
+**User-directed** (`Classification: User-directed`, `disposition: pending`): Emit
+one AskUserQuestion per finding — do not batch. MEDIUM `rare` findings wait for
+the Rare Findings batch below; a HIGH `rare` finding is asked here like any other,
+with its Accept option still recommended. This is a major gate (finding walkthrough,
 see `interaction.md`) — run `context-pct` and prepend the result to the question:
 
 ```
@@ -250,11 +260,15 @@ AskUserQuestion:
       description: "Create an issue for this finding"
 ```
 
+When the finding's Options end in `Accept as a known limitation`, that option
+takes Skip's place: accepting is the recorded form of not fixing, and the menu
+stays at four.
+
 Each option's `label` must be the letter and text exactly as they appear in the
 finding's `**Options:**` list (`A: <first option>`, `B: <second option>`, ...) —
 this is the same canonical string `challenge-gate.md` extracts into the
 `recommended` field. Prepend `(Recommended) ` to the `description` of whichever
-option (A or B) carries the `*(recommended)*` marker in that source list — never
+option (A, B, or C) carries the `*(recommended)*` marker in that source list — never
 the label — so the label the user selects (passed to `--chosen` in step 6)
 matches `recommended` exactly when the user follows the recommendation. Getting
 this wrong (baking the cue into the label, or hardcoding it onto one option
@@ -262,8 +276,9 @@ regardless of which one the finding actually recommends) silently breaks the
 "did the user follow the recommendation" comparison between `chosen` and
 `recommended`.
 
-Apply chosen option via Edit tool. Set `disposition: applied` for options,
-`disposition: skipped` for Skip, or `disposition: filed` + create an issue in
+Apply chosen option via Edit tool. Set `disposition: applied` for options
+(`accepted` for an `Accept as a known limitation` option, recorded as in Rare
+Findings below), `disposition: skipped` for Skip, or `disposition: filed` + create an issue in
 the project's issue tracker for File as issue. Continue to next finding.
 
 **Convergence findings** use the User-directed prompt above. If the user picks
@@ -306,7 +321,45 @@ Apply chosen side via Edit tool. Set `disposition: applied` and append
 `**Chosen:** side-a` or `**Chosen:** side-b` to the finding. For Skip, set
 `disposition: skipped`. For File as issue, set `disposition: filed` and
 create an issue in the project's issue tracker, same as the User-directed
-case.
+case. TENSION findings are always resolved here, one at a time, whatever their
+likelihood.
+
+**Rare Findings** (User-directed, `Severity: MEDIUM`, likelihood `rare`,
+`disposition: pending`). Resolve these after every other finding, as one
+batch: a pile of individually reasonable guards for unlikely cases is how a
+design bloats, and walking each one invites accepting each one. HIGH rare
+findings stay out of the batch: their consequence is large enough that the user
+should weigh the likelihood call themselves. If a
+convergence already superseded one, it keeps that resolution. Write a short
+message listing each remaining rare finding: its number, title, `When-it-bites`,
+and its recommended option. Mark any whose recommendation is a fix rather than
+Accept, so the code it would add doesn't pass unnoticed. Then ask once (a major gate, so prepend the
+`context-pct` result):
+
+```
+AskUserQuestion:
+  question: "[Context: N%] {count} rare-case findings: accept the recommendations?"
+  header: "Rare cases"
+  options:
+    - label: "Accept recommendations"
+      description: "(Recommended) Record each recommended limitation; apply the fixes that were recommended"
+    - label: "Let me pick"
+      description: "Walk the ones I name individually; accept the rest's recommendations"
+```
+
+For "Accept recommendations", carry out each finding's recommended option
+without prompting. For "Let me pick", ask which numbers to walk (free text),
+run the User-directed prompt for each of those, and carry out the recommended
+option for the rest. Carrying out `Accept as a known limitation` records the
+limitation where the target keeps its trade-offs: when the target is a sketch
+ledger, in the `accepting …` clause of the affected decision's `**Ratified:**`
+sentence (the user chose it, so it ratifies); when it is another design doc, in
+its known-limitations or assumptions section if it has one. When the target is
+code and a caller records limitations (`mine-sketch`'s ship gate writes them to
+`known-issues.md`), leave it to the caller. Otherwise it goes in the final
+report, listed under the accepted count. Set
+`disposition: accepted` for it. Other options are `disposition: applied`, as
+usual.
 
 **After all main findings are resolved**, if the findings file contains a
 `## Likely Invalid` section with entries, present them:

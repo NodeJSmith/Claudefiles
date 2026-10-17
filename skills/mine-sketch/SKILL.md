@@ -237,7 +237,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<critic_flag>`**: (empty — use triage default 1–3)
 - **`<focus_flag>`**: `--focus="The ledger at <feature_dir>/design.md is the reference. (A) Does what landed match its ratified decisions and assumptions, with tests pinning the behavior each one specifies? (B) Where the code diverges, does the ledger's Build section give a sound reason? Check each stated reason against the code. (C) What unintended consequences are there beyond what the ledger covered?"`
 - **`<re_challenge_flag>`**: (empty)
-- **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. A real finding the user left with `disposition: skipped` is recorded as in Step 2; the Severity Gate doesn't apply, since the user already saw it.
+- **`<post_resolution>`**: Fixes go through the normal pre-commit reviewers. A real finding the user left with `disposition: skipped` or `accepted` is recorded as in Step 2; the Severity Gate doesn't apply, since the user already saw it.
 - **`<review_log>`**: `<feature_dir>/review-log.jsonl`
 - **`<ledger>`**: `<feature_dir>/design.md`
 

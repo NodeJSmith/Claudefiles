@@ -34,6 +34,7 @@ The usual reasons:
 - `behavior-change`: fixing it could change externally visible behavior.
 - `needs-decision`: fixing it needs product, architecture, or business context.
 - `blocked`: fixing it depends on an external dependency, upstream change, or migration.
+- `accepted-limitation`: the user accepted a rare-case challenge finding as a known limitation; the follow-up is to fix it if it ever starts happening.
 
 Don't record findings rejected as invalid, findings fixed in the build, generic improvements with no concrete follow-up, or infrastructure flakes with no consequence for the product or the code.
 
@@ -75,7 +76,7 @@ Append entries with the next free ID (`KI-001`, `KI-002`, ...):
 Status: open
 Recorded: <YYYY-MM-DD> (<branch>)
 Source: <pre-commit-review | ship-challenge | other>
-Reason not fixed now: <faithful-port | out-of-scope | behavior-change | needs-decision | blocked>
+Reason not fixed now: <faithful-port | out-of-scope | behavior-change | needs-decision | blocked | accepted-limitation>
 Affected files:
 - <path>
 

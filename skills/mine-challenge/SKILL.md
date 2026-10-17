@@ -31,7 +31,7 @@ DO use Read, Grep, Glob, `git log`/`git diff`. Use WebSearch to cite canonical p
 
 ## Finding Taxonomy
 
-Every finding gets: **severity** (CRITICAL / HIGH / MEDIUM / TENSION), **type** (Structural / Approach-now / Approach-later / Fragility / Gap), **design-level** (Yes / No), **classification** (Auto-apply / User-directed).
+Every finding gets: **severity** (CRITICAL / HIGH / MEDIUM / TENSION), **type** (Structural / Approach-now / Approach-later / Fragility / Gap), **design-level** (Yes / No), **likelihood** (routine / plausible / rare), **classification** (Auto-apply / User-directed).
 
 See `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for classification criteria, visibility/disposition fields, and the inline resolution flow.
 
@@ -155,7 +155,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
   2. **Name the problem directly** — no hedging
   3. **Propose a fix**: `Classification: Auto-apply | User-directed` + one-sentence fix or options
   4. **Tag each finding**: severity (CRITICAL/HIGH/MEDIUM/TENSION), type, design-level
-  5. **Structure each finding**: `**Why it matters**`, `**Evidence**`, `**Design challenge**`
+  5. **Structure each finding**: `**Why it matters**`, `**When it bites**`, `**Evidence**`, `**Design challenge**`. `When it bites` names the concrete trigger and how often it happens for this project in normal use ("every restart", "only if the link flaps mid-resync"). Synthesis uses it to decide whether a fix is worth its code, so don't inflate it
   6. **Include a Pushback section**: findings you anticipate other critics raising that you'd disagree with
   7. **Read beyond provided files**: use Read, Grep, Glob; include **Files examined** at top of report
   8. **Ask what each side actually knows**: wherever the target coordinates state across components (client and server, cache and source, cursor and log, retry and remote effect), check whether any component infers another's state from partial evidence instead of being told it. Inferred state is a finding even when the inference usually holds — say what it guesses from and when the guess goes wrong
@@ -188,7 +188,7 @@ Read the findings file. Announce: "Specialists selected: [names from triage]" an
 
 **If standalone mode** (direct user invocation, mine-grill, or any caller not passing --mode=passthrough — includes orchestration callers driven via challenge-gate.md):
 
-Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. L flagged as likely invalid." List critic report paths and findings file path.
+Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. K accepted as known limitations. M skipped. L flagged as likely invalid." List critic report paths and findings file path.
 
 ## Principles
 
