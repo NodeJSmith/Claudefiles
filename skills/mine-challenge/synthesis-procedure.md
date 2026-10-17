@@ -21,7 +21,7 @@ The synthesis subagent reads this file and follows it exactly. The dispatching p
 
    For each convergence you identify, add a **convergence finding** to the main list:
    - Title: `Findings converge on <mechanism>`
-   - `severity`: highest severity among the converging findings. `type`: `Structural`. `design-level`: `Yes`. `classification`: `User-directed`. `raised-by`: `Synthesis`.
+   - `severity`: highest severity among the converging findings. `likelihood`: the most likely among them (`routine` over `plausible` over `rare`). `type`: `Structural`. `design-level`: `Yes`. `classification`: `User-directed`. `raised-by`: `Synthesis`.
    - `**Converges:**` field listing the converging finding numbers, formatted as `**Converges:** Findings 3, 5, 7`.
    - `why-it-matters`: name the mechanism and what the converging findings have in common. Frame it as a question for the user: whether this points to a structural or architectural problem with the mechanism that should be re-evaluated, rather than addressed finding by finding. Re-evaluation is open-ended — it includes whether the mechanism is needed at all, and whether the failure modes are worth handling or are a limitation to accept and document, not only how to specify it more completely.
    - Options: **A** — re-evaluate `<mechanism>` before addressing the converging findings individually; **B** — keep `<mechanism>` and address the converging findings individually. Option A may list the open questions the re-evaluation must answer, but must not answer them — no proposed design, scope, owner, or rule. Answering them here pre-empts the re-evaluation with a patch.

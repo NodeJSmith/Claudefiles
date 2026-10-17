@@ -11,7 +11,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
-- `mine-challenge` tags each finding's likelihood. Rare ones recommend accepting a known limitation instead of a fix, and MEDIUM rare findings are resolved in one batch. (#636)
+- `mine-challenge` tags each finding's likelihood. Rare ones recommend accepting a known limitation instead of a fix unless they risk data loss, a security hole, or an unrecoverable state, and MEDIUM rare findings are resolved in one batch. (#636)
 
 ## 2026-10-14
 

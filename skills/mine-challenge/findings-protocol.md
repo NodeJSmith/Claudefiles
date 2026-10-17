@@ -268,7 +268,7 @@ Each option's `label` must be the letter and text exactly as they appear in the
 finding's `**Options:**` list (`A: <first option>`, `B: <second option>`, ...) —
 this is the same canonical string `challenge-gate.md` extracts into the
 `recommended` field. Prepend `(Recommended) ` to the `description` of whichever
-option (A or B) carries the `*(recommended)*` marker in that source list — never
+option (A, B, or C) carries the `*(recommended)*` marker in that source list — never
 the label — so the label the user selects (passed to `--chosen` in step 6)
 matches `recommended` exactly when the user follows the recommendation. Getting
 this wrong (baking the cue into the label, or hardcoding it onto one option
@@ -355,8 +355,9 @@ limitation where the target keeps its trade-offs: when the target is a sketch
 ledger, in the `accepting …` clause of the affected decision's `**Ratified:**`
 sentence (the user chose it, so it ratifies); when it is another design doc, in
 its known-limitations or assumptions section if it has one. When the target is
-code, leave recording to the caller (`mine-sketch`'s ship gate writes it to
-`known-issues.md`). Otherwise it goes only in the final report. Set
+code and a caller records limitations (`mine-sketch`'s ship gate writes them to
+`known-issues.md`), leave it to the caller. Otherwise it goes in the final
+report, listed under the accepted count. Set
 `disposition: accepted` for it. Other options are `disposition: applied`, as
 usual.
 
