@@ -74,9 +74,16 @@ def test_sketch_ledger_header_and_section_order() -> None:
     ledger = [
         h
         for h in headings
-        if h in ("Summary", "Decisions", "Assumed", "Build", "Addendum")
+        if h in ("Summary", "Posture", "Decisions", "Assumed", "Build", "Addendum")
     ]
-    assert ledger == ["Summary", "Decisions", "Assumed", "Build", "Addendum"]
+    assert ledger == [
+        "Summary",
+        "Posture",
+        "Decisions",
+        "Assumed",
+        "Build",
+        "Addendum",
+    ]
 
 
 def test_sketch_decision_block_carries_the_rubric_and_pending_marker() -> None:

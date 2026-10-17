@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 
 - Compaction is now steered by an always-installed `compact-instructions` rule; the manual `/mine-pre-compact` command is removed. (#638)
+- `mine-sketch` confirms a posture (failure handling, compatibility, scope, rollout, hardening) before drafting, so cases a stance settles don't become decisions, and turns every new piece of state without a proper home into a decision. Challenge critics treat the posture as accepted constraints. (#637)
 
 ## 2026-10-16
 

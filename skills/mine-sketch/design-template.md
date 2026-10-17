@@ -13,7 +13,16 @@ Write the ledger to `<feature_dir>/design.md` using this template:
 ## Summary
 
 [The problem, the change, what's in scope and what's out. A few sentences. A fresh session that has
-never seen this conversation builds from this ledger alone, so name the files and modules involved.]
+never seen this conversation builds from this ledger alone, so name the files and modules involved,
+including where each new piece of state or behavior lives.]
+
+## Posture
+
+- **Failure handling:** [stance, e.g. "happy path; errors propagate to the caller, no retries"]
+- **Compatibility:** [stance, e.g. "internal only; callers and stored data may break"]
+- **Scope:** [stance, e.g. "single-entity case only; bulk operations are out"]
+- **Rollout:** [stance, e.g. "ships directly; no flag or migration"]
+- **Hardening:** [stance, e.g. "project defaults; no new metrics or caching"]
 
 ## Decisions
 
@@ -61,7 +70,8 @@ never propose editing the sections above to "correct" it.]
 ## Content Rules
 
 - **One home per decision.** A decision's options, reasoning, and answer all live in its `### D<n>` block. There is no separate table of ratified answers, and no other section restates a decision.
-- **Every judgment call that would change the code is a decision.** If it has more than one reasonable answer, it gets a `### D<n>` block, not a line in Assumed or a silent pick.
+- **Posture is ratified as a whole.** The user confirmed it before drafting. A case it settles follows its stance and gets no decision block. Changing a stance reopens the decisions that relied on it, and a loosened stance can add decisions for cases it no longer settles.
+- **Every judgment call the posture leaves open is a decision.** If it has more than one reasonable answer, it gets a `### D<n>` block, not a line in Assumed or a silent pick.
 - **Each decision block follows the rubric** in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
 - **A small decision may collapse.** One with a single obvious answer and easy reversibility can drop the table. It keeps the deciding factor, the recommendation, and "Pick X instead if".
 - **`**Ratified:**` is a state marker.** Every decision is created as `**Ratified:** pending`, matched literally on resume. Ratifying replaces `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D."
