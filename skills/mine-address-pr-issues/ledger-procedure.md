@@ -36,7 +36,7 @@ A history row carries the same fields as any other row, with these differences:
 | `author`, `author_kind` | `challenge` and `bot` for a review-log finding; `known-issues` and `self` for a known issue (`self` here is a label: history rows are never planned, so it drives no reply) |
 | `round` | the record's `date`, or the entry's `Recorded:` date; older known issues have none, so use the date of the commit that added the file (`git log --diff-filter=A --format=%cs -- <path>`, last line) |
 | `status` | always `resolved`: history is never planned or replied to, and `check` rejects an open one |
-| `outcome` | review log `applied` is `fixed`, `skipped` is `declined`, `filed` is `deferred`; a known issue is `deferred` unless its status says it was fixed |
+| `outcome` | review log `applied` is `fixed`, `skipped` and `accepted` are `declined`, `filed` is `deferred`; a known issue is `deferred` unless its status says it was fixed |
 | `disposition` | `already-addressed` for an applied finding (cite the file and line, as for any row); `not-actionable` otherwise, with the reason it was skipped or deferred |
 | `embedded_count`, `depth`, `decision` | `null` |
 | `related` | `[]`, always: `related` means one concern restated, and a recurrence after an earlier patch is a distinct finding, which is what makes the convergence. `check` rejects a link in either direction |
