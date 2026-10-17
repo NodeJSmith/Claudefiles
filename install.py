@@ -171,9 +171,10 @@ def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
 RULE_CATEGORIES: dict[str, RuleCategory] = {
     "core": RuleCategory(
         label="Core (always installed)",
-        description="Capabilities routing, interaction style, invariants, model selection, worktree safety, project context",
+        description="Capabilities routing, compaction guidance, interaction style, invariants, model selection, worktree safety, project context",
         files=(
             "capabilities-core.md",
+            "compact-instructions.md",
             "interaction.md",
             "invariants.md",
             "performance.md",

@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-17
+
+### Changed
+
+- Compaction is now steered by an always-installed `compact-instructions` rule; the manual `/mine-pre-compact` command is removed. (#638)
+
 ## 2026-10-16
 
 ### Added
