@@ -156,7 +156,7 @@ Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<critic_flag>`**: `--critics=2`
 - **`<focus_flag>`**: (empty; `/mine-challenge` reads the ledger's `## Posture` itself)
 - **`<re_challenge_flag>`**: `--re-challenge` when Phase 6's Revise sent you here, otherwise empty
-- **`<post_resolution>`**: A finding the user answered has already ratified the decision it added or changed; the user's choice is the ratification (the findings protocol's rule for sketch ledgers). The ratifying edit also adds or updates that option's column in the decision's criteria table, so Phase 5's comb finds the table consistent. Only a decision an Auto-apply finding added or changed is back at `**Ratified:** pending`. Run Phase 3 for those, if any, then continue to Phase 5. A finding the user accepted that changes a posture stance is not applied here: note it, leave `## Posture` alone, and carry it to Phase 6 as a stance change.
+- **`<post_resolution>`**: A finding the user answered has already ratified the decision it added or changed; the user's choice is the ratification (the findings protocol's rule for sketch ledgers). The ratifying edit also adds or updates that option's column in the decision's criteria table, so Phase 5's comb finds the table consistent. Only a decision an Auto-apply finding added or changed is back at `**Ratified:** pending`. Run Phase 3 for those, if any, then continue to Phase 5. A finding the user accepted that changes a posture stance has already edited `## Posture`, but not the decisions that relied on the old stance. Note the stance and carry it to Phase 6.
 - **`<review_log>`**: `<feature_dir>/review-log.jsonl`
 - **`<ledger>`**: `<feature_dir>/design.md`
 
@@ -206,7 +206,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 Every decision was ratified one at a time, by the user's own answer. This applies on the first pass only. A pass that returns here from "Revise a decision" always shows the gate.
 
-Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. A stance change carried from Phase 4, or any difference in `## Posture`, always shows the gate, opening on "Revise a decision" for that stance. Otherwise, if every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and say they can reopen a decision at the start of the build session.
+Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. A stance change carried from Phase 4, or any difference in `## Posture`, skips the gate's question: go straight to [On "Revise a decision"](#on-revise-a-decision) for that stance, so nothing can ratify the new stance before its dependent decisions are handled. Revise returns here afterward. Otherwise, if every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and say they can reopen a decision at the start of the build session.
 
 Otherwise show the gate, because ratification was per-decision and this read is the only place a cross-decision inconsistency an automatic edit introduced would show up.
 
@@ -234,7 +234,7 @@ Stop. The build always runs in a fresh session, so this session never continues 
 
 ### On "Revise a decision"
 
-Ask which decision to reopen, or what new decision to add, and what should change. To change a posture stance, update `## Posture`, then list the decisions whose answers relied on the old stance and the cases the new stance no longer settles. The user picks which decisions to reopen, and each unsettled case becomes a new decision. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
+Ask which decision to reopen, or what new decision to add, and what should change. To change a posture stance, update `## Posture` (a stance carried from Phase 4 is already updated), then list the decisions whose answers relied on the old stance and the cases the new stance no longer settles. The user picks which decisions to reopen, and each unsettled case becomes a new decision. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
 
 ### On "Save and stop"
 
