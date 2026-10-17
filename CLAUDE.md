@@ -2,6 +2,7 @@
 audience: personal tool
 developers: solo
 data-sensitivity: internal
+peers: obra/superpowers, SuperClaude-Org/SuperClaude_Framework, mattpocock/skills, Q00/ouroboros, citypaul/.dotfiles
 ---
 
 # CLAUDE.md
