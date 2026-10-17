@@ -49,7 +49,6 @@ Conversation memory (recall, resume) now ships as the external
 | `mine-good-morning` | Read the handoff, orient, and resume yesterday's work |
 | `mine-issues` | Deep-dive issues by key, inferring one from the branch name if none given |
 | `mine-permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
-| `mine-pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine-status` | Quick orientation — branch, tasks, errors, last commit |
 
 ## Agents
@@ -100,7 +99,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 
 | Category | Installer key | Rule files |
 |----------|---------------|-----------|
-| Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `performance`, `worktrees` |
+| Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `invariants`, `performance`, `worktrees` |
 | Code structure & style | `style` | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
