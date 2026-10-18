@@ -74,13 +74,23 @@ def test_sketch_ledger_header_and_section_order() -> None:
     ledger = [
         h
         for h in headings
-        if h in ("Summary", "Posture", "Decisions", "Assumed", "Build", "Addendum")
+        if h
+        in (
+            "Summary",
+            "Posture",
+            "Decisions",
+            "Assumed",
+            "Breakdown",
+            "Build",
+            "Addendum",
+        )
     ]
     assert ledger == [
         "Summary",
         "Posture",
         "Decisions",
         "Assumed",
+        "Breakdown",
         "Build",
         "Addendum",
     ]
