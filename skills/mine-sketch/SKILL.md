@@ -6,7 +6,7 @@ user-invocable: true
 
 # Sketch
 
-Structured design before code. Sketch mode first settles the change's posture and checks where its new pieces fit. It then surfaces every decision the change needs into a **decision ledger** (`design.md`), has the user ratify each one, and challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge.
+Structured design before code. Sketch mode first settles the change's posture and checks where its new pieces fit. It then surfaces every decision the change needs into a **decision ledger** (`design.md`), has the user ratify each one, and challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge. A ledger sketched at milestone altitude is a plan for several issues instead: it ends in an issue breakdown, and each issue is built on its own later.
 
 The value is in the decisions. A judgment call made silently is the failure this skill exists to prevent, so every choice that would change the code gets surfaced, reasoned, and ratified before any code is written. One session builds the whole change, gated by the normal pre-commit reviewers.
 
@@ -24,6 +24,7 @@ If $ARGUMENTS points to a directory containing `design.md`, that directory is `<
 | Ledger | Do |
 |---|---|
 | `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. If `## Posture` is missing or still holds template placeholders, run Phase 1's Posture step first and write it into the ledger. Otherwise skip Phase 1 and continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
+| `**Mode:** sketch`, `**Status:** ratified`, `## Posture` Altitude `milestone` | Report that the ledger is a milestone plan, not a build spec, and list its Breakdown with any filed issue keys. Each issue is built on its own: `/mine-sketch` on the issue, naming this ledger so it's read as prior work, or without a sketch when the issue leaves no open decisions. If the Breakdown isn't filed yet, offer to file it as in [On "Ratify"](#on-ratify). If every issue is closed and the Done-when holds, offer to set `**Status:** archived`. Stop. |
 | `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
 | `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
 | `**Status:** archived` or `abandoned` | Report the status and stop. |
@@ -46,7 +47,7 @@ Read 3-8 files relevant to the change:
 
 Keep it fast. You're looking for conventions, constraints, and the decisions the change will force, not doing a deep investigation.
 
-If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions.
+If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions. A milestone ledger is prior work too, including one an issue's body points to, but its ratified decisions are settled: carry the ones this change relies on into Assumed, citing the ledger and its `D<n>`, rather than redrafting them. Its references are concepts rather than files, so the scan finds where each one lives now.
 
 ### Fit check
 
@@ -67,8 +68,11 @@ Ledgers bloat with decisions the user considers unwarranted: one per failure edg
 | Scope | The minimal version that works, or the complete feature |
 | Rollout | Ship it outright, or flag, stage, or migrate |
 | Hardening | Observability, performance, and security at the project's defaults, or raised for this change |
+| Altitude | `build`: one session builds it, and the ledger cites files. `milestone`: the ledger names concepts, modules, and classes, never file:line or code steps, and ends in an issue breakdown built later |
 
 Add an axis when the change turns on one the table lacks, such as concurrency or a data migration.
+
+Altitude decides what the ledger is for, not how cautious the change is, so infer it from the request rather than the minimal default below. The question is whether whoever builds this will read the ledger after the code it would cite has moved or been split. If so, it's `milestone`, and the request usually says as much by asking for a plan, a milestone, or issues. Otherwise it's `build`. The two halves of `milestone` go together: a ledger that has to survive refactors can't also be a file-level spec for one build session. A ledger with no Altitude line is `build`.
 
 Infer a stance for each axis from the request, the scan, the CLAUDE.md frontmatter (`audience`, `developers`, `data-sensitivity`; see `project-context.md`), and the repo itself. A public repo with releases or a changelog has consumers, and a private one with no installs usually doesn't. Your defaults skew toward more failure handling, more compatibility, and more scope than a project warrants, and a cautious posture invites a rubber stamp. So infer the minimal stance on each axis unless something you found argues for more, and name that evidence.
 
@@ -111,9 +115,10 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` and
 - **Find every decision the posture leaves open.** Walk the change from entry point to tests and list each place where more than one reasonable answer exists and the answer changes the code: behavior at edge cases, error and retry handling, what gets exposed or logged, compatibility, naming that callers will see. None is resolved silently. When unsure whether a case is covered, ask whether the user would be surprised to see it settled by the posture. If yes, it's a decision. Every structural gap from the fit check is a decision.
 - **Name each home.** The Summary names where each new piece of state or behavior lives, so the comb and the build can check it.
 - **Resumable work state.** When the change owns work state across invocations (a background worker, batch job, queue consumer, scheduler, or persistent retry state), its lifecycle is a set of decisions: completion, retry eligibility and bounds, recovery from states that need user action, repeated-run convergence, and visible progress and failure accounting.
-- **Fill each table before recommending.** Ground the criteria in what the scan found, and cite files.
+- **Fill each table before recommending.** Ground the criteria in what the scan found, cited at the posture's altitude.
 - **Assumed** gets the facts the build relies on, each with evidence.
-- **Self-sufficient.** The build runs in a fresh session with only this file and the repo. Name the files and modules; don't refer to "as discussed".
+- **Self-sufficient.** The build runs in a fresh session with only this file and the repo. Name what the change touches; don't refer to "as discussed".
+- **Write at the posture's altitude.** At `build`, cite files. At `milestone`, use names that survive a file being moved or split (concepts, packages, classes, public functions), and leave out paths, line numbers, and code-step lists. The scan's evidence comes back file-shaped and precise citations feel rigorous, so the pull is to paste them in; translate each finding to the concept it shows. Then write `## Breakdown`: the proposed issues, each independently landable and naming the decisions it implements, plus a Done-when for the milestone as a whole. Leave out `## Build`.
 
 Every decision starts as `**Ratified:** pending`.
 
@@ -182,7 +187,8 @@ Agent:
     - The Summary names a home for every new piece of state or behavior, and a home that doesn't fit is a decision, not a silent bolt-on
     - Each assumption has evidence
     - Decisions state behavior a test must pin, not test technique
-    - A fresh session with only this file and the repo could build the change
+    - References match the Posture's Altitude: at `milestone`, no paths, line numbers, or code-step lists. A stray one is minor unless a decision depends on it
+    - At `build` altitude, a fresh session with only this file and the repo could build the change. At `milestone`, every decision lands in some Breakdown issue, each issue could be picked up on its own, and the Done-when is observable
 
     Define blocking as: a direct inconsistency, a missing decision, or an error that would mislead the build. A section that could be more detailed is minor, not blocking.
 ```
@@ -206,11 +212,11 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 Every decision was ratified one at a time, by the user's own answer. This applies on the first pass only. A pass that returns here from "Revise a decision" always shows the gate.
 
-Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. A stance change that hasn't been through Revise yet skips the gate's question: one carried from Phase 4, or a `## Posture` stance that differs from the copy and that Revise hasn't handled this session. Go straight to [On "Revise a decision"](#on-revise-a-decision) for that stance, so nothing can ratify the new stance before its dependent decisions are handled. Revise returns here afterward, and a stance it handled doesn't route back again. Otherwise, if every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and say they can reopen a decision at the start of the build session.
+Check what the challenge and comb changed by diffing `design.md` against `<tmpdir>/ratified-ledger.md`, the copy saved when Phase 3 first finished. If there is no copy (a session that resumed straight into Phase 4), there is nothing to prove the edits were all the user's, so show the gate. A stance change that hasn't been through Revise yet skips the gate's question: one carried from Phase 4, or a `## Posture` stance that differs from the copy and that Revise hasn't handled this session. Go straight to [On "Revise a decision"](#on-revise-a-decision) for that stance, so nothing can ratify the new stance before its dependent decisions are handled. Revise returns here afterward, and a stance it handled doesn't route back again. Otherwise, if every change is an edit the user chose between (no Auto-apply edits, no comb fixes you made on your own, no decision back at `pending`), there is nothing new to approve. Go straight to "On Ratify" below, print the ledger path along with any minor comb findings noted for the summary, and, at `build` altitude, say they can reopen a decision at the start of the build session.
 
 Otherwise show the gate, because ratification was per-decision and this read is the only place a cross-decision inconsistency an automatic edit introduced would show up.
 
-Present the full ledger as text, with its path, and show what changed since the last ratified decision. This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
+Present the full ledger as text, with its path, and show what changed since the last ratified decision. At `milestone` altitude, the question ends "Ratify it as the milestone plan?" and Ratify's description is "Lock the ledger; offer to file its issues". This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:
@@ -228,13 +234,33 @@ AskUserQuestion:
 
 ### On "Ratify"
 
-Set `**Status:** ratified` in `design.md`. Tell the user: "Ledger ratified at `<feature_dir>/design.md`. Start a fresh session and run `/mine-sketch <feature_dir>` to build it."
+Set `**Status:** ratified` in `design.md`.
 
-Stop. The build always runs in a fresh session, so this session never continues into build mode.
+At `build` altitude, tell the user: "Ledger ratified at `<feature_dir>/design.md`. Start a fresh session and run `/mine-sketch <feature_dir>` to build it." Stop. The build always runs in a fresh session, so this session never continues into build mode.
+
+At `milestone` altitude there is no build and no new session. Filing the Breakdown is the rest of this one. Resolve the tracker the way `skills/mine-create-issue/worker.md` Step 3 does: `$ISSUE_TRACKER` unset or empty means GitHub, and a tracker you have no tools for means leaving the Breakdown unfiled, saying why, and stopping without the question below rather than guessing at a tool. Filing is outward-facing, so ask before doing it:
+
+```
+AskUserQuestion:
+  question: "File the <N> Breakdown issues on <tracker>?"
+  header: "File"
+  multiSelect: false
+  options:
+    - label: "File them (Recommended)"
+      description: "<N> issues, grouped under <the tracker's milestone, epic, or parent item>"
+    - label: "Not yet"
+      description: "Leave the Breakdown unfiled; re-run /mine-sketch on the ledger to file later"
+```
+
+On "Not yet", file nothing: commit the ledger and `<feature_dir>/review-log.jsonl` on the current branch (off the default branch, if the repo requires PRs) and stop.
+
+On "File them", file per the repo's issue conventions (`git-workflow.md`), grouping the issues under whatever the tracker uses for a milestone (a GitHub milestone, a Jira epic, a parent work item), in dependency order so each issue can link the ones in its `After:`. Each issue body gives its scope at the ledger's altitude, the decisions it implements, and the ledger's repo path; the ledger has to reach the default branch before the issues are picked up, so say that if it's still on a branch. Write each issue key into its Breakdown entry, commit the ledger and `<feature_dir>/review-log.jsonl` the same way, and stop.
 
 ### On "Revise a decision"
 
 Ask which decision to reopen, or what new decision to add, and what should change. To change a posture stance, update `## Posture` (a stance carried from Phase 4 is already updated), then list the decisions whose answers relied on the old stance and the cases the new stance no longer settles. The user picks which decisions to reopen, and each unsettled case becomes a new decision. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
+
+An Altitude change reopens no decisions. Rewrite the ledger at the new altitude instead (re-cite its references, and swap `## Breakdown` and `## Build`), then run Phase 4 with `--re-challenge` and Phase 5, since the earlier challenge covered a different ledger, and return to this gate.
 
 ### On "Save and stop"
 

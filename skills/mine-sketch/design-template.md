@@ -13,8 +13,8 @@ Write the ledger to `<feature_dir>/design.md` using this template:
 ## Summary
 
 [The problem, the change, what's in scope and what's out. A few sentences. A fresh session that has
-never seen this conversation builds from this ledger alone, so name the files and modules involved,
-including where each new piece of state or behavior lives.]
+never seen this conversation builds from this ledger alone, so name what's involved, including where
+each new piece of state or behavior lives: files at build altitude, concepts and classes at milestone.]
 
 ## Posture
 
@@ -23,6 +23,7 @@ including where each new piece of state or behavior lives.]
 - **Scope:** [stance, e.g. "single-entity case only; bulk operations are out"]
 - **Rollout:** [stance, e.g. "ships directly; no flag or migration"]
 - **Hardening:** [stance, e.g. "project defaults; no new metrics or caching"]
+- **Altitude:** [`build` or `milestone`, then why, e.g. "milestone; the issues may be picked up after refactors"]
 
 ## Decisions
 
@@ -42,11 +43,23 @@ including where each new piece of state or behavior lives.]
 
 ## Assumed
 
-- [A fact or inherited constraint the build relies on.] Evidence: [file:line, issue, or doc].
+- [A fact or inherited constraint the build relies on.] Evidence: [file:line at build altitude, module or class at milestone altitude, issue, or doc].
+
+## Breakdown
+
+[Milestone altitude only; omit at build altitude.]
+
+**Done when:** [the observable end state that closes the milestone]
+
+1. **<issue title>**: [scope in a sentence or two]. Implements: D1, D3. After: [issues that must land first, or none]. Issue: [key once filed]
+
+[A decision that applies to every issue, such as a naming convention, goes on its own line:
+"Applies to all: D2."]
 
 ## Build
 
-[Written by build mode only. Leave the checklist unticked and the calls line empty at sketch time.]
+[Build altitude only; omit at milestone altitude. Written by build mode only. Leave the checklist
+unticked and the calls line empty at sketch time.]
 
 - [ ] Implementation and tests committed
 - [ ] Docs
@@ -77,6 +90,7 @@ never propose editing the sections above to "correct" it.]
 - **`**Ratified:**` is a state marker.** Every decision is created as `**Ratified:** pending`, matched literally on resume. Ratifying replaces `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D."
 - **Behavior, not technique.** Decisions and assumptions state what behavior a test must pin, never how to test it: no fixtures, no capture mechanisms, no test-file layout.
 - **Assumed holds facts and inherited constraints only**, each with evidence. It is not an implementation plan.
-- **`## Build` belongs to build mode.** Sketch mode writes the empty checklist and never ticks it.
+- **Altitude sets the references.** At `milestone`, everything uses names that survive a file being moved or split, never paths, line numbers, or code steps, so the ledger survives the refactors that happen before its issues are built. Every decision lands in a Breakdown issue or on its "Applies to all" line.
+- **`## Build` belongs to build mode.** At build altitude, sketch mode writes the empty checklist and never ticks it. A milestone ledger has `## Breakdown` instead; its issue keys live there, not in the `**Issues:**` header, which names what the milestone as a whole resolves.
 - No `[NEEDS CLARIFICATION]` markers. If you don't know, it's a decision or a question to ask.
 - Once `**Status:**` is `built`, `archived`, or `abandoned`, never edit the body sections to reflect later reality. Append a dated entry to `## Addendum` instead.
