@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-18
+
+### Changed
+
+- `mine-sketch` adds an Altitude posture axis. A `milestone` ledger names concepts instead of files, so it survives refactors, and ends in an issue breakdown filed on the repo's tracker at ratify instead of a single-session build. (#639)
+
 ## 2026-10-17
 
 ### Changed
