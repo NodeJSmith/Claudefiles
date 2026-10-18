@@ -252,13 +252,15 @@ AskUserQuestion:
       description: "Leave the Breakdown unfiled; re-run /mine-sketch on the ledger to file later"
 ```
 
-File per the repo's issue conventions (`git-workflow.md`), grouping the issues under whatever the tracker uses for a milestone (a GitHub milestone, a Jira epic, a parent work item), in dependency order so each issue can link the ones in its `After:`. Each issue body gives its scope at the ledger's altitude, the decisions it implements, and the ledger's repo path; the ledger has to reach the default branch before the issues are picked up, so say that if it's still on a branch. Write each issue key into its Breakdown entry, commit the ledger on the current branch (off the default branch, if the repo requires PRs), and stop.
+On "Not yet", file nothing: commit the ledger and `<feature_dir>/review-log.jsonl` on the current branch (off the default branch, if the repo requires PRs) and stop.
+
+On "File them", file per the repo's issue conventions (`git-workflow.md`), grouping the issues under whatever the tracker uses for a milestone (a GitHub milestone, a Jira epic, a parent work item), in dependency order so each issue can link the ones in its `After:`. Each issue body gives its scope at the ledger's altitude, the decisions it implements, and the ledger's repo path; the ledger has to reach the default branch before the issues are picked up, so say that if it's still on a branch. Write each issue key into its Breakdown entry, commit the ledger and `<feature_dir>/review-log.jsonl` the same way, and stop.
 
 ### On "Revise a decision"
 
 Ask which decision to reopen, or what new decision to add, and what should change. To change a posture stance, update `## Posture` (a stance carried from Phase 4 is already updated), then list the decisions whose answers relied on the old stance and the cases the new stance no longer settles. The user picks which decisions to reopen, and each unsettled case becomes a new decision. Set that decision's `**Ratified:**` back to `pending` (a new decision starts as `pending`), then run Phase 3, Phase 4 with `--re-challenge`, and Phase 5, and return to this gate.
 
-An Altitude change reopens no decisions. Rewrite the ledger at the new altitude instead (re-cite its references, and swap `## Breakdown` and `## Build`), then run Phase 5 and return to this gate.
+An Altitude change reopens no decisions. Rewrite the ledger at the new altitude instead (re-cite its references, and swap `## Breakdown` and `## Build`), then run Phase 4 with `--re-challenge` and Phase 5, since the earlier challenge covered a different ledger, and return to this gate.
 
 ### On "Save and stop"
 
