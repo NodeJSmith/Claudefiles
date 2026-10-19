@@ -44,7 +44,7 @@ Start with whatever problem you have right now.
 The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine-review`. For a style and debt check: `/mine-clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine-humanize`. To comb a brief, design, plan, or implementation for consistency, accuracy, and drift: `/mine-comb`. Included in base — no extra bundles needed.
 
 **"I want structured planning for complex features"**
-The base is enough. `/mine-sketch` writes a decision ledger you ratify one decision at a time, then a fresh session builds the whole change from it with `/mine-sketch <dir>`. Work too big for one session splits into separate ledgers. Start with `/mine-grill` to sharpen a raw idea, or `/mine-research` when you don't yet know enough to decide. Included in base.
+The base is enough. `/mine-sketch` writes a decision ledger you ratify one decision at a time, then a fresh session builds the whole change from it with `/mine-sketch <dir>`. Work too big for one session splits into separate ledgers. When a change leaves only a few small, independent choices open, Claude asks them inline and builds in the same session, without a ledger. Start with `/mine-grill` to sharpen a raw idea, or `/mine-research` when you don't yet know enough to decide. Included in base.
 
 **"I want to brainstorm and challenge ideas"**
 The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.
