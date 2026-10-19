@@ -33,7 +33,7 @@ AskUserQuestion:
       description: "I'll paste text in the next message for you to edit"
 ```
 
-If the user picks "Paste text", wait for their next message, then treat the pasted content as the target. Write it to a temp file (via `get-skill-tmpdir mine-humanize`), classify as "General prose", and proceed to Phase 2.
+If the user picks "Paste text", wait for their next message, then treat the pasted content as the target. Write it to a temp file (via `mktemp -d <scratchpad>/mine-humanize-XXXXXX`), classify as "General prose", and proceed to Phase 2.
 
 ## Phase 1: Scope and Classify
 
@@ -99,7 +99,7 @@ The user invoking this skill is the request to fix, so choose the mode from the 
 - **Full rewrite**: the issues are structural and pervasive (most paragraphs affected). It has its own accept step per file.
 - **Cherry-pick**: only when the user said which findings to apply or skip, in the request or in a reply to the findings list. Apply exactly those; don't ask again.
 
-Say which mode you chose and why in one line. Git can restore a tracked file with no uncommitted changes; a target that is untracked or has uncommitted changes has no such copy, so write a backup to `get-skill-tmpdir mine-humanize` before editing it and say where it is.
+Say which mode you chose and why in one line. Git can restore a tracked file with no uncommitted changes; a target that is untracked or has uncommitted changes has no such copy, so write a backup to `mktemp -d <scratchpad>/mine-humanize-XXXXXX` before editing it and say where it is.
 
 ## Phase 3: Fix
 

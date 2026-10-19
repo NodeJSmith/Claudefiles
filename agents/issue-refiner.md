@@ -98,7 +98,7 @@ Omit any section that would just be empty boilerplate. Only add sections that ge
 
 Re-fetch the issue body fresh immediately before updating — do not reuse the copy loaded in Step 1. Another user may have edited the issue while you were exploring the codebase and drafting sections in Steps 2-4; applying the enrichment to a stale body would overwrite their intervening edit. Apply the enrichment (the divider plus structured sections from Step 4) on top of this fresh body.
 
-Run `get-skill-tmpdir issue-refiner`, write the combined body to `<dir>/body.md`, and pass that file to the tracker's body/description file flag (or its stdin equivalent). Using the file is mandatory, not optional — enriched bodies are multi-line Markdown, and passing one as a raw shell argument mangles quotes, backticks, and other metacharacters.
+Run `mktemp -d <scratchpad>/issue-refiner-XXXXXX`, write the combined body to `<dir>/body.md`, and pass that file to the tracker's body/description file flag (or its stdin equivalent). Using the file is mandatory, not optional — enriched bodies are multi-line Markdown, and passing one as a raw shell argument mangles quotes, backticks, and other metacharacters.
 
 Confirm the update call succeeded before moving to Step 6. If it fails, return `ERROR: enrichment could not be written back to <key>: <reason>` and **stop** — do not proceed to Step 6 as if the enrichment landed.
 

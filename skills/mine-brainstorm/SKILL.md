@@ -44,8 +44,8 @@ If reading code: use Glob, Grep, and Read to find files relevant to the topic be
 
 Before launching, create a unique temp directory for this run:
 
-1. Run: `get-skill-tmpdir mine-brainstorm`
-2. Note the directory path printed (e.g., `/tmp/claude-mine-brainstorm-Kx3a8Q`)
+1. Run: `mktemp -d <scratchpad>/mine-brainstorm-XXXXXX`
+2. Note the directory path printed (e.g., `<scratchpad>/mine-brainstorm-Kx3a8Q`)
 
 Each thinker writes to a fixed filename inside this directory:
 - `<dir>/pragmatist.md`

@@ -57,7 +57,7 @@ If the topic is clear but ambiguous across domains (e.g., "memory management" co
 
 ## Phase 2: Research
 
-1. Run `get-skill-tmpdir mine-prior-art` to get a temp directory. Note the exact path — you'll need it after subagents complete.
+1. Run `mktemp -d <scratchpad>/mine-prior-art-XXXXXX` to get a temp directory. Note the exact path — you'll need it after subagents complete.
 2. Launch **two subagents in parallel**:
 
 ### Subagent A: Local Context (`subagent_type: standard-worker`)

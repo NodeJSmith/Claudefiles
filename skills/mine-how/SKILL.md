@@ -189,7 +189,7 @@ Output format:
 
 ## Phase 4: Present
 
-Run `get-skill-tmpdir mine-how` before Phase 2 to establish `<dir>`.
+Run `mktemp -d <scratchpad>/mine-how-XXXXXX` before Phase 2 to establish `<dir>`.
 
 After the review completes, read `<dir>/review.md`:
 

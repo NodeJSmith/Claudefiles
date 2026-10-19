@@ -147,7 +147,7 @@ Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 3. Replace `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D." If the user answered with something not in the table, add it as a column, score it, and ratify that.
 4. When an answer surfaces a new decision, add a `### D<n>` block with `**Ratified:** pending` and ratify it in turn.
 
-When no decision is pending, on the first pass only, copy `design.md` to `<tmpdir>/ratified-ledger.md`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch`. Keep that path for the rest of the session, since each call prints a new directory. Later passes leave the copy alone. The ledger is usually uncommitted at this point and the challenge and comb edit it in place, so this copy is the only record of what the user ratified; Phase 6 diffs against it.
+When no decision is pending, on the first pass only, copy `design.md` to `<tmpdir>/ratified-ledger.md`, where `<tmpdir>` comes from `mktemp -d <scratchpad>/mine-sketch-XXXXXX`. Keep that path for the rest of the session, since each call prints a new directory. Later passes leave the copy alone. The ledger is usually uncommitted at this point and the challenge and comb edit it in place, so this copy is the only record of what the user ratified; Phase 6 diffs against it.
 
 ---
 
@@ -299,7 +299,7 @@ Commit as you judge best. Every repo squash-merges, so there's no required commi
 
 ### Step 3: Ship-time Challenge
 
-Write the branch's changed files to a list: the union of `git-branch-diff-files`, `git diff --name-only HEAD`, and `git ls-files --others --exclude-standard`, deduplicated. Make sure `<feature_dir>/design.md` is in it. Write the list to `<tmpdir>/challenge-changed-files.txt`, where `<tmpdir>` comes from `get-skill-tmpdir mine-sketch` (or the one this session already has).
+Write the branch's changed files to a list: the union of `git-branch-diff-files`, `git diff --name-only HEAD`, and `git ls-files --others --exclude-standard`, deduplicated. Make sure `<feature_dir>/design.md` is in it. Write the list to `<tmpdir>/challenge-changed-files.txt`, where `<tmpdir>` comes from `mktemp -d <scratchpad>/mine-sketch-XXXXXX` (or the one this session already has).
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
 

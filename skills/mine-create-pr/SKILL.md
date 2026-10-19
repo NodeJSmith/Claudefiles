@@ -136,7 +136,7 @@ Example shape:
 
 ## Step 6: Create PR (Draft)
 
-1. Run `get-skill-tmpdir mine-create-pr` to create a temp directory
+1. Run `mktemp -d <scratchpad>/mine-create-pr-XXXXXX` to create a temp directory
 2. Write the PR body to `<dir>/body.md`
 3. Create the PR:
    - **GitHub**:

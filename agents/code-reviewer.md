@@ -121,7 +121,7 @@ lint-agent-files .   # when reviewing agents/, skills/, or commands/ changes
 
 Each Bash invocation triggers a permission prompt. Batch shell checks into a single script:
 
-1. `get-skill-tmpdir code-review` → get temp dir
+1. `mktemp -d <scratchpad>/code-review-XXXXXX` → get temp dir
 2. Write all checks to `<dir>/checks.sh`, make executable, run once
 
 The standard diagnostic tools above (ruff, pyright, bandit, etc.) have their own allow-list entries and run individually.

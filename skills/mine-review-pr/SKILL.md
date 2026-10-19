@@ -57,7 +57,7 @@ This skill expects to run from a review worktree (e.g. `review-pr-50058`). It fe
 
 3. Capture the diff:
    ```bash
-   get-skill-tmpdir mine-review-pr
+   mktemp -d <scratchpad>/mine-review-pr-XXXXXX
    ```
    ```bash
    git diff 'origin/<target>...HEAD' > <tmpdir>/diff.patch
