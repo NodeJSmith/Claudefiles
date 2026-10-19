@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-19
+
+### Removed
+
+- `get-skill-tmpdir` and `get-tmp-filename`. Skills now write temp files to a per-run `mktemp -d` directory in the harness scratchpad instead of `/tmp`. (#640)
+
 ## 2026-10-18
 
 ### Changed

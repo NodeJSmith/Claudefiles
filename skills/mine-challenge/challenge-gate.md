@@ -61,4 +61,4 @@ The shared gate applied after the challenge runs at a mandatory call site. Its c
 
    `## Likely Invalid` entries (`### LI-N:`) use the same keys, with `visibility: "likely-invalid"` and no `disposition`, `recommended`, or `chosen`. Their `N` is its own sequence and can repeat a main finding's number. `**Original-severity:**` maps to `severity`. `Claimed`/`Actually`/`Why-invalid`, `Evidence`, `Design-challenge`, and a convergence finding's `**Converges:**` field are not recorded.
 
-   Write the object to a temp file (in a `get-skill-tmpdir` directory) and append it with `jq -c . <file> >> <review_log>`; `jq` rejects malformed JSON instead of appending it.
+   Write the object to a temp file (in a `mktemp -d <scratchpad>/...` directory) and append it with `jq -c . <file> >> <review_log>`; `jq` rejects malformed JSON instead of appending it.

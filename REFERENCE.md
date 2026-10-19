@@ -174,8 +174,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `context-pct` | Output the current session's context window usage percentage from the sidecar; uses `$CLAUDE_CODE_SESSION_ID` automatically, accepts explicit session_id argument as override |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
-| `get-skill-tmpdir` | Create unique temp directories for skill runs |
-| `get-tmp-filename` | Create temp files for command output capture |
 | `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |
 | `gh-pr-reply` | Reply to a PR review comment thread; optionally resolve it with `--resolve <PRRT_...>` |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |

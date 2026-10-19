@@ -2,8 +2,7 @@
   "permissions": {
     "allow": [
       "Edit(//tmp/**)",
-      "Bash(get-skill-tmpdir:*)",
-      "Bash(get-tmp-filename)",
+      "Bash(mktemp:*)",
       "Bash(ruff:*)",
       "Bash(pyright:*)",
       "Bash(pytest:*)",

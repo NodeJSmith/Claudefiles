@@ -83,7 +83,7 @@ Based on the answers, ask **1-2 targeted follow-ups** to fill in gaps:
 
 Dispatch the research to a `researcher` agent. This runs the heavy codebase exploration, web research, and synthesis outside the main context window.
 
-1. Run `get-skill-tmpdir mine-research` to get a temp directory.
+1. Run `mktemp -d <scratchpad>/mine-research-XXXXXX` to get a temp directory.
 2. Determine the **research depth** from Phase 1 answers:
    - **Quick** — user said "Decided" + narrow scope (single module or specific technology question). Use 2 worker subagents, focus on feasibility of the chosen approach.
    - **Normal** (default) — user said "Leaning" or moderate scope. Use 3-4 worker subagents.

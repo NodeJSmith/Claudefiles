@@ -35,7 +35,7 @@ Allowed commands during analysis:
 
 ## Phase 2: Analysis
 
-Run `get-skill-tmpdir mine-decompose` to create a temp directory.
+Run `mktemp -d <scratchpad>/mine-decompose-XXXXXX` to create a temp directory.
 
 **Squash-merge caveat**: If `git log --oneline | head -50` shows mostly single-commit merges (squash-merge workflow), note this in the report. Change coupling data is diluted — functions bundled in the same PR appear coupled even when they aren't. The behavioral signals are still directionally useful if PRs are reasonably focused, but lean harder on structural signals for ranking when the history is squash-heavy.
 

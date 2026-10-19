@@ -183,7 +183,7 @@ Make edits directly — only ask for confirmation on judgment calls. After fixes
 
 Bundle every out-of-scope finding into a single issue — never file one per finding. Title:
 `Clean code follow-ups: <branch name>`. Body: group by checker, each finding as `- **file:line**
-— <description> → <proposed fix>`. Run `get-skill-tmpdir mine-clean-code` and write the body to
+— <description> → <proposed fix>`. Run `mktemp -d <scratchpad>/mine-clean-code-XXXXXX` and write the body to
 `<tmpdir>/issue-body.md` — pass it via the tracker's `--body-file`/`--description-file` flag or
 its stdin equivalent, never as a raw shell argument (see `git-workflow.md` — Issue Creation
 Conventions, which also covers labels and milestone). Report the issue URL in your final

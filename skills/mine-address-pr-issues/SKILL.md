@@ -51,7 +51,7 @@ Returns `pullRequestId`, `title`, `status`, `author` (the PR author's `uniqueNam
 `gh pr view --json` does not return review threads (inline comments from reviewers or Copilot), so PR metadata alone can't tell you whether review comments exist. Run the fetching command below, saving its output for the Phase 2 ledger in a temp directory:
 
 ```bash
-get-skill-tmpdir mine-address-pr
+mktemp -d <scratchpad>/mine-address-pr-XXXXXX
 ```
 
 Use the printed path as `<tmpdir>` for the rest of the run.

@@ -30,7 +30,7 @@ $ARGUMENTS — what to document. Can be:
 
 ## Phase 1: Scope
 
-Run `get-skill-tmpdir mine-document` to establish `<dir>` for all intermediate files.
+Run `mktemp -d <scratchpad>/mine-document-XXXXXX` to establish `<dir>` for all intermediate files.
 
 If $ARGUMENTS is empty:
 

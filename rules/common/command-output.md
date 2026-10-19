@@ -2,6 +2,12 @@
 
 Bash output truncates at 30k chars. Preserve full output in a tmp file.
 
+## Temp Files
+
+Temp files go under the scratchpad directory the harness names in your environment. Where a skill, agent, or rule writes `<scratchpad>`, substitute that path. If no scratchpad is named, use `/tmp`.
+
+The scratchpad is one directory shared by the session and every subagent, so never put fixed filenames directly in it: parallel reviewers or a second run of the same skill would overwrite each other. Give each run its own directory with `mktemp -d <scratchpad>/<name>-XXXXXX` and use fixed filenames inside that.
+
 ## When to Capture
 
 **Always** capture to a tmp file when running commands that produce large output or take a long time — test suites, builds, linters, database queries, log tails. Do not rely on increasing `tail -n` arguments across retries; capture once, then read from the file.
@@ -12,8 +18,7 @@ Bash output truncates at 30k chars. Preserve full output in a tmp file.
 
 ```bash
 # Step 1: create capture file
-get-tmp-filename
-# → /tmp/claude-cmd-abc123.txt  (or $CLAUDE_CODE_TMPDIR/... under sandbox)
+mktemp <scratchpad>/cmd-XXXXXX
 ```
 
 ```bash
@@ -21,9 +26,7 @@ get-tmp-filename
 pytest -v 2>&1 | tee /path/from/step-1 | tail -80
 ```
 
-**Do NOT** wrap step 1 in a variable assignment (`_f=$(get-tmp-filename)`) — a shell variable set in one Bash call is gone in the next, so step 2 can't use it. Run it bare and reuse the printed path as a literal.
-
-For skill-specific temp files, use `get-skill-tmpdir` instead (see CLAUDE.md).
+**Do NOT** wrap step 1 in a variable assignment (`f=$(mktemp ...)`) — a shell variable set in one Bash call is gone in the next, so step 2 can't use it. Run it bare and reuse the printed path as a literal.
 
 ## Recovery
 

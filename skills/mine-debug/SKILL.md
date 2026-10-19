@@ -33,7 +33,7 @@ This phase ends only when you have a specific hypothesis. Do not skip ahead.
 
 4. **Trace backward from the symptom** — start at the assertion failure or exception and work up the call chain. At each level, ask: "What called this with the bad value?" Add temporary instrumentation (print statements, debug logs) if the call chain is unclear. Keep instrumentation minimal and mark it clearly so you can remove it in Phase 4.
 
-5. **Create or update the error file** — run `get-skill-tmpdir claude-errors`, then write to `<dir>/errors.md`. This file persists across context compaction and is passed to the researcher subagent if escalation is needed.
+5. **Create or update the error file** — on the first attempt, run `mktemp -d <scratchpad>/claude-errors-XXXXXX` and write to `<dir>/errors.md`; on later attempts, update that same file. This file persists across context compaction and is passed to the researcher subagent if escalation is needed.
 
    Start the file with a `Repo: <output of git rev-parse --show-toplevel>` line so a resumed session can tell its own file from another run's.
 
@@ -141,4 +141,4 @@ When you notice yourself using one of these rationalizations, treat it as a sign
 
 This methodology is self-contained in `SKILL.md`. If context compacts mid-debugging session, you can resume from this skill description.
 
-The error file persists across compaction as the record of what has been tried. When resuming after compaction, use the error file's path from the conversation summary if it survived. Otherwise glob `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-claude-errors-*/errors.md` (the directories `get-skill-tmpdir claude-errors` creates — rerunning it makes a new, empty one) and pick the most recently modified match whose `Repo:` line names the current repo; other matches belong to other debugging runs. If none match, start a fresh error file. Read the chosen file to reconstruct what has already been attempted before starting a new Phase 1 investigation.
+The error file persists across compaction as the record of what has been tried. When resuming after compaction, use the error file's path from the conversation summary if it survived. Otherwise glob `<scratchpad>/claude-errors-*/errors.md` (the directories `mktemp -d <scratchpad>/claude-errors-XXXXXX` creates — rerunning it makes a new, empty one) and pick the most recently modified match whose `Repo:` line names the current repo; other matches belong to other debugging runs. If none match, start a fresh error file. Read the chosen file to reconstruct what has already been attempted before starting a new Phase 1 investigation.

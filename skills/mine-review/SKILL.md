@@ -20,7 +20,7 @@ Read and execute `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detec
 
 ### Pre-compute diff (diff mode only)
 
-1. `get-skill-tmpdir mine-review` → `<tmpdir>`
+1. `mktemp -d <scratchpad>/mine-review-XXXXXX` → `<tmpdir>`
 2. `git rev-parse HEAD` → `<sha>`
 3. `<diff command> > <tmpdir>/diff.patch`
 

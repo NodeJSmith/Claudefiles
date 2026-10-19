@@ -31,7 +31,7 @@ Subagents read code directly with Read, Grep, Glob, and `git`. Do NOT write or r
 
 ## Phase 1: Scope to one subsystem
 
-Run `get-skill-tmpdir mine-elevate` — note the dir; all intermediate files live here.
+Run `mktemp -d <scratchpad>/mine-elevate-XXXXXX` — note the dir; all intermediate files live here.
 
 Resolve $ARGUMENTS to the subsystem's source files and confirm they're a **single coherent design unit**:
 - **A directory/module** → expand to its source files; that's the unit.

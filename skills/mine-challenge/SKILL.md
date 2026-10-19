@@ -39,7 +39,7 @@ See `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`
 
 ### Parse arguments and create tmpdir
 
-Extract flags from $ARGUMENTS. Run `get-skill-tmpdir mine-challenge` — note the directory (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`). All intermediate files live here.
+Extract flags from $ARGUMENTS. Run `mktemp -d <scratchpad>/mine-challenge-XXXXXX` — note the directory (e.g., `<scratchpad>/mine-challenge-a8Kx3Q`). All intermediate files live here.
 
 ### Read target and classify type
 

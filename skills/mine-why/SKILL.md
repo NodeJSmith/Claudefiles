@@ -45,7 +45,7 @@ AskUserQuestion:
 
 Identify the **target**: the specific code, file, pattern, or decision to investigate. If the user named a file, read it. If they named a pattern or constraint, grep to locate the relevant code. Record the target's file path(s) and line range(s).
 
-Run `get-skill-tmpdir mine-why` to establish `<dir>`.
+Run `mktemp -d <scratchpad>/mine-why-XXXXXX` to establish `<dir>`.
 
 ## Phase 2: Gather Evidence
 

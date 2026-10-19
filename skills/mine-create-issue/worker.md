@@ -84,7 +84,7 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 3. **Milestones:** If >50% of recent issues have milestones, pick the milestone that fits the work's scope.
 
-4. Run `get-skill-tmpdir mine-create-issue` and write the issue body from Step 2 to `<tmpdir>/issue-body.md`.
+4. Run `mktemp -d <scratchpad>/mine-create-issue-XXXXXX` and write the issue body from Step 2 to `<tmpdir>/issue-body.md`.
 
 5. Create the issue with the title from Step 2, passing `<tmpdir>/issue-body.md` to the tracker's `--body-file`/`--description-file` flag (or its stdin equivalent). Using the file is mandatory, not optional — issue bodies are multi-line Markdown, and passing one as a raw shell argument mangles quotes, backticks, and other metacharacters. Apply labels and a milestone based on what you found above.
 

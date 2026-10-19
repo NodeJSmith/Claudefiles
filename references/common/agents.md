@@ -53,7 +53,7 @@ Check the agent roster in `agents/` for a specialist whose role matches the work
 
 - Subagents start with a **fresh context** — pass file paths or embed excerpts explicitly
 - Small results (<2K tokens): return inline (default)
-- Large/structured results: write to temp file via `get-skill-tmpdir <skill-name>`
+- Large/structured results: write to temp file via `mktemp -d <scratchpad>/<skill-name>-XXXXXX`
 
 ### Foreground vs Background
 

@@ -16,7 +16,7 @@ $ARGUMENTS — path(s) to the source material. Multiple paths separated by space
 
 Read every source file end-to-end before doing anything else. **Do not edit the source files. They are read-only to this skill.**
 
-If the user did not say where to save the writeup, run `get-skill-tmpdir mine-writeup`, write to `<dir>/writeup.md`, and tell the user where it's saved.
+If the user did not say where to save the writeup, run `mktemp -d <scratchpad>/mine-writeup-XXXXXX`, write to `<dir>/writeup.md`, and tell the user where it's saved.
 
 ---
 
@@ -177,8 +177,8 @@ Skip this phase when the gap is small: a short writeup for a reader who already 
 
 ### Isolate and dispatch
 
-1. Run `get-skill-tmpdir mine-writeup-reader` and copy the writeup into it as `document.<ext>` (keep the original extension). Nothing else goes in this directory.
-2. Run `get-skill-tmpdir mine-writeup-key` and write the intended takeaways to `<key-dir>/intended-takeaways.md`. Never give the reader this path or quote the takeaways in its prompt.
+1. Run `mktemp -d <scratchpad>/mine-writeup-reader-XXXXXX` and copy the writeup into it as `document.<ext>` (keep the original extension). Nothing else goes in this directory.
+2. Run `mktemp -d <scratchpad>/mine-writeup-key-XXXXXX` and write the intended takeaways to `<key-dir>/intended-takeaways.md`. Never give the reader this path or quote the takeaways in its prompt.
 3. Dispatch the `cold-reader` agent with the brief from Phase 3: `document` (the copied path), `persona` (role, knows, does NOT know), `reading_goal`, `intent`, and `deliberate_positions`. Pass the brief only. Don't add your own commentary about the document.
 
 If it returns `{"error": "incomplete brief", ...}`, fill in the named fields and dispatch again.
