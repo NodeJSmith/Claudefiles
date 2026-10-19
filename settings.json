@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Edit(//tmp/**)",
+      "Bash(mktemp:*)",
       "Bash(ruff:*)",
       "Bash(pyright:*)",
       "Bash(pytest:*)",

@@ -33,7 +33,7 @@ This phase ends only when you have a specific hypothesis. Do not skip ahead.
 
 4. **Trace backward from the symptom** — start at the assertion failure or exception and work up the call chain. At each level, ask: "What called this with the bad value?" Add temporary instrumentation (print statements, debug logs) if the call chain is unclear. Keep instrumentation minimal and mark it clearly so you can remove it in Phase 4.
 
-5. **Create or update the error file** — run `mktemp -d <scratchpad>/claude-errors-XXXXXX`, then write to `<dir>/errors.md`. This file persists across context compaction and is passed to the researcher subagent if escalation is needed.
+5. **Create or update the error file** — on the first attempt, run `mktemp -d <scratchpad>/claude-errors-XXXXXX` and write to `<dir>/errors.md`; on later attempts, update that same file. This file persists across context compaction and is passed to the researcher subagent if escalation is needed.
 
    Start the file with a `Repo: <output of git rev-parse --show-toplevel>` line so a resumed session can tell its own file from another run's.
 

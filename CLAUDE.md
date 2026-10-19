@@ -45,7 +45,7 @@ Never hardcode `~/.claude` (or `$HOME/.claude`) anywhere — always resolve thro
 
 ## Temp File Convention
 
-Skills and agents that write temp files create a per-run directory with `mktemp -d <scratchpad>/<skill-name>-XXXXXX` and use fixed filenames inside it (e.g., `<dir>/message.md`). `<scratchpad>` is the harness's scratchpad directory; `rules/common/command-output.md` defines it for installed sessions, since this file only loads inside this repo.
+Skills and agents that write temp files create a per-run directory with `mktemp -d <scratchpad>/<skill-name>-XXXXXX` and use fixed filenames inside it (e.g., `<dir>/message.md`). `<scratchpad>` is the harness's scratchpad directory (see `rules/common/command-output.md`).
 
 **Do NOT use `$CLAUDE_SESSION_ID`** — it doesn't propagate to subagents or Bash tool calls.
 
