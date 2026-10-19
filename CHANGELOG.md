@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-10-19
 
+### Changed
+
+- Changes with a few small, independent open decisions now get them asked inline and built in the same session, instead of a full `/mine-sketch`. `/mine-issues` offers this as "Decide inline, then build" and drops its "Skip" option. (#641)
+
 ### Removed
 
 - `get-skill-tmpdir` and `get-tmp-filename`. Skills now write temp files to a per-run `mktemp -d` directory in the harness scratchpad instead of `/tmp`. (#640)
