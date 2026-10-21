@@ -16,6 +16,20 @@ if that var is unset); `--list-rules` prints them.
 Run `redact-tool-output.py --self-check` to verify both directions: known secret
 shapes get cut, and ordinary code/output is not.
 
+To see output that got redacted by mistake, start a Bash command with exactly
+`REDACT_BYPASS=1 ` (e.g. `REDACT_BYPASS=1 cat config.yaml`); that one call's
+output passes through untouched, into the model's context and the transcript
+alike. Other spellings (`export REDACT_BYPASS=1; ...`, a quoted value, another
+assignment first) are not recognized and leave redaction on. The variable has
+to be read from the command text, because an assignment inside the agent's
+command never reaches this hook's own environment. REDACT_BYPASS=1 in the
+environment Claude Code was launched from turns redaction off for the whole
+session, for every tool. Unlike REDACT_DISABLE, which names individual rules to
+switch off, the bypass is all or nothing. When a call does get redacted, the
+hook tells the agent about the prefix. This is a convenience switch, not a
+security boundary: an agent determined to read a secret can already route
+around redaction (base64, splitting the value).
+
 Adapted from https://github.com/SilentAutomaton/redact-hook (MIT), which itself
 credits rule shapes from gitleaks and detect-secrets. See "Limitations" below —
 this hook protects the model's context and the transcript, not the network: the
@@ -601,6 +615,26 @@ _SKIP_TOOLS = frozenset(
     os.environ.get("REDACT_SKIP_TOOLS", "WebFetch,WebSearch").split(",")
 )
 
+_BYPASS_PREFIX = re.compile(r"^\s*REDACT_BYPASS=1\s")
+
+
+_BYPASS_HINT = (
+    "Some of this output was redacted. If a [REDACTED:<rule>] marker hides "
+    "something that is not a secret, rerun the Bash command prefixed with "
+    "REDACT_BYPASS=1 to see it unredacted."
+)
+
+
+def bypass_requested(data: dict) -> bool:
+    """REDACT_BYPASS=1 in the session env, or as the leading assignment of a Bash command."""
+    if os.environ.get("REDACT_BYPASS") == "1":
+        return True
+    tool_input = data.get("tool_input")
+    if data.get("tool_name") != "Bash" or not isinstance(tool_input, dict):
+        return False
+    return bool(_BYPASS_PREFIX.match(str(tool_input.get("command", ""))))
+
+
 # One sample per default rule. Every value here is invented.
 _MUST_CUT = [
     (
@@ -816,6 +850,12 @@ def main() -> None:
     if not isinstance(data, dict):
         return
 
+    if bypass_requested(data):
+        # Print nothing so Claude Code keeps the original result. Echoing
+        # tool_response instead would blank a PostToolUseFailure's `error`,
+        # since that event has no tool_response.
+        return
+
     # Registered for both PostToolUse and PostToolUseFailure (a failed Bash
     # command's stdout/stderr carries secrets just as often as a successful
     # one's) — echo back whichever event actually triggered us rather than
@@ -836,16 +876,11 @@ def main() -> None:
         return
     config = load_config()
     updated = build_updated_response(data, active_rules(config), allow_patterns(config))
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": event_name,
-                    "updatedToolOutput": updated,
-                }
-            }
-        )
-    )
+    output = {"hookEventName": event_name, "updatedToolOutput": updated}
+    original = data.get("error", "") if event_name == "PostToolUseFailure" else resp
+    if data.get("tool_name") == "Bash" and updated != original:
+        output["additionalContext"] = _BYPASS_HINT
+    print(json.dumps({"hookSpecificOutput": output}))
 
 
 if __name__ == "__main__":
