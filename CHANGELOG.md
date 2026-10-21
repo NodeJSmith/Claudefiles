@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-21
+
+### Added
+
+- The secret-redaction hook can be bypassed: start a Bash command with `REDACT_BYPASS=1 ` to see its output unredacted, or set `REDACT_BYPASS=1` when launching Claude Code to bypass it for the whole session. Redacted Bash output now includes a hint about the prefix. (#643)
+
 ## 2026-10-19
 
 ### Changed
