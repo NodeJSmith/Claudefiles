@@ -8,6 +8,8 @@ Temp files go under the scratchpad directory the harness names in your environme
 
 The scratchpad is one directory shared by the session and every subagent, so never put fixed filenames directly in it: parallel reviewers or a second run of the same skill would overwrite each other. Give each run its own directory with `mktemp -d <scratchpad>/<name>-XXXXXX` and use fixed filenames inside that.
 
+When you dispatch subagents in parallel and they write temp files, give each one a unique place to write before dispatching and pass it in its prompt: its own directory, or its own filename in a shared run directory, as skills like `mine-brainstorm` already do. A subagent left to pick its own path can skip the `mktemp` step or improvise one, and siblings then overwrite each other's files. A subagent given a path writes there. One given none creates its own directory with `mktemp -d`. Never write into a directory you neither created nor were given. A sibling's `<name>-XXXXXX` directory looks exactly like yours.
+
 ## When to Capture
 
 **Always** capture to a tmp file when running commands that produce large output or take a long time — test suites, builds, linters, database queries, log tails. Do not rely on increasing `tail -n` arguments across retries; capture once, then read from the file.
