@@ -89,7 +89,7 @@ This is PR review of someone else's branch. You are reviewing, not fixing.
 
 ### Write the PR overview while reviewers run
 
-While the reviewers run, write a short overview of what the PR contains, for the user only. It is never posted, because the author already knows what their PR does. Build it from the PR description, the commit list (`git log --oneline '<base>..HEAD'`, using the same base as the Phase 1 diff, so a merged PR uses the pre-merge base from Phase 0 step 4), and the diff stat. Describe what the diff does, not what the description says it does:
+While the reviewers run, write a short overview of what the PR contains, for the user only. It is never posted, because the author already knows what their PR does. Read `<tmpdir>/diff.patch` (and changed files where the hunks need context), then compare it with the PR description and the commit list (`git log --oneline '<base>..HEAD'`, using the same base as the Phase 1 diff, so a merged PR uses the pre-merge base from Phase 0 step 4). Describe what the diff does, not what the description or commit subjects say it does:
 
 - **Purpose** — one or two sentences on what the PR is for.
 - **Changes** — grouped by area or intent ("adds four claims task classes", "changes the shared `PreProcTask.launch()`"), not a per-file list; the diff stat already covers files.
