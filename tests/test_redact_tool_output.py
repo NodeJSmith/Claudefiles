@@ -22,6 +22,8 @@ def run_hook(stdin: str, extra_env: dict | None = None) -> subprocess.CompletedP
     import os
 
     full_env = os.environ.copy()
+    # A session-wide bypass in the developer's shell would turn every test into a no-op.
+    full_env.pop("REDACT_BYPASS", None)
     full_env.update(env)
     return subprocess.run(
         [sys.executable, str(REDACT_HOOK)],
@@ -209,6 +211,73 @@ class TestSkipTools:
         assert out["hookSpecificOutput"]["updatedToolOutput"] == (
             "token=ghp_AbCdEf0123456789ghijklmnopqrstuvwxyz"
         )
+
+
+class TestBypass:
+    """REDACT_BYPASS=1 lets an agent see output that was redacted by mistake.
+    The hook can't see variables assigned inside the agent's command, so the
+    per-call form is read from the command text."""
+
+    # Assembled, never written out, so secret scanners don't flag the fixture.
+    SECRET = "ghp_" + "AbCdEf0123456789" * 3
+
+    def _bash(self, command: str) -> str:
+        return json.dumps(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+                "tool_response": {"stdout": f"token {self.SECRET}", "stderr": ""},
+            }
+        )
+
+    def test_command_prefix_passes_output_through(self):
+        result = run_hook(self._bash("REDACT_BYPASS=1 cat auth.json"))
+        assert result.returncode == 0
+        assert result.stdout == ""
+
+    def test_prefix_elsewhere_in_command_does_not_bypass(self):
+        result = run_hook(self._bash("echo REDACT_BYPASS=1 && cat auth.json"))
+        out = json.loads(result.stdout)
+        assert (
+            self.SECRET not in out["hookSpecificOutput"]["updatedToolOutput"]["stdout"]
+        )
+
+    def test_other_value_does_not_bypass(self):
+        result = run_hook(self._bash("REDACT_BYPASS=0 cat auth.json"))
+        out = json.loads(result.stdout)
+        assert (
+            self.SECRET not in out["hookSpecificOutput"]["updatedToolOutput"]["stdout"]
+        )
+
+    def test_session_env_passes_read_output_through(self):
+        result = run_hook(
+            _read_payload(f"token {self.SECRET}"), extra_env={"REDACT_BYPASS": "1"}
+        )
+        assert result.returncode == 0
+        assert result.stdout == ""
+
+    def test_redacted_bash_output_carries_bypass_hint(self):
+        out = json.loads(run_hook(self._bash("cat auth.json")).stdout)
+        assert "REDACT_BYPASS=1" in out["hookSpecificOutput"]["additionalContext"]
+
+    def test_unredacted_output_carries_no_hint(self):
+        out = json.loads(run_hook(_bash_payload("hello world")).stdout)
+        assert "additionalContext" not in out["hookSpecificOutput"]
+
+    def test_prefix_on_failed_call_leaves_error_untouched(self):
+        stdin = json.dumps(
+            {
+                "hook_event_name": "PostToolUseFailure",
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": "REDACT_BYPASS=1 curl -v https://example.com"
+                },
+                "error": f"Authorization: Bearer {self.SECRET}",
+            }
+        )
+        result = run_hook(stdin)
+        assert result.returncode == 0
+        assert result.stdout == ""
 
 
 class TestMalformedInput:
