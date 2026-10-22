@@ -87,7 +87,17 @@ This is PR review of someone else's branch. You are reviewing, not fixing.
 
 **Instruction mode:** `fine-toothed-comb`, `instruction-quality-reviewer`, `writing-quality-reviewer`
 
-Wait for all three completion notifications. Do not poll, and do not fabricate or predict results before they land.
+### Write the PR overview while reviewers run
+
+While the reviewers run, write a short overview of what the PR contains, for the user only. It is never posted, because the author already knows what their PR does. Build it from the PR description, the commit list (`git log --oneline '<base>..HEAD'`, using the same base as the Phase 1 diff, so a merged PR uses the pre-merge base from Phase 0 step 4), and the diff stat. Describe what the diff does, not what the description says it does:
+
+- **Purpose** — one or two sentences on what the PR is for.
+- **Changes** — grouped by area or intent ("adds four claims task classes", "changes the shared `PreProcTask.launch()`"), not a per-file list; the diff stat already covers files.
+- **Description vs. diff** — anything the diff changes that the description doesn't mention, or anything the description claims that the diff doesn't contain. Omit this line when they agree.
+
+The user needs to know what the PR does to judge the findings, and on a clean PR the overview is the main output.
+
+Then wait for all three completion notifications. Do not poll, and do not fabricate or predict results before they land.
 
 ## Phase 3: Consolidate and categorize
 
@@ -123,9 +133,11 @@ Drop or reframe any claim that does not survive this check.
 
 ## Phase 5: Present the report
 
-Use `mine-review`'s severity-grouped format, organized by severity, not by reviewer. Include the proposed bucket assignment for each finding so the user can see what would be posted. Only findings that survived Phase 4 appear here.
+Open with the PR overview from Phase 2 (rewritten if Phase 4 re-ran Phase 2 against a new head).
 
-If nothing survived Phase 4 (nothing new since a prior pass, or the PR is genuinely clean), say so and stop here. No empty confirmation prompt.
+Then the findings in `mine-review`'s format, grouped by severity, not by reviewer. Include the proposed bucket assignment for each finding so the user can see what would be posted. Only findings that survived Phase 4 appear here.
+
+If nothing survived Phase 4 (nothing new since a prior pass, or the PR is genuinely clean), show the overview, say no findings survived, and stop here. No empty confirmation prompt.
 
 ## Phase 6: Draft comment threads
 
