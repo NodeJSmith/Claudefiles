@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-10-22
 
+### Added
+
+- `mine-review-pr` opens its report with a short overview of what the PR contains, including anything the diff changes that the description doesn't mention. The overview is never posted to the PR. (#645)
+
 ### Fixed
 
 - Parallel subagents no longer overwrite each other's temp files in the shared scratchpad: the dispatching agent now creates each one's directory and passes the path in its prompt. (#644)
