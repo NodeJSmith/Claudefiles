@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-22
+
+### Fixed
+
+- Parallel subagents no longer overwrite each other's temp files in the shared scratchpad: the dispatching agent now creates each one's directory and passes the path in its prompt. (#644)
+
 ## 2026-10-21
 
 ### Added
