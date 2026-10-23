@@ -15,7 +15,7 @@ A sequence of commits or PRs should tell a story a reviewer can check step by st
 The RED commit is evidence. Without it, "trust me, it was broken before" is the only argument.
 
 **Refactors:**
-1. Subtraction — remove the old complexity (see `subtract-first.md`)
+1. Subtraction — remove the old complexity first, so the next steps build on a smaller base (see `laziness-protocol.md`)
 2. Reshape — restructure on the simpler base
 3. Cleanup — polish, no behavior changes
 

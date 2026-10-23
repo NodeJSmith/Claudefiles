@@ -100,7 +100,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Category | Installer key | Rule files |
 |----------|---------------|-----------|
 | Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `invariants`, `performance`, `worktrees` |
-| Code structure & style | `style` | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
+| Code structure & style | `style` | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `sketch-before-building`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |

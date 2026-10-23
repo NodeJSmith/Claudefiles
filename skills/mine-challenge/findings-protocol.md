@@ -164,14 +164,14 @@ them — change both together.
 - Severity is not CRITICAL
 - Fix introduces no behavior change to the design's intent
 - Likelihood is not `rare`
-- Fix adds no state and no guard, reset, or heuristic by which one component guesses at another's state
+- Fix adds no state, setting, validator, or new mechanism and no guard, reset, or heuristic by which one component guesses at another's state
 
 **User-directed** when ANY of the following hold:
 - Fix requires a judgment call between competing approaches
 - Severity is CRITICAL
 - Likelihood is `rare` (this includes every `Audience assumption:` finding), so the user can accept it as a limitation instead of carrying a fix
 - Fix touches multiple sections or has design-level implications
-- Fix adds state, or a guard, reset, or heuristic that guesses at another component's state
+- Fix adds state, a setting, a validator, or a new mechanism, or a guard, reset, or heuristic that guesses at another component's state
 - Critics disagreed on the resolution
 
 TENSION findings always classify as User-directed.
