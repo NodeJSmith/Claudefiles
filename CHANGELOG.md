@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-23
+
+### Changed
+
+- `mine-challenge` and `mine-sketch` now offer deleting the cause first when a fix or option adds a setting, validator, guard, or mechanism, and weigh it against how often the problem occurs and what peers do. (#646)
+
+### Removed
+
+- The `subtract-first` rule: it didn't change behavior, and the challenge and sketch option tables now carry its check. (#646)
+
 ## 2026-10-22
 
 ### Added
