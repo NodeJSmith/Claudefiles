@@ -16,7 +16,7 @@ A refactor that smuggles in a behavior change loses its safety net. If cleanup r
 
 ## Move in Small Steps
 
-Each step keeps the pin green. Sequence deletion before construction — see `subtract-first.md`. For API reshapes, migrate every caller and delete the old API in the same wave — see `coding-style.md` (No Compatibility Shims for Convenience).
+Each step keeps the pin green. Sequence deletion before construction (the Refactors shape in `sequence-verifiable-units.md`). For API reshapes, migrate every caller and delete the old API in the same wave — see `coding-style.md` (No Compatibility Shims for Convenience).
 
 Spot-check every rename against the actual files. Renames silently miss usages in strings, prose, and back-references.
 

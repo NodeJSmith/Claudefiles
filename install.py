@@ -185,13 +185,12 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "style": RuleCategory(
         label="Code structure & style",
-        description="coding-style, logging, reader-load, laziness, subtract-first, redesign, refactoring discipline, model-the-domain",
+        description="coding-style, logging, reader-load, laziness, redesign, refactoring discipline, model-the-domain",
         files=(
             "coding-style.md",
             "logging.md",
             "reader-load.md",
             "laziness-protocol.md",
-            "subtract-first.md",
             "redesign-from-first-principles.md",
             "refactoring-discipline.md",
             "model-the-domain.md",
