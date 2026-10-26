@@ -6,7 +6,7 @@
 
 The `haiku`/`sonnet`/`opus` aliases resolve to the current generation of each tier (`opus` tracks the top-level session's Opus), so this file names tiers, not versions.
 
-A PreToolUse hook (`subagent-model-default.sh`) enforces model defaults on Agent dispatches. Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`, empty) have no model frontmatter and inherit the parent model — typically Opus. The hook injects `model: sonnet` for these types when no model is specified. When the hook fires, it injects an `additionalContext` message — relay that to the user so they know the override happened. Overrides are logged to `~/.local/share/claudefiles/model-overrides.jsonl`.
+Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`, empty) have no model frontmatter and would inherit the parent model — typically Opus. `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` in `settings.json` `env` sets the default subagent model for them. An agent's `model:` frontmatter or an explicit per-spawn `model` still takes precedence.
 
 ## Effort Level Policy
 
