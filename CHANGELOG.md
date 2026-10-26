@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-26
+
+### Changed
+
+- Built-in subagent types now default to Sonnet through `CLAUDE_CODE_SUBAGENT_MODEL` in `settings.json`, replacing the `subagent-model-default.sh` hook and its override log. (#647)
+
 ## 2026-10-23
 
 ### Changed
