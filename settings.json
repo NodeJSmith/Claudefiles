@@ -8,6 +8,10 @@
       "Bash(pytest:*)",
       "Skill(mine-commit-push)"
     ],
+    "deny": [
+      "Agent(Explore)",
+      "Agent(Plan)"
+    ],
     "ask": [],
     "defaultMode": "auto"
   },

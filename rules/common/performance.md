@@ -6,7 +6,7 @@
 
 The `haiku`/`sonnet`/`opus` aliases resolve to the current generation of each tier (`opus` tracks the top-level session's Opus), so this file names tiers, not versions.
 
-Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`, empty) have no model frontmatter and would inherit the parent model — typically Opus. `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` in `settings.json` `env` sets the default subagent model for them. An agent's `model:` frontmatter or an explicit per-spawn `model` still takes precedence.
+Built-in agent types have no model frontmatter and would inherit the parent model — typically Opus. `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` in `settings.json` `env` sets the default subagent model for `general-purpose` and `claude`; an agent's `model:` frontmatter or an explicit per-spawn `model` still takes precedence. The env var does not apply to the built-in `Explore` and `Plan` types, which inherit the parent model, so `settings.json` denies them (`permissions.deny`: `Agent(Explore)`, `Agent(Plan)`). Dispatch a named agent such as `standard-worker` or `light-worker` instead.
 
 ## Effort Level Policy
 
@@ -16,7 +16,7 @@ Sonnet agents run at `effort: medium`. Opus and Haiku agents run at `effort: hig
 
 The parent session runs at `high` (set in `settings.machine.json`).
 
-**Gap:** Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`) have no frontmatter, so they inherit the parent session's effort level (`high`). The Agent tool schema has no `effort` parameter, so the model-default hook cannot inject it. These types already get downgraded to Sonnet by the hook, which limits the cost impact.
+**Gap:** Built-in agent types (`general-purpose`, `claude`) have no frontmatter, so they inherit the parent session's effort level (`high`). The Agent tool schema has no `effort` parameter, so it cannot be set per dispatch. These types still default to Sonnet via `CLAUDE_CODE_SUBAGENT_MODEL`, which limits the cost impact.
 
 ## Context Window
 

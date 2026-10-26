@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
-- Built-in subagent types now default to Sonnet through `CLAUDE_CODE_SUBAGENT_MODEL` in `settings.json`, replacing the `subagent-model-default.sh` hook and its override log. (#647)
+- `general-purpose` and `claude` subagents now default to Sonnet through `CLAUDE_CODE_SUBAGENT_MODEL` in `settings.json`, replacing the `subagent-model-default.sh` hook and its override log. The built-in `Explore` and `Plan` types, which that variable doesn't cover, are denied via `permissions.deny`, and `mine-audit` dispatches `standard-worker` instead of `Explore`. (#647)
 
 ## 2026-10-23
 

@@ -40,7 +40,7 @@ Identify the top-level modules and determine review units.
 
 ## Phase 1.5: Per-Directory Reconnaissance
 
-Launch parallel `Explore` subagents — one per review unit identified in Phase 1. Each subagent assesses ALL concerns for its directory:
+Launch parallel `standard-worker` subagents — one per review unit identified in Phase 1. Each subagent assesses ALL concerns for its directory:
 
 - **Structure & Size** — largest files, largest functions, disproportionate growth
 - **Churn & Age** — hot spots, cold spots, churn + complexity
@@ -52,7 +52,7 @@ Each subagent returns a structured summary for its directory. This is faster and
 
 ## Phase 1.6: Cross-Scope Synthesis
 
-Launch a single `Explore` subagent that reads ALL per-directory findings plus the full file manifest. This subagent looks for problems that only emerge at the boundary between directories:
+Launch a single `standard-worker` subagent that reads ALL per-directory findings plus the full file manifest. This subagent looks for problems that only emerge at the boundary between directories:
 
 - Cross-directory DRY violations (same logic duplicated in multiple modules)
 - Naming drift (same concept called different things in different directories)
