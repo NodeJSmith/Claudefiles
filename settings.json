@@ -8,6 +8,10 @@
       "Bash(pytest:*)",
       "Skill(mine-commit-push)"
     ],
+    "deny": [
+      "Agent(Explore)",
+      "Agent(Plan)"
+    ],
     "ask": [],
     "defaultMode": "auto"
   },
@@ -58,16 +62,6 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/subagent-model-default.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 2000
           }
         ]
       }
@@ -217,5 +211,7 @@
       }
     ]
   },
-  "env": {}
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  }
 }
