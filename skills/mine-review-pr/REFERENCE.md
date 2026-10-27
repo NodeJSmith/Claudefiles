@@ -7,22 +7,31 @@ Extended guidance for `SKILL.md`. Referenced by SKILL.md; do not reference furth
 ## Comment Draft Template
 
 ```markdown
-**<one-line bolded title of the issue>**
+**[<label>] <one-line title of the issue>**
 
-<1-4 sentences: what the finding is, with file:line references, and the concrete evidence
-that makes it true. Not "this looks wrong," but the actual line, the actual duplicate, the
-actual missing case.>
+<1-2 sentences: exactly what to change. One ask, concrete enough that the author could
+apply it directly. No "or alternatively" menus.>
 
-<1-2 sentences: the suggested fix, concrete enough that the PR author could apply it
-directly. If the fix is genuinely a judgment call rather than a clear improvement, say so
-("...unless the duplication is deliberate for a reason not obvious from the code.").>
+<1-3 sentences: why, with file:line references and the evidence actually run (the test
+that failed, the query result, the consumer that breaks). Not "this looks wrong".>
 
 *— Posted by Claude (AI review assistant)*
 ```
 
-Keep each draft to one screen's worth of text. A thread that requires scrolling reads as a report dump, not a review comment. If a bucket has 3+ sub-findings, use a short bullet list rather than a wall of prose.
+For a finding whose evidence is `judgment:`, the why gives the reasoning as reasoning, without claiming anything was run or verified.
 
-The footer line is fixed text. Always this exact wording, always the last line, always as its own paragraph (blank line before it).
+The author should be able to act on the comment from its first two lines: the label says whether it blocks approval, and the first sentence says what to change. Keep the body to about six lines. Use a short bullet list only when a thread has 3+ sub-points.
+
+**Labels.** `<label>` is one of:
+- `Blocking` — Critical and High findings, and any PR claim the investigation disproved.
+- `Non-blocking` — Medium and below, and the tests and docs bucket threads.
+- `Non-blocking — worth fixing while you're in here` — an issue that predates the PR, in code the PR touches.
+
+The user can flip any label at the Phase 5 shaping gate.
+
+**Question form.** Used only when the user chooses at the shaping gate to post an open question to the author. The header is `**[Question] <title>**`, the first sentence is the one question, and the why says what was checked and why this session couldn't settle it.
+
+The footer is fixed: this exact wording, last line, its own paragraph.
 
 ---
 
@@ -31,46 +40,31 @@ The footer line is fixed text. Always this exact wording, always the last line, 
 From a PR adding a new claims org (4 new task classes, shared utility changes):
 
 ```markdown
-**Test coverage gaps**
+**[Non-blocking] Add tests for the new task classes and the two shared-code changes**
 
-This PR adds 4 new task classes (`ui_claims`, `preproc_claims`, `raw_claims`, `bronze_claims`
-under `claims/ui/`) and changes behavior in 3 shared files, but the only test-suite change is
-a single deleted assertion. A few gaps stand out:
+Please add one scenario per new task class (`ui_claims`, `preproc_claims`, `raw_claims`,
+`bronze_claims`), plus cases for `files_exist_in_directory` and the new date format.
 
-- No test for any of the 4 new UI task classes.
-- No test for the new `files_exist_in_directory` utility (`utils.py`). The shared
-  `PreProcTask.launch()` fix has no test proving it behaves correctly on an empty-but-existing
-  directory.
-- The new date format `"yyyy-MM-dd HH:mm:ss"` added to `convert_date_columns`
-  (`dataframe/pipeline.py:148`) replaces a test case that previously asserted this exact
-  string was *unparseable*. No new case proves it now parses to the right date.
-
-Given the project's test-coverage bar of "test one scenario per task class, at minimum," would
-be good to see the new task classes and the two shared-code changes covered before merge.
+The repo's bar is "test one scenario per task class, at minimum", and the only test change
+is a deleted assertion that `"yyyy-MM-dd HH:mm:ss"` was *unparseable*. `convert_date_columns`
+(`dataframe/pipeline.py:148`) now parses it, and `git grep 'HH:mm:ss' tests/` at HEAD
+returns nothing, so no test covers the new behavior.
 
 *— Posted by Claude (AI review assistant)*
 ```
 
 What makes this work:
-- File:line references throughout, not vague pointers.
-- A direct quote from the repo's own testing standard, not a generic "should have tests" appeal.
-- Explains *why* the removed test case matters: it asserted the opposite of the new behavior, not just that a line was deleted.
-
----
-
-## Why Phase 4 (verification) is mandatory
-
-Reviewers read a diff, not the PR, and the PR may have moved since the diff was captured. In practice this produces specific, recurring failures: flagging a change as "silent" or "undisclosed" when the PR author already named it in the description, or drafting against a HEAD the author has since pushed past. Posting either tells the author their PR wasn't read, which undermines every other finding. Cross-checking against the current head, the code, and the description before presenting anything catches this.
-
-The same applies to line numbers and "this exists twice" claims. Diffs go stale as soon as a follow-up commit lands. Read the file at current HEAD, not the patch.
+- The ask comes first and is one ask, so the author knows what to do without reading further.
+- The why quotes the repo's own testing standard, not a generic "should have tests" appeal.
+- The evidence proves the claim: a grep of the tests for the format string comes back empty. A passing test suite wouldn't have shown that.
 
 ---
 
 ## Re-reviewing After New Commits
 
-PRs evolve. Re-invoking this skill on the same PR after the author pushes changes is normal. You want to see if new commits addressed prior findings and whether new issues appeared.
+Re-invoking the skill after the author pushes is normal. It should show which prior findings the new commits addressed and what new issues appeared.
 
-Phase 4 step 4 handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue still reproduces in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
+Phase 4 step 1 handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue is still present in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
 
 ---
 
@@ -78,7 +72,7 @@ Phase 4 step 4 handles the dedup: fetch existing threads, including resolved one
 
 ### GitHub
 
-`gh pr comment` creates a top-level conversation comment (not an inline review thread anchored to a file/line). This is the correct behavior. External review comments are general observations, not line-level nitpicks. File:line references go in the comment body text.
+`gh pr comment` creates a top-level conversation comment, not an inline review thread anchored to a file/line. Each comment can cite several locations and survives later pushes that would orphan a line anchor, so file:line references go in the body text.
 
 ### Azure DevOps
 
