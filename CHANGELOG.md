@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-27
+
+### Changed
+
+- `mine-review-pr` now proves or drops each Medium+ finding and each claim the PR makes by running the check that settles it, gathers PR context (description, work items, CI, threads) up front, routes issues already on the target branch to tracker candidates, and shows every draft's full body before posting. (#648)
+
 ## 2026-10-26
 
 ### Changed
