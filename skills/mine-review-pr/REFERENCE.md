@@ -29,7 +29,7 @@ The author should be able to act on the comment from its first two lines: the la
 
 The user can flip any label at the Phase 5 shaping gate.
 
-**Question form.** Used only when the user chooses at the shaping gate to post an open question to the author. The header is `**[Question] <title>**`, the first sentence is the one question, and the why says what was checked and why only the author can settle it.
+**Question form.** Used only when the user chooses at the shaping gate to post an open question to the author. The header is `**[Question] <title>**`, the first sentence is the one question, and the why says what was checked and why this session couldn't settle it.
 
 The footer is fixed: this exact wording, last line, its own paragraph.
 

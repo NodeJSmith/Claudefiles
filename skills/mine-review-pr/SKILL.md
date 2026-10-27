@@ -41,18 +41,15 @@ These hold for every phase:
    | Operation | GitHub | ADO |
    |-----------|--------|-----|
    | Show PR | `gh pr view <id> --json number,title,author,body,headRefName,baseRefName,state,headRefOid,isCrossRepository` | `ado-api pr show <id> --json` |
-   | Head SHA (Phase 7) | `gh pr view <id> --json headRefOid` | `git ls-remote origin 'refs/heads/<source-branch>'` (empty output means the branch is gone: "no answer") |
    | Linked work items | `gh pr view <id> --json closingIssuesReferences` | `ado-api pr work-item-list <id> --json` |
    | List threads | `gh-pr-threads <id> --json --all` | `ado-api pr threads <id> --json --all` |
    | Post thread | `gh pr comment <id> --body-file <file>` | `ado-api pr thread-add <id> --body-file <file>` |
-
-   `ado-api pr threads --json` prints a `PR #<id> — N thread(s)` line before the JSON array; skip that first line before parsing. `ado-api pr show --json` carries no head or merge commit, which is why the ADO head SHA comes from `git ls-remote`.
 
 2. If given a URL, extract the PR number from it. GitHub URLs follow `github.com/<owner>/<repo>/pull/<number>`. ADO URLs follow `dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/<number>`. If given a branch name, look up the PR for that branch (`gh pr list --head <branch> --json number` or `ado-api pr list --json` and match on source).
 
    **URL repo mismatch check.** A URL also names a repository. Extract it (`<owner>/<repo>` for GitHub, `<org>/<project>/<repo>` for ADO). Run `git remote get-url origin` and normalize both sides to a bare `owner/repo` (or `org/project/repo`) tuple before comparing — strip the protocol/host and any trailing `.git`, so both `git@github.com:owner/repo.git` (SSH) and `https://github.com/owner/repo.git` (HTTPS) reduce to `owner/repo`; compare case-insensitively. If `origin` doesn't exist or the command errors, treat that as unknown rather than a mismatch and ask the user to confirm the target repo before proceeding. If the normalized values don't match, stop and tell the user — this worktree isn't checked out against that repo, and reusing its PR number against the wrong remote would review or comment on the wrong PR. Don't guess; a fresh worktree against the right remote is the fix.
 3. Fetch PR metadata. Extract: `source` branch, `target` branch, `title`, `author`, `description`, and `state`.
-4. **Check PR state.** If the PR is merged or closed/abandoned, say so in one line and proceed; review is read-only and posting is gated separately in Phase 7. If a merged PR's source branch can no longer be fetched in Phase 1, say so and stop.
+4. **Check PR state.** If the PR is merged or closed/abandoned, say so in one line and proceed; review is read-only and posting is gated separately in Phase 7. If a merged PR's head can no longer be fetched in Phase 1, say so and stop.
 5. **Check PR author.** On GitHub, compare the PR's `author.login` against `gh api user --jq .login`. On ADO, compare against the `git config user.email` value (ADO PR metadata includes the author's email). If it is the user's own PR, say so and suggest `/mine-review` instead.
 6. **Gather context in one batch.** Run the linked-work-items and list-threads commands from the table in parallel, one command per call, without asking about each one. Get the PR's CI or validation-build status too (`gh pr checks <id>` on GitHub; on ADO, `az` with the devops extension works), and note any run or build links the author left in the description or threads. A command that errors is recorded as "no answer" for that item, not skipped silently. This context is what the reviewers and the investigation work from: what the PR says it does, what it's meant to fix, whether CI passed, and what has already been raised.
 
@@ -60,17 +57,9 @@ These hold for every phase:
 
 This skill expects to run from a review worktree (e.g. `review-pr-50058`). It fetches and checks out branches as needed. If the worktree is already on the source branch, no checkout is required.
 
-1. Fetch both the source and target branches. Single-quote the branch names — they come from someone else's PR and could contain shell metacharacters. Double quotes are not enough here: they still allow `$(...)`/backtick command substitution, which git's ref-name rules do not forbid:
-   ```bash
-   git fetch origin '<source-branch>' '<target-branch>'
-   ```
+1. Fetch the target branch, and check out the PR's head commit detached so no local branch is touched (on GitHub, `gh pr checkout <id> --detach` also handles fork PRs). Confirm `git status --porcelain` is clean first.
 
-2. If HEAD does not match `origin/<source-branch>`, check `git status --porcelain` is clean, then switch to a detached checkout — this reviews the commit without touching any local branch, so a local branch that happens to share the source branch's name is never reset:
-   ```bash
-   git checkout --detach 'origin/<source-branch>'
-   ```
-
-3. Capture the diff and pin the commits. Each line is its own Bash call:
+2. Capture the diff and pin the commits. Each line is its own Bash call:
    ```bash
    mktemp -d <scratchpad>/mine-review-pr-XXXXXX
    ```
@@ -83,9 +72,9 @@ This skill expects to run from a review worktree (e.g. `review-pr-50058`). It fe
 
    The `rev-parse` output is the pinned `<sha>`. The `merge-base` output is `<base>`, the commit the PR branched from. The three-dot diff is taken from `<base>`, so it is right for open and squash-merged PRs alike.
 
-4. Write the Phase 0 context to `<tmpdir>/context.md`: the PR description, linked work items, CI status, run links, and a one-line summary of each existing thread.
+3. Write the Phase 0 context to `<tmpdir>/context.md`: the PR description, linked work items, CI status, run links, and a one-line summary of each existing thread.
 
-5. If the diff exceeds ~500 files, ask the user to confirm before proceeding.
+4. If the diff exceeds ~500 files, ask the user to confirm before proceeding.
 
 ## Phase 2: Dispatch reviewers and write the overview
 
@@ -151,7 +140,7 @@ Only Medium-and-above code issues get their own thread. Fold Low and nit code fi
 Phase 3's "valid by default" governs triage, so reviewers' findings aren't discarded on a hunch. This phase sets the higher bar for what gets presented.
 
 1. **Existing threads, description, current code.** Read each finding's file at HEAD, not the patch: line numbers drift, and a duplicated block may already be fixed. Drop a finding or disproved claim that duplicates an existing thread: same file:line (or the same code construct, if line numbers drifted) and the same underlying concern, not merely the same topic. Match threads from any author. A finding that duplicates a *resolved* thread is kept if the issue is still present at HEAD (the prior fix didn't fully land), otherwise dropped. The Claude attribution footer identifies this skill's own prior comments for tracking re-review passes, not for gating dedup. Then drop or reframe any finding that calls something "undisclosed" or "unexplained" when the PR description already says it. That is the most common false positive, and posting it tells the author their description wasn't read.
-2. **Introduced or already there.** For each Medium-and-above finding, ask whether the issue would exist if the PR never merged. Check it at `<base>` with `git show '<base>:<path>'` or `git grep '<pattern>' '<base>'`. These are read-only; never check out `<base>`. Route by what the PR did:
+2. **Introduced or already there.** For each Medium-and-above finding, ask whether the issue would exist if the PR never merged. Check it at `<base>` with read-only commands such as `git show` or `git grep`; never check out `<base>`. Route by what the PR did:
    - **The PR introduced it, or copied, extended, or worsened an existing instance:** a finding like any other.
    - **It's at `<base>` and the PR touches that code:** a finding, labelled with the "while you're in here" variant from `REFERENCE.md`.
    - **It's at `<base>` and the PR neither touches nor worsens it:** a tracker candidate for the user, not drafted.
@@ -224,7 +213,7 @@ AskUserQuestion:
 
 Never post without this confirmation: a posted thread can't be unsent and lands under the user's name. On "Edit some first", show each changed body in full again before asking again.
 
-On approval, first get the PR's current head SHA with the Phase 0 table command and compare it to the pinned `<sha>`. Never compare against a local ref (`origin/<branch>`, `git rev-parse`): that compares the Phase 1 fetch to itself. If the head moved, the author pushed during the review: tell the user what changed and let them decide whether to post, re-review, or stop. If the command fails, say "head check: no answer" and ask the same way.
+On approval, first confirm the PR's head on the platform is still the pinned `<sha>` (a local ref only compares the Phase 1 fetch to itself). If it moved, the author pushed during the review: tell the user what changed and let them decide whether to post, re-review, or stop. If you can't confirm the head, say so and ask the same way.
 
 Then post each draft using the platform command from the Phase 0 table (use `--body-file` to avoid shell quoting issues). Report back the thread IDs. If a post fails, report which one and don't retry blind: a post that errored after landing would double-post.
 
