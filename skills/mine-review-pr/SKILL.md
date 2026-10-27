@@ -40,10 +40,9 @@ These hold for every phase:
 
    | Operation | GitHub | ADO |
    |-----------|--------|-----|
-   | Show PR | `gh pr view <id> --json number,title,author,body,headRefName,baseRefName,state,headRefOid` | `ado-api pr show <id> --json` |
-   | Head SHA (Phase 4) | `gh pr view <id> --json headRefOid` | `git ls-remote origin '<source-branch>'` |
+   | Show PR | `gh pr view <id> --json number,title,author,body,headRefName,baseRefName,state,headRefOid,isCrossRepository` | `ado-api pr show <id> --json` |
+   | Head SHA (Phase 7) | `gh pr view <id> --json headRefOid` | `git ls-remote origin 'refs/heads/<source-branch>'` (empty output means the branch is gone: "no answer") |
    | Linked work items | `gh pr view <id> --json closingIssuesReferences` | `ado-api pr work-item-list <id> --json` |
-   | CI / build status | `gh pr checks <id>` | `ado-api builds list --branch 'refs/pull/<id>/merge' --top 5 --json` |
    | List threads | `gh-pr-threads <id> --json --all` | `ado-api pr threads <id> --json --all` |
    | Post thread | `gh pr comment <id> --body-file <file>` | `ado-api pr thread-add <id> --body-file <file>` |
 
@@ -55,7 +54,7 @@ These hold for every phase:
 3. Fetch PR metadata. Extract: `source` branch, `target` branch, `title`, `author`, `description`, and `state`.
 4. **Check PR state.** If the PR is merged or closed/abandoned, say so in one line and proceed; review is read-only and posting is gated separately in Phase 7. If a merged PR's source branch can no longer be fetched in Phase 1, say so and stop.
 5. **Check PR author.** On GitHub, compare the PR's `author.login` against `gh api user --jq .login`. On ADO, compare against the `git config user.email` value (ADO PR metadata includes the author's email). If it is the user's own PR, say so and suggest `/mine-review` instead.
-6. **Gather context in one batch.** Run the linked-work-items, CI-status, and list-threads commands from the table in parallel, one command per call, without asking about each one. Note any run or build links the author left in the description or threads. A command that errors is recorded as "no answer" for that item, not skipped silently. This context is what the reviewers and the investigation work from: what the PR says it does, what it's meant to fix, whether CI passed, and what has already been raised.
+6. **Gather context in one batch.** Run the linked-work-items and list-threads commands from the table in parallel, one command per call, without asking about each one. Get the PR's CI or validation-build status too (`gh pr checks <id>` on GitHub; on ADO, `az` with the devops extension works), and note any run or build links the author left in the description or threads. A command that errors is recorded as "no answer" for that item, not skipped silently. This context is what the reviewers and the investigation work from: what the PR says it does, what it's meant to fix, whether CI passed, and what has already been raised.
 
 ## Phase 1: Fetch branches and capture the diff
 
@@ -120,8 +119,7 @@ While the reviewers run, write a short overview of what the PR contains, for the
 - **Purpose** — one or two sentences on what the PR is for.
 - **Changes** — grouped by area or intent ("adds four claims task classes", "changes the shared `PreProcTask.launch()`"), not a per-file list; the diff stat already covers files.
 - **Description vs. diff** — anything the diff changes that the description doesn't mention, or anything the description claims that the diff doesn't contain. Omit this line when they agree.
-- **Claims** — what the PR says it fixes, preserves, or proves: a root cause, "logic unchanged", "fixes the duplicate rows", "no consumer impact". List each checkable claim. These join the findings in Phase 3 and get proved or disproved in Phase 4, so the PR's own story is tested, not only its lines.
-- **Riskiest merge decision** — the one thing most likely to hurt if this merges as is, and what you recommend. Omit this line when there is none.
+- **Claims** — what the PR says it fixes, preserves, or proves: a root cause, "logic unchanged", "fixes the duplicate rows", "no consumer impact". List each checkable claim. Each is an entry for Phase 4 to prove or disprove, not a finding, so the PR's own story is tested, not only its lines.
 
 The user needs to know what the PR does to judge the findings, and on a clean PR the overview is the main output.
 
@@ -132,10 +130,6 @@ Then wait for all three completion notifications. Do not fabricate or predict re
 ### Deduplicate
 
 If two reviewers flagged the same issue, keep one entry and note the cross-signal (`flagged by code-review + readability pass`).
-
-### Add the PR's claims
-
-Add each checkable claim from the overview as an entry to investigate. It isn't a finding yet: Phase 4 either confirms it (noted in the overview only) or disproves it (it becomes a High Code-issue finding).
 
 ### Validity assessment
 
@@ -154,42 +148,37 @@ Only Medium-and-above code issues get their own thread. Fold Low and nit code fi
 
 ## Phase 4: Prove or drop (do not skip)
 
-A finding a reviewer read off a diff is a hypothesis about what the code does. Wrong High findings and "could you confirm?" comments both come from stopping at a re-read of the code. This phase settles each one by running something, so what reaches the user is either proven, disproved and dropped, or an open question that says exactly what would settle it.
-
 Phase 3's "valid by default" governs triage, so reviewers' findings aren't discarded on a hunch. This phase sets the higher bar for what gets presented.
 
-1. **Head check.** Get the PR's current head SHA with the Phase 0 table command and compare it to the pinned `<sha>`. Never compare against a local ref (`origin/<branch>`, `git rev-parse`): that compares the Phase 1 fetch to itself. If the command fails, note "head check: no answer" in the report and continue against the pinned HEAD. If the head moved, the author pushed while reviewers ran: tell the user, re-run Phase 0 step 6 (new threads may have landed), redo Phase 1 steps 1–4 reusing the existing tmpdir (skip its `mktemp`), and re-run Phases 2 and 3 on the fresh output before resuming here. If investigation output left untracked files in the worktree, delete those files before the checkout; never stash or reset.
-2. **Existing threads, description, current code.** Read each finding's file at HEAD, not the patch: line numbers drift, and a duplicated block may already be fixed. Drop a finding that duplicates an existing thread: same file:line (or the same code construct, if line numbers drifted) and the same underlying concern, not merely the same topic. Match threads from any author. A finding that duplicates a *resolved* thread is kept if the issue is still present at HEAD (the prior fix didn't fully land), otherwise dropped. The Claude attribution footer identifies this skill's own prior comments for tracking re-review passes, not for gating dedup. Then drop or reframe any finding that calls something "undisclosed" or "unexplained" when the PR description already says it. That is the most common false positive, and posting it tells the author their description wasn't read.
-3. **Introduced or already there.** For each Medium-and-above finding, ask whether the issue would exist if the PR never merged. Check it at `<base>` with `git show '<base>:<path>'` or `git grep '<pattern>' '<base>'`. These are read-only; never check out `<base>`. Route by what the PR did:
+1. **Existing threads, description, current code.** Read each finding's file at HEAD, not the patch: line numbers drift, and a duplicated block may already be fixed. Drop a finding or disproved claim that duplicates an existing thread: same file:line (or the same code construct, if line numbers drifted) and the same underlying concern, not merely the same topic. Match threads from any author. A finding that duplicates a *resolved* thread is kept if the issue is still present at HEAD (the prior fix didn't fully land), otherwise dropped. The Claude attribution footer identifies this skill's own prior comments for tracking re-review passes, not for gating dedup. Then drop or reframe any finding that calls something "undisclosed" or "unexplained" when the PR description already says it. That is the most common false positive, and posting it tells the author their description wasn't read.
+2. **Introduced or already there.** For each Medium-and-above finding, ask whether the issue would exist if the PR never merged. Check it at `<base>` with `git show '<base>:<path>'` or `git grep '<pattern>' '<base>'`. These are read-only; never check out `<base>`. Route by what the PR did:
    - **The PR introduced it, or copied, extended, or worsened an existing instance:** a finding like any other.
    - **It's at `<base>` and the PR touches that code:** a finding, labelled with the "while you're in here" variant from `REFERENCE.md`.
-   - **It's at `<base>` and the PR neither touches nor worsens it:** a tracker candidate for the user, not drafted. Showing it exists at `<base>` is enough proof; skip step 4 for it.
-4. **Investigate.** For every remaining Medium-and-above finding and every PR claim, run the check that proves or disproves it, starting from the command the reviewer named: run the tests, query the built output, look up the real consumers, read the CI logs, check the history. Follow up on whatever comes back unknown until you can state the impact and one concrete fix, until it's clear no executable check applies (step 5's `judgment:` route), or until step 5's open-question criteria apply.
+   - **It's at `<base>` and the PR neither touches nor worsens it:** a tracker candidate for the user, not drafted.
+3. **Investigate.** For every remaining Medium-and-above finding and every PR claim, run the check that proves or disproves it, starting from the command the reviewer named: run the tests, query the built output, look up the real consumers, read the CI logs, check the history. Follow up on whatever comes back unknown until you can state the impact and one concrete fix, until it's clear no executable check applies (step 4's `judgment:` route), or until step 4's open-question criteria apply.
    - Read the repo's `CLAUDE.md` and rules for how to query its systems: built output, consumers, schedules, CI.
    - Check a claim about consumers, schedules, or test coverage against the live system, never against a repo doc. Docs go stale.
    - Re-reading the PR's own code is not a check for a Medium-and-above finding or a claim. A grep for the other copy, a consumer lookup, or a test run is.
-   - Low findings and nits get the step 2 re-read only.
+   - Low findings and nits get the step 1 re-read only.
 
-   **What you may run:** read-only commands, scratch files in the tmpdir, and the PR's tests when they write nothing outside the review worktree and the tmpdir (unit tests; not `dbt run`/`build`, and not integration tests that hit real services). Never run DML or any other database or external-service write. A check that needs one becomes an open question, with the command written out for the user to run.
+   **What you may run:** read-only commands, scratch files in the tmpdir, and the PR's tests when they write nothing outside the review worktree and the tmpdir (unit tests; not `dbt run`/`build`, and not integration tests that hit real services). PR tests run PR-authored code with your credentials, so run them only on teammates' PRs, never on a fork (`isCrossRepository` on GitHub). A reviewer-named command is a suggestion; run it only if it fits this scope. Never run DML or any other database or external-service write. A check that needs one becomes an open question, with the command written out for the user to run.
 
-5. **Record the outcome.** Each surviving finding carries an `Evidence:` line quoting the command run and the part of its output that settles the finding. Say "verified", "confirmed", or "proven" only when that line names something run. Some findings have no executable check (a naming or design concern, unclear prose in an instruction file): their Evidence line reads `judgment: <the reasoning>`, and they are never called verified.
+4. **Record the outcome.** Each surviving finding carries an `Evidence:` line quoting the command run and the part of its output that settles the finding. Say "verified", "confirmed", or "proven" only when that line names something run. A finding about naming, design shape, or prose may have no executable check: its Evidence line reads `judgment: <the reasoning>`, and it is never called verified. A finding about runtime behavior, consumers, or coverage is never judgment-only: run its check, or make it an open question.
 
-   - A confirmed PR claim is noted in the overview. A disproved claim becomes a High Code-issue finding.
-   - A finding the evidence refutes is dropped, and listed under "Dropped" in the report with the command that refuted it, so a wrong drop can be caught.
+   - Set each surviving finding's severity from the impact the investigation proved, not the reviewer's estimate.
+   - A confirmed PR claim is noted in the overview. A disproved claim becomes a High Code-issue finding, unless an existing thread already raises it (step 1).
+   - A finding the evidence refutes is dropped.
    - A Low folded into a host thread that was dropped or rerouted folds into another surviving thread, or is dropped.
    - A finding becomes an **open question** only when its settling check can't be run here (it needs the author's intent, or access this session lacks), was blocked by permissions, or errored. A runnable check you skipped is unfinished work, so go run it. Each open question states what was tried, why it didn't settle, and the one check that would.
-
-   Before Phase 5, go through the Medium-and-above findings and claims once more: each has a command on its Evidence line, a `judgment:` line, or a place in the open questions. Any that has none isn't ready to report.
 
 ## Phase 5: Report and shape the set
 
 The report, in this order:
 
-1. **Overview** from Phase 2 (rewritten if the head moved), with confirmed claims noted and "head check: no answer" if step 1 failed. Re-derive the riskiest-merge-decision line from what Phase 4 proved: the Phase 2 version was written before any check ran.
-2. **Findings**, a short entry each, grouped by severity: severity, bucket, label (`Blocking` / `Non-blocking`, defaults in `REFERENCE.md`), the gist, the `Evidence:` line, any folded Lows, and for a finding that predates the PR, its routing and the one-line reason.
+1. **Overview** from Phase 2, with confirmed claims noted, plus a **riskiest merge decision** line written from what Phase 4 proved: the one thing most likely to hurt if this merges as is, and what you recommend. Omit that line when there is none.
+2. **Findings**, a short entry each, grouped by severity: severity, bucket, label (`Blocking` / `Non-blocking`, defaults in `REFERENCE.md`), the gist, the evidence cut to the command and a one-clause result (the full output belongs in the draft), any folded Lows, and for a finding that predates the PR, its routing and the one-line reason.
 3. **Open questions for you** — each with what was tried, why it didn't settle, and the check that would settle it.
 4. **Tracker candidates** — issues already on the target branch that the PR doesn't touch, each with where it lives.
-5. **Dropped** — one line per refuted finding: the gist and the command that refuted it.
 
 If no findings, open questions, or tracker candidates survived, show the overview, say nothing survived, and stop. No prompt. If only open questions or tracker candidates survived, show the report and stop; the user replies in free text if they want anything done.
 
@@ -209,7 +198,7 @@ AskUserQuestion:
       description: "Just wanted the review; draft nothing"
 ```
 
-On "Change the set first", take the changes as free text: drop or add findings, flip a label, dig further into a finding or open question, post an open question as a question to the author (the question form in `REFERENCE.md`), or draft a tracker candidate. Apply them (digging means back through Phase 4 step 4 for that item), show the changed entries, and ask again.
+On "Change the set first", take the changes as free text: drop or add findings, flip a label, dig further into a finding or open question, or post an open question as a question to the author (the question form in `REFERENCE.md`). Apply them (digging means back through Phase 4 step 3 for that item), show the changed entries, and ask again.
 
 ## Phase 6: Draft comment threads
 
@@ -235,7 +224,9 @@ AskUserQuestion:
 
 Never post without this confirmation: a posted thread can't be unsent and lands under the user's name. On "Edit some first", show each changed body in full again before asking again.
 
-On approval, post each draft using the platform command from the Phase 0 table (use `--body-file` to avoid shell quoting issues). Report back the thread IDs. If a post fails, report which one and don't retry blind: a post that errored after landing would double-post.
+On approval, first get the PR's current head SHA with the Phase 0 table command and compare it to the pinned `<sha>`. Never compare against a local ref (`origin/<branch>`, `git rev-parse`): that compares the Phase 1 fetch to itself. If the head moved, the author pushed during the review: tell the user what changed and let them decide whether to post, re-review, or stop. If the command fails, say "head check: no answer" and ask the same way.
+
+Then post each draft using the platform command from the Phase 0 table (use `--body-file` to avoid shell quoting issues). Report back the thread IDs. If a post fails, report which one and don't retry blind: a post that errored after landing would double-post.
 
 ## What This Skill Does NOT Do
 

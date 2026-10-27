@@ -60,17 +60,11 @@ What makes this work:
 
 ---
 
-## Why Phase 4 proves rather than re-reads
-
-A finding that survives a re-read of the code is still a guess about what the code *does*: whether a consumer breaks, whether a test covers a path, whether the PR's root cause is the real one. Running the check that settles it is what lets a comment state the impact and one fix. It is also what keeps checkable questions off the author's plate: a question the reviewer could have answered tells the author the reviewer didn't try.
-
----
-
 ## Re-reviewing After New Commits
 
 Re-invoking the skill after the author pushes is normal. It should show which prior findings the new commits addressed and what new issues appeared.
 
-Phase 4 step 2 handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue is still present in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
+Phase 4 step 1 handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue is still present in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
 
 ---
 

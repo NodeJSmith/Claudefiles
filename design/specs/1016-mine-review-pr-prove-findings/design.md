@@ -1,7 +1,7 @@
 # Design: mine-review-pr proves its findings before presenting them
 
 **Date:** 2026-10-26
-**Status:** ratified
+**Status:** built
 **Mode:** sketch
 
 ## Summary
@@ -239,16 +239,18 @@ Under A:
 
 - [x] Implementation and tests committed (instruction-only change; no test suite covers this skill. `lint-agent-files` and the skill census tests pass)
 - [x] Docs (repo-root `REFERENCE.md` row updated; trigger phrases unchanged)
-- [ ] Ship-time challenge
+- [x] Ship-time challenge
 
 **Calls made during the build:**
-- ADO CI status comes from `ado-api builds list --branch 'refs/pull/<id>/merge'`: ADO PR validation builds run on that ref, and `ado-api` has no per-PR build command.
-- The PR claims enter Phase 3 as entries to investigate rather than findings, so a confirmed claim never gets a severity or thread; only a disproved one becomes a Code-issue finding (D2).
-- Phase 4 runs the cheap filters (thread dedup, description check, then the D6 target-branch check) before the investigation, so no effort is spent proving a finding that would be dropped as a duplicate or routed to tracker candidates. A tracker candidate's proof is showing it exists at `<base>`.
-- A finding with no executable check (naming, design, instruction prose) carries `Evidence: judgment: <reasoning>` and is never called verified. D8 assumed every finding has a runnable check; without this route a session would invent a token check or push judgment calls into open questions, which D3's entry rule forbids. Its label still follows D5's severity default.
-- A disproved PR claim enters as High, matching D5's Blocking default for it.
-- The report adds a "Dropped" list (gist + refuting command), so a wrong drop can be caught. This serves D3's "nothing real disappears silently".
-- The Phase 2 riskiest-merge-decision line is re-derived in Phase 5 from what Phase 4 proved, since it is written before any check runs.
+- CI status is gathered by intent, not a pinned command: no `ado-api` command returns a PR's validation builds, and `az` with the devops extension is always installed.
+- The PR claims are entries for Phase 4 to investigate rather than findings, so a confirmed claim never gets a severity or thread; only a disproved one becomes a Code-issue finding (D2), and only if no existing thread already raises it.
+- Phase 4 runs the cheap filters (thread dedup, description check, then the D6 target-branch check) before the investigation, so no effort is spent proving a finding that would be dropped as a duplicate or routed to tracker candidates.
+- A finding about naming, design shape, or prose may carry `Evidence: judgment: <reasoning>` and is never called verified; a finding about runtime behavior, consumers, or coverage never may. D8 assumed every finding has a runnable check; without this route a session would invent a token check or push judgment calls into open questions, which D3's entry rule forbids. A judgment finding's label still follows D5's severity default.
+- A disproved PR claim enters as High, matching D5's Blocking default for it. Every surviving finding's severity is then re-set from the impact Phase 4 proved.
+- The riskiest-merge-decision line (D2) is written once, in the Phase 5 report's overview, from what Phase 4 proved, rather than in Phase 2 before any check runs.
+- The head check runs once, just before posting in Phase 7, not at the start of Phase 4 as the Assumed section places it. A moved head, or a lookup that fails, is reported and the user decides whether to post, re-review, or stop; there is no automatic re-run. This supersedes the Summary's head-check bullet.
+- The report's per-finding evidence (D9) is cut to the command plus a one-clause result; the full output goes in the draft, so the evidence is read in full once.
+- PR test code runs only on teammates' PRs (D8's condition), and a reviewer-named command is a suggestion run only if it fits the allowed scope.
 - REFERENCE.md gains a `[Question]` form for an open question the user chooses to post (D3/D9 allow it; the D5 template had no question shape).
 - Thread dedup and the description check apply to every finding, Low included; only the executed investigation is limited to Medium+ and claims (D4).
 - The rule set that holds across phases (one command per call, failed command is "no answer", denied is "blocked by permissions", no polling) is a short "Running commands" section before Phase 0 instead of being repeated per phase.
