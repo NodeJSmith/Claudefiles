@@ -6,6 +6,8 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
+- Issues filed from a milestone-altitude sketch now have a pickup path: `/mine-sketch <milestone_dir> <issue>` runs a build-altitude sketch that checks the parent ledger against current code and sibling pickups, records overrides in its own ledger, and builds normally. `/mine-issues` routes milestone issues there instead of to "build from ledger". (#651)
+
 - Rules push back on over-caution: the reviewer loop sets aside out-of-scope, no-trigger, and accepted-risk findings before deciding whether to continue; observability and dark-operation rules apply only to unwatched code; new mechanisms are built only for lessons that recur; and agents name the concrete failure before adding a guard. Projects can list specific `accepted-risks` in CLAUDE.md frontmatter. (#650)
 
 ### Removed
