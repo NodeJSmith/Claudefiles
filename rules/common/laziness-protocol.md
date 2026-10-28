@@ -12,6 +12,6 @@ See also `reader-load.md`, which addresses the complementary concern of how easy
 - **Minimize the diff.** Make the smallest change that solves the problem. Fewer lines beat "elegant" boilerplate.
 - **Question the layering.** If a change requires propagating a new value through multiple layers of types or schemas, stop and look for a more direct path before threading it through.
 - **Revert unconfirmed hypotheses.** Code added to test a hypothesis that was not proven must be removed before moving on, not left as defensive belt-and-suspenders.
-- **Name the failure before adding a guard.** Before adding a guard, fallback, check, or rule, name the concrete failure it prevents. If you can't, or the project lists it under `accepted-risks` (see `project-context.md`), mention it in one sentence and move on.
+- **Name the failure before adding a guard.** Before adding a guard, fallback, check, or rule, name the concrete failure it prevents. If you can't, or the project lists it under `accepted-risks` (see `project-context.md`) and it isn't a security risk or a bug the change introduces, mention it in one sentence and move on.
 
 If a human developer would find the code exhausting to maintain, it is a bad solution.

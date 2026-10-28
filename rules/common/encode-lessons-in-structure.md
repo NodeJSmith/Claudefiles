@@ -2,11 +2,11 @@
 
 Every error, human correction, and unexpected outcome is a learning signal. Capture it, route it, and close the loop.
 
-Most lessons need a short instruction at most. A mechanism (lint rule, metadata flag, runtime check, script) enforces a rule without anyone having to remember it, but it also runs on every future change and has to be maintained. Use one when a lesson keeps recurring despite the instruction.
+Most lessons need a short instruction at most. A mechanism (lint rule, metadata flag, runtime check) enforces a rule without anyone having to remember it, but it also runs on every future change and has to be maintained. Use one when a lesson keeps recurring despite the instruction.
 
 ## When to Encode
 
-A one-off correction gets a short instruction, or nothing. Build a mechanism only when both hold:
+A one-off correction gets a short note or instruction. Build a mechanism only when both hold:
 
 1. The mistake recurred after an instruction against it already existed.
 2. The mechanism costs less to keep than the mistake costs when it happens.
