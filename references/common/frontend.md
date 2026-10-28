@@ -1,7 +1,5 @@
 # Frontend
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 Preact is the default framework. Use `class=` in JSX, not `className=`. Preact maps `class` directly to the DOM attribute.
 
 ## Component Design

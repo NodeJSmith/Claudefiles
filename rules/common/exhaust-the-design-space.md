@@ -1,7 +1,5 @@
 # Exhaust the Design Space
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 When a novel interaction or architectural decision has no established precedent, explore several concrete alternatives before implementation. Building the wrong thing costs more than exploring three options.
 
 ## The Rule

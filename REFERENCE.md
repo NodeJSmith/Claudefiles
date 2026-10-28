@@ -99,7 +99,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 
 | Category | Installer key | Rule files |
 |----------|---------------|-----------|
-| Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `invariants`, `performance`, `worktrees` |
+| Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `domain-references`, `performance`, `worktrees` |
 | Code structure & style | `style` | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
@@ -112,7 +112,7 @@ Deselecting a category whose rules are referenced by a kept rule prints a warnin
 
 ## References
 
-Domain-specific guidance in `references/common/` loaded on demand by skills and agents. Always installed but not always-loaded — `invariants.md` has a Domain References table mapping file types to reference files. Skills and agents `Read` the ones they need.
+Domain-specific guidance in `references/common/` loaded on demand by skills and agents. Always installed but not always-loaded — `domain-references.md` has a table mapping file types to reference files. Skills and agents `Read` the ones they need.
 
 | Reference | Loaded by |
 |-----------|-----------|

@@ -2,8 +2,6 @@
 
 ## No `any`
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 Do not use `any`. It disables type checking for everything it touches. Use `unknown` for external data and narrow before use.
 
 ```ts
@@ -23,8 +21,6 @@ function handle(input: unknown) {
 External sources include RPC payloads, `JSON.parse`, `postMessage`, IPC, file contents, environment variables, and database results.
 
 ## No `as` Casts
-
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
 Every `as` is a potential runtime crash. Cast only after the type system has verified the claim through validation. The canonical valid use is branded type constructors, where the `as` is earned because the preceding validation is the only way to create the type.
 
@@ -183,8 +179,6 @@ type UserKeys = keyof User;
 ```
 
 ## No Enums
-
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
 Do not use TypeScript `enum`. Use `as const` objects or union types instead. Enums have runtime behavior that surprises, don't tree-shake well, and have numeric/string confusion.
 

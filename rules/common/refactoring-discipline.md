@@ -1,7 +1,5 @@
 # Refactoring Discipline
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 A refactor changes structure without changing behavior. These rules keep that contract honest.
 
 ## Pin Behavior First

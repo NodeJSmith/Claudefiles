@@ -171,12 +171,12 @@ def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
 RULE_CATEGORIES: dict[str, RuleCategory] = {
     "core": RuleCategory(
         label="Core (always installed)",
-        description="Capabilities routing, compaction guidance, interaction style, invariants, model selection, worktree safety, project context",
+        description="Capabilities routing, compaction guidance, interaction style, domain reference routing, model selection, worktree safety, project context",
         files=(
             "capabilities-core.md",
             "compact-instructions.md",
+            "domain-references.md",
             "interaction.md",
-            "invariants.md",
             "performance.md",
             "project-context.md",
             "worktrees.md",
@@ -280,8 +280,8 @@ def warn_dangling_rule_refs(
 
     These references are prose pointers ("see `testing.md`"), not imports, so a missing
     target degrades guidance but never breaks behavior — hence warn, not block. Only
-    selected optional files are scanned as sources: invariants.md (core) indexes nearly
-    every rule by design, so scanning core files would warn on almost any deselection.
+    selected optional files are scanned as sources, so a core rule's pointer to a
+    deselected rule goes unwarned.
     """
     all_rule_files = {f for c in RULE_CATEGORIES.values() for f in c.files}
     installed = set(RULE_CATEGORIES["core"].files)
@@ -1202,7 +1202,7 @@ def do_install(
     warn_unhandled_rule_subdirs(repo_dir, console)
 
     # Always-installed trees: references + learned (file-level), bin/commands/hooks
-    # (dir-level). The meta-rule in invariants.md points to references/.
+    # (dir-level). The meta-rule in domain-references.md points to references/.
     total_links += create_symlinks_file_level(
         repo_dir / "references",
         claude_dir / "references",

@@ -1,7 +1,5 @@
 # Experience First
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 The product is the experience. Every technical decision either helps or hurts it. When implementation convenience conflicts with user delight, choose delight.
 
 ## Rules

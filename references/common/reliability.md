@@ -1,6 +1,5 @@
 # Reliability
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 ## Timeouts on External Calls
 
 Every call to an external service — HTTP, database, queue, file I/O over network — must have an explicit timeout. No implicit "wait forever" defaults.
@@ -20,7 +19,6 @@ Distinguish transient failures (network blips, rate limits, 429/502/503/504) fro
 
 When retrying, use exponential backoff with jitter. Fixed-interval retries amplify thundering herd problems.
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 ## Errors Surfaced Not Swallowed
 
 Every error path should be explicitly handled or propagated. Bare `except: pass` and silent catch-and-ignore hide real failures — handle the specific exception, propagate the rest.
@@ -33,7 +31,6 @@ with contextlib.suppress(FileNotFoundError):
     path.unlink()
 ```
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 ## Shared State Protection
 
 Concurrent access to shared mutable state must be protected — but first ask whether the actors truly need the same mutable object. If not, eliminate the sharing: give each actor its own owned file, key, or state, and merge only at the read boundary. Two workers writing their own field into one `state.json` is still shared mutation; `worker-a-state.json` + `worker-b-state.json` is not.

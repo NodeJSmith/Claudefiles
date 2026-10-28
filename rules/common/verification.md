@@ -47,7 +47,9 @@ Use tests to verify behavior you can't observe directly. Don't substitute test a
 
 ## Name Observability Gaps
 
-When you cannot observe a behavior because the system emits no signal for it — no log, no metric, no CLI output, no visible state — do not silently skip the verification.
+This applies to code that runs with no one watching: services, scheduled jobs, hooks, unattended skill runs. There, a silent failure goes unseen. When you cannot observe a behavior because the system emits no signal for it — no log, no metric, no visible state — do not silently skip the verification.
+
+When a person runs the code and watches it (a CLI, an interactive script, a skill in a session), a missing signal is not a finding, even at an I/O boundary. Verify another way, or say plainly what you didn't verify.
 
 Name it explicitly as an observability gap finding:
 

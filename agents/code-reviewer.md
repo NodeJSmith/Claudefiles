@@ -38,7 +38,7 @@ After completing a review, create or update that same file — but only if the e
 
 **Worth recording:**
 - Recurring violation patterns you've seen more than once in this project (pattern, not individual instances)
-- Project-specific rules that deviate from the defaults (e.g., "this project allows X despite invariants.md saying otherwise — intentional, see commit Y")
+- Project-specific rules that deviate from the defaults (e.g., "this project allows X despite a global rule saying otherwise — intentional, see commit Y")
 - Static analysis quirks for this project (e.g., custom ruff rules, pyright mode)
 - Codebase areas that consistently generate the same type of issue
 

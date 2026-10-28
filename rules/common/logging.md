@@ -1,7 +1,5 @@
 # Logging
 
-<!-- SYNC: rules/common/invariants.md — update the "Library Code Never Configures Logging" invariant entry when changing this section. -->
-
 This rule loads into every session, so it applies to whatever project is open: a personal-apis package, a homelab systemd service, a one-shot CLI. The right logging approach depends on the role the code is playing, not the project it lives in. Ask which of the three roles below applies before reaching for `print` or the `logging` module. A single file can play more than one role at different times (a script with both a library-style function and a `__main__` block). When that happens, apply rule 1 to the importable parts and rule 2 or 3 to the standalone-run entry point. Don't let the standalone path skip logging setup just because the same file is sometimes imported.
 
 ## 1. Library Code: `getLogger` Only, Never Configure
@@ -36,15 +34,15 @@ A Claude Code hook's stdout is the hook response the harness reads and acts on. 
 
 ## What to Log
 
-<!-- SYNC: rules/common/invariants.md — update the "No Dark Operations" invariant entry when changing this section. -->
-
 An operation that can fail but emits no signal when it does is a **dark operation**: invisible in production until someone notices the downstream symptom and has to reverse-engineer the cause. The coverage points below exist to prevent dark operations, not to encourage logging every line.
 
-Before writing error handling, ask: **"if this fails in production, how will I know?"** If the answer is "I won't," or "only by noticing something downstream broke," you're missing a log statement. This ties directly to `verification.md`'s "Name Observability Gaps": a silent failure path is an observability gap.
+This section applies to library code and unattended processes (roles 1 and 3). In a CLI tool (role 2), someone is watching, so an error that reaches the terminal is the signal.
+
+Before writing error handling in roles 1 and 3, ask: **"if this fails in production, how will I know?"** If the answer is "I won't," or "only by noticing something downstream broke," you're missing a log statement. This ties directly to `verification.md`'s "Name Observability Gaps": a silent failure path is an observability gap.
 
 ### Mandatory coverage
 
-These are the places where a log statement is required, not optional:
+In roles 1 and 3, these are the places where a log statement is required, not optional:
 
 - **External I/O boundaries** — API calls, database queries, file reads/writes, network requests. Log the outcome on failure (ERROR or `exception()`). On success, INFO or DEBUG depending on whether a production operator would care about the throughput.
 - **Error recovery paths** — every `except` block that doesn't re-raise must log what it caught and what the code did instead (returned a default, skipped the item, retried). A bare `except: pass` or `except SomeError: return None` with no log statement is a dark operation.

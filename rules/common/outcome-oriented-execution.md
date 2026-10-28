@@ -1,7 +1,5 @@
 # Outcome-Oriented Execution
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 Optimize for the intended, verifiable end state rather than preserving smooth intermediate states.
 
 Keeping every intermediate step fully stable often creates temporary compatibility code that becomes long-lived debt. Converge on the target architecture and prove correctness at explicit verification boundaries.
