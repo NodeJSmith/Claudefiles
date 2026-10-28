@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-28
+
+### Changed
+
+- Rules push back on over-caution: the reviewer loop sets aside out-of-scope, no-trigger, and accepted-risk findings before deciding whether to continue; observability and dark-operation rules apply only to unwatched code; new mechanisms are built only for lessons that recur; and agents name the concrete failure before adding a guard. Projects can list specific `accepted-risks` in CLAUDE.md frontmatter. (#650)
+
+### Removed
+
+- The `invariants.md` Must/Should/Consider checklist. Its Domain References table now lives in `domain-references.md`. (#650)
+
 ## 2026-10-27
 
 ### Changed
