@@ -2,23 +2,17 @@
 
 ## Immutability
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 Create new objects instead of mutating existing ones: return a copy with the change rather than modifying in place, so code holding a reference never sees it change underneath it.
 
 **PySpark exception**: PySpark DataFrame reassignment (`df = df.filter(...)`) is the project convention and does not violate this rule — DataFrames are lazy and immutable per transform, so reassigning `df` rebinds the name to a new immutable object.
 
 ## File Organization
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 - 200-400 lines typical. Past ~800 a file is a decomposition candidate, not a violation. Finish the change, don't split mid-work, and propose one follow-up issue at wrap-up.
 - Organize by feature/domain, not by type
 - Functions <50 lines, nesting <4 levels
 
 ## No Default Underscore Prefixes
-
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
 Do not prefix methods with `_` unless there is a concrete reason.
 
@@ -75,8 +69,6 @@ Don't add decorated comment blocks between methods. If the class needs section h
 
 ## Self-Contained Comments
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 A comment must make sense to a reader with no memory of how it got there. Don't narrate a specific incident, reviewer, or point-in-time event ("caught at ship-time by X's review," "nobody noticed until Y") — state the durable invariant or constraint instead. Strip the narrative: if the WHY still reads clearly in one sentence, the narrative was training-bias padding, not necessary context. Keep a ticket/issue link if one exists — drop the play-by-play around it.
 
 ## Logging
@@ -90,8 +82,6 @@ Get the data shape right before writing logic. The right shape makes downstream 
 Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
 
 ## No Compatibility Shims for Convenience
-
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
 "So the tests don't have to change" and "so the imports don't have to change" are the same shortcut wearing two names: an old attribute, field, name, or re-export kept alive not because anything actually needs it, but because updating the sites that reference it — tests and imports included — costs more than restructuring around them. Ask it directly: if the tests and import sites were free to change today, would this old shape still need to exist? If no, it's debt, not compatibility. When introducing a new internal API, migrate every caller in the same effort and delete the old one once that migration completes — don't let it quietly become a permanent parallel path because nobody went back to finish it.
 

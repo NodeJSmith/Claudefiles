@@ -1,6 +1,5 @@
 # Security
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 ## Input Validation at Boundaries
 
 Validate and parse external data at system boundaries — user input, API responses, file reads, environment variables. Internal code trusts what the boundary layer already validated.

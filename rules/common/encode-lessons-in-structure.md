@@ -1,31 +1,25 @@
 # Encode Lessons in Structure
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+Every error, human correction, and unexpected outcome is a learning signal. Capture it, route it, and close the loop.
 
-Encode recurring fixes in mechanisms (tools, code, metadata, automation) instead of textual instructions. Every error, human correction, and unexpected outcome is a learning signal. Capture it, route it, and close the loop.
-
-Textual instructions are easy to miss. They require the reader to notice, remember, and comply. Structural mechanisms (lint rules, metadata flags, runtime checks, automation scripts) enforce the rule without cooperation.
+Most lessons need a short instruction at most. A mechanism (lint rule, metadata flag, runtime check) enforces a rule without anyone having to remember it, but it also runs on every future change and has to be maintained. Use one when a lesson keeps recurring despite the instruction.
 
 ## When to Encode
 
-When you catch yourself writing the same instruction a second time:
+A one-off correction gets a short note or instruction. Build a mechanism only when both hold:
 
-1. Ask: can this be a lint rule, a metadata flag, a runtime check, or a script?
-2. If yes, encode it. Delete the instruction.
-3. If no (genuinely requires judgment), make the instruction more prominent and add an example of the failure mode.
+1. The mistake recurred after an instruction against it already existed.
+2. The mechanism costs less to keep than the mistake costs when it happens.
 
-Do not paper over symptoms. If the fix is structural, only use the structural fix. The instruction is the symptom.
+If both hold, encode it and delete the instruction. If not, keep the instruction short and add an example of the failure mode.
 
-### Pick the Strongest Rung
+### Pick the Lightest Mechanism That Works
 
-When encoding a lesson, pick the mechanism that enforces it most automatically:
+When a lesson does earn a mechanism, pick the lightest one that would have caught the recurrence:
 
-1. **Runtime check** — fails immediately when violated (strongest)
+1. **Metadata flag** — marks the constraint in data
 2. **Lint rule / pre-commit hook** — catches it before commit
-3. **Metadata flag** — marks the constraint in data
-4. **Instruction** — requires a reader to notice and comply (weakest)
-
-Work up from the bottom. An instruction that should be a lint rule is not yet encoded.
+3. **Runtime check** — fails immediately when violated
 
 ## Feedback Loop
 
@@ -36,5 +30,5 @@ Work up from the bottom. An instruction that should be a lint rule is not yet en
 ## Anti-Patterns
 
 - Acknowledging without recording ("I'll keep that in mind" does not persist)
-- Recording without routing (a note about a lint rule that should exist is wasted unless the lint rule gets implemented)
+- Recording without routing (a lesson that has earned a mechanism under the test above, but only ever gets written down as a note)
 - Fixing without generalizing (fixing one instance while leaving the recurring pattern intact)

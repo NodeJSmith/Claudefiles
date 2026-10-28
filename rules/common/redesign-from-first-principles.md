@@ -1,7 +1,5 @@
 # Redesign from First Principles
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 When integrating a change, do not bolt it onto the existing design. Redesign as if the requirement had been there from the start. The result should look like what we would have built if we had known on day one.
 
 ## Integration Rules

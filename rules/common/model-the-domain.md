@@ -1,6 +1,4 @@
 # Model the Domain
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 Encode the real domain in a data structure instead of scattering it across conditionals.
 
 See also `coding-style.md` (Data Structures First), which covers getting the shape right early. This rule covers which structure to reach for when conditionals are the smell.

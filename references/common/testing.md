@@ -6,8 +6,6 @@ Unit, integration, and E2E tests all required.
 
 ## Test Co-location
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 Code and its unit tests ship together. In any repo with test infrastructure, every change that introduces or modifies functional code must include corresponding unit tests in the same commit. Integration tests may follow in a later commit, but unit tests may not be deferred.
 
 Exemptions: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic.
@@ -35,13 +33,11 @@ RIGHT:  RED→GREEN: test1→impl1 → RED→GREEN: test2→impl2
 
 ### Mocking
 
-<!-- SYNC: rules/common/invariants.md and references/common/dependency-injection.md — update both when changing this rule. -->
+<!-- SYNC: references/common/dependency-injection.md — update it when changing this rule. -->
 
 Mock only at system boundaries (external APIs, databases, time, filesystem). Prefer real instances for internal collaborators. Structure code for dependency injection so tests can supply fakes directly — see `references/common/dependency-injection.md` for the full rule.
 
 ### Avoid Log Capture Tests
-
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
 Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
 

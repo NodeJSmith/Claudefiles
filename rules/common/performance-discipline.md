@@ -1,7 +1,5 @@
 # Performance Discipline
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 When investigating a measured slowness, the evidence is the trace. Hypotheses without profiling data are guesses. See also `debugging-discipline.md` for the same evidence-first approach applied to bug fixing.
 
 ## Baseline First

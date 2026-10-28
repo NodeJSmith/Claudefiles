@@ -30,8 +30,6 @@ def get_user_summary(user_id: int, client: HttpClient) -> str:
 
 ## Rules
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
-
 1. **Accept collaborators as parameters.** Clients, repositories, services, configuration — pass them in. Use `None` sentinel defaults for convenience at call sites (`client: HttpClient | None = None` → `client = client or HttpClient()`) — never use mutable or eagerly-constructed default arguments.
 2. **One level of `mock.patch` max.** Patching a module-level constant or env var is fine. Patching a return value of a return value is a structural problem.
 3. **Prefer protocols/interfaces over concrete types.** Accept `typing.Protocol` or ABC so tests can supply lightweight fakes instead of mocking concrete classes.
