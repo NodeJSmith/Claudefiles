@@ -9,6 +9,7 @@ Write the ledger to `<feature_dir>/design.md` using this template:
 **Status:** draft
 **Mode:** sketch
 **Issues:** [tracker keys this change resolves, e.g. #123, #124; omit the line if none]
+**Parent:** [the milestone ledger's path when this ledger picks up one of its Breakdown issues; omit the line otherwise]
 
 ## Summary
 

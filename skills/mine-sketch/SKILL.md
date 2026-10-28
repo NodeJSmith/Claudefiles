@@ -6,7 +6,7 @@ user-invocable: true
 
 # Sketch
 
-Structured design before code. Sketch mode first settles the change's posture and checks where its new pieces fit. It then surfaces every decision the change needs into a **decision ledger** (`design.md`), has the user ratify each one, and challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge. A ledger sketched at milestone altitude is a plan for several issues instead: it ends in an issue breakdown, and each issue is built on its own later.
+Structured design before code. Sketch mode first settles the change's posture and checks where its new pieces fit. It then surfaces every decision the change needs into a **decision ledger** (`design.md`), has the user ratify each one, and challenges and combs the ledger. Build mode, run in a fresh session, implements the whole change from the ratified ledger and checks the result with a ship-time challenge. A ledger sketched at milestone altitude is a plan for several issues instead: it ends in an issue breakdown, and each issue is picked up later with its own build-altitude sketch.
 
 The value is in the decisions. A judgment call made silently is the failure this skill exists to prevent, so every choice that would change the code gets surfaced, reasoned, and ratified before any code is written. One session builds the whole change, gated by the normal pre-commit reviewers.
 
@@ -15,6 +15,7 @@ The value is in the decisions. A judgment call made silently is the failure this
 $ARGUMENTS — a description of what to build, or a feature directory path. Can be:
 - A feature idea: `/mine-sketch "add webhook support to notifications"` (sketch mode)
 - A feature directory: `/mine-sketch design/specs/005-webhooks/` (resumes or builds, by the ledger's status)
+- A milestone ledger's directory plus one of its Breakdown issues: `/mine-sketch design/specs/004-auth-milestone/ #123` (sketches that issue's pickup)
 - Empty: ask "What would you like to build or change?" and continue in sketch mode
 
 ## Routing
@@ -23,8 +24,8 @@ If $ARGUMENTS points to a directory containing `design.md`, that directory is `<
 
 | Ledger | Do |
 |---|---|
-| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. If `## Posture` is missing or still holds template placeholders, run Phase 1's Posture step first and write it into the ledger. Otherwise skip Phase 1 and continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks at all: then drafting was interrupted, so finish Phase 2 first. |
-| `**Mode:** sketch`, `**Status:** ratified`, `## Posture` Altitude `milestone` | Report that the ledger is a milestone plan, not a build spec, and list its Breakdown with any filed issue keys. Each issue is built on its own: `/mine-sketch` on the issue, naming this ledger so it's read as prior work, or without a sketch when the issue leaves no open decisions. An issue with only a few small, independent decisions can have them asked inline and then be built (`sketch-before-building.md`). If the Breakdown isn't filed yet, offer to file it as in [On "Ratify"](#on-ratify). If every issue is closed and the Done-when holds, offer to set `**Status:** archived`. Stop. |
+| `**Mode:** sketch`, `**Status:** draft` | Resume sketch mode. If `## Posture` is missing or still holds template placeholders, run Phase 1's Posture step first and write it into the ledger. Otherwise skip Phase 1 and continue at the first `**Ratified:** pending` decision (Phase 3). If none are pending, continue at Phase 4, unless `## Decisions` has no `### D<n>` blocks and no "None open" line: then drafting was interrupted, so finish Phase 2 first. |
+| `**Mode:** sketch`, `**Status:** ratified`, `## Posture` Altitude `milestone` | The ledger is a milestone plan, not a build spec, so it isn't built directly; each Breakdown issue gets a pickup sketch. If the Breakdown isn't filed yet, offer to file it as in [On "Ratify"](#on-ratify) and stop. If every issue is closed and the Done-when holds, offer to set `**Status:** archived` and stop. Otherwise take the issue named in $ARGUMENTS, or list the Breakdown's open issues and ask which to pick up. Then start a new sketch for that issue at Phase 1, with this ledger as its parent. |
 | `**Mode:** sketch`, `**Status:** ratified` | [Build mode](#build-mode). |
 | `**Mode:** sketch`, `**Status:** built` | Report that the build is done and point to `/mine-ship`. Stop. |
 | `**Status:** archived` or `abandoned` | Report the status and stop. |
@@ -47,7 +48,21 @@ Read 3-8 files relevant to the change:
 
 Keep it fast. You're looking for conventions, constraints, and the decisions the change will force, not doing a deep investigation.
 
-If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions. A milestone ledger is prior work too, including one an issue's body points to, but its ratified decisions are settled: carry the ones this change relies on into Assumed, citing the ledger and its `D<n>`, rather than redrafting them. Its references are concepts rather than files, so the scan finds where each one lives now.
+If the request names a brief or research file (from `/mine-research`, `/mine-grill`, or similar), read it first and treat it as prior work: its findings ground the scan and the decision tables, and its open questions become decisions.
+
+### Picking up a milestone issue
+
+When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Propose the posture from the parent's stances with Altitude set to `build`, and confirm it as usual.
+
+The scan is what's different. The parent was written before the code it describes was built, and earlier issues in the milestone have since landed. So expect it to be wrong or silent in places, and check it before relying on it:
+
+- Read the parent's decisions this issue implements, plus its "Applies to all" line. Read the sibling pickup ledgers too (grep the specs directory for the parent's path on a `**Parent:**` line), since a sibling's decisions can supersede the parent's. Siblings still on unmerged branches won't show up.
+- Check that slice against the current code, the issue body, and what the landed sibling issues actually shipped. Find where each concept the parent names lives now.
+- Carry each parent decision that still holds into Assumed, citing the parent and its `D<n>`. Don't redraft it.
+- Anything the parent leaves open, and any place it disagrees with the issue body, is a decision.
+- A parent decision that no longer holds becomes a decision in this ledger that supersedes it, naming the `D<n>`. The parent isn't edited. Later pickups find the override through the sibling read above.
+
+Put what this check finds straight into the draft as decisions. Don't settle them in conversation first, since Phase 3 is where they get answered. A pickup that finds nothing open still writes its ledger, with the carried decisions in Assumed and `None open; this pickup carries the parent's decisions.` under `## Decisions`, so build mode and the ship-time challenge run on it.
 
 ### Fit check
 
@@ -187,6 +202,7 @@ Agent:
     - Every judgment call the change needs is a decision, unless its case follows a stance in Posture; nothing else with more than one reasonable answer hides in Assumed or the summary
     - The Summary names a home for every new piece of state or behavior, and a home that doesn't fit is a decision, not a silent bolt-on
     - Each assumption has evidence
+    - With a `**Parent:**` line, every carried or superseded parent decision names a `D<n>` that exists in the parent
     - Decisions state behavior a test must pin, not test technique
     - References match the Posture's Altitude: at `milestone`, no paths, line numbers, or code-step lists. A stray one is minor unless a decision depends on it
     - At `build` altitude, a fresh session with only this file and the repo could build the change. At `milestone`, every decision lands in some Breakdown issue, each issue could be picked up on its own, and the Done-when is observable
@@ -255,7 +271,7 @@ AskUserQuestion:
 
 On "Not yet", file nothing: commit the ledger and `<feature_dir>/review-log.jsonl` on the current branch (off the default branch, if the repo requires PRs) and stop.
 
-On "File them", file per the repo's issue conventions (`git-workflow.md`), grouping the issues under whatever the tracker uses for a milestone (a GitHub milestone, a Jira epic, a parent work item), in dependency order so each issue can link the ones in its `After:`. Each issue body gives its scope at the ledger's altitude, the decisions it implements, and the ledger's repo path; the ledger has to reach the default branch before the issues are picked up, so say that if it's still on a branch. Write each issue key into its Breakdown entry, commit the ledger and `<feature_dir>/review-log.jsonl` the same way, and stop.
+On "File them", file per the repo's issue conventions (`git-workflow.md`), grouping the issues under whatever the tracker uses for a milestone (a GitHub milestone, a Jira epic, a parent work item), in dependency order so each issue can link the ones in its `After:`. Each issue body gives its scope at the ledger's altitude, the decisions it implements, the ledger's repo path, and how to pick it up (`/mine-sketch <feature_dir> <issue key>`, which checks the ledger against the code before building); the ledger has to reach the default branch before the issues are picked up, so say that if it's still on a branch. Write each issue key into its Breakdown entry, commit the ledger and `<feature_dir>/review-log.jsonl` the same way, and stop.
 
 ### On "Revise a decision"
 

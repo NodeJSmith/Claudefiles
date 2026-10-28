@@ -43,7 +43,7 @@ For **each** issue key in the arguments, use the **Agent** tool (`subagent_type:
 > ## Issue <KEY> — Title
 > - **Description**: [condensed from body, 2-3 sentences max]
 > - **Key comments**: [relevant discussion points, or "None" if no useful comments]
-> - **Design docs**: [each doc's path, its `**Status:**` line if it has one, and what it decides for this issue, or "None"]
+> - **Design docs**: [each doc's path, its `**Status:**` line and `## Posture` Altitude (`build` or `milestone`) when the doc has those, and what it decides for this issue, or "None"]
 > - **Affected areas**: [files/modules identified from codebase scan]
 > - **Estimated scope**: [small/medium/large with brief reasoning]
 > - **Suggested approach**: [1-2 sentences]
@@ -68,9 +68,9 @@ When a split or close offer needs a slot, drop whichever of Build directly or De
 
 To choose among sketch, inline, and build, look at the implementation decisions the change leaves unmade (data shape, boundaries, edge-case behavior, test strategy), then route them (`sketch-before-building.md` holds the full rule). None open means build. Independent calls that fit in one `AskUserQuestion` call, each local and cheap to reverse, mean inline. Decisions that interact, reshape data or a module boundary, add something with no natural home, are hard to reverse, or outnumber one call mean sketch. A parent design or a detailed issue body settles *what* to build, not the decisions underneath it, so "the design is already decided" is not by itself a reason to build directly. In the message, list the decisions you found, so the user can see why you recommend what you do.
 
-If an issue is already fixed, superseded, or no longer valid, offer to close it, and show the closing comment before posting it; the rest of the set carries on without it. If **Design docs** lists a ratified ledger covering the issues, offer to build from it with `/mine-sketch <feature_dir>` instead of sketching again.
+If an issue is already fixed, superseded, or no longer valid, offer to close it, and show the closing comment before posting it; the rest of the set carries on without it. If **Design docs** lists a ratified build-altitude ledger covering the issues, offer to build from it with `/mine-sketch <feature_dir>` instead of sketching again. A ratified milestone-altitude ledger is a plan, not a build spec. Its issues are picked up through a pickup sketch, which checks the ledger against the code that has landed since. So for a Breakdown issue, recommend "Sketch it" however settled the ledger looks, and drop "Decide inline" and "Build it directly", which skip that check. A pickup takes one issue: when the set holds several Breakdown issues, work one now and name the rest for later runs.
 
-**If the user picks "Sketch it":** invoke `/mine-sketch` once, passing every remaining issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description, and ask it to list the keys on the ledger's `**Issues:**` line so the eventual PR closes all of them.
+**If the user picks "Sketch it":** when the issue is a Breakdown issue of a milestone ledger, invoke `/mine-sketch <milestone_dir> <key>` with the structured summary, so the sketch runs as that issue's pickup. Otherwise invoke `/mine-sketch` once, passing every remaining issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description, and ask it to list the keys on the ledger's `**Issues:**` line so the eventual PR closes all of them.
 
 **If the user picks "Decide inline, then build":** write each open decision in the message with its options and your recommendation, then ask them in one `AskUserQuestion` call. Once they're answered, continue as in "Build it directly", including its `Closes #N` lines. If an answer opens new decisions, or the questions turn out to depend on each other, stop and offer `/mine-sketch` instead: carrying on inline would produce a sketch that never got challenged.
 
