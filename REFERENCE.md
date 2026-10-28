@@ -99,7 +99,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 
 | Category | Installer key | Rule files |
 |----------|---------------|-----------|
-| Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `domain-references`, `performance`, `worktrees` |
+| Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `domain-references`, `performance`, `project-context`, `worktrees` |
 | Code structure & style | `style` | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
