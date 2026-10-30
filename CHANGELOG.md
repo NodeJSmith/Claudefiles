@@ -6,6 +6,8 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
+- The comb gate fixes a run's minor findings in the same pass whenever a re-comb is already coming, instead of letting them repeat each round and get applied unchecked at the end. (#654)
+
 - Sketch and challenge questions now show the situation and reasoning in message text, and a new `gate-reasoning-check.py` hook reminds the agent when a question went out without them. (#653)
 
 - Challenge rates problems in the code's shape as `routine` instead of `rare`, so they aren't batched and steered toward accept. (#653)
