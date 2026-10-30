@@ -10,17 +10,20 @@ The bias to watch for is writing the pros and cons after choosing. They then rea
 
 ## The Rubric
 
-1. **Deciding factor first.** Name, in one line, what the recommendation optimizes: "no breaking change", "fewest moving parts", "matches how the rest of the module does it". If you can't name it, you don't have a recommendation yet.
-2. **Same criteria for every option.** Use a criteria × options table. Every option is scored on every row, so a recommendation that wins on one row and loses on three shows up as a bad trade rather than as a shorter list of cons.
-3. **"Pick X instead if"** for every option you don't recommend: the condition under which it would be the right call. This tells the user which facts would flip the answer, which is what they are best placed to know.
-4. **Fill in the table before choosing.** Write the criteria and score every option, then pick. Don't pick and then write the table to support it.
-5. **Persist the reasoning.** When the decision lives in an artifact (a design doc, a ledger), the table and the recommendation go in the artifact, not only in chat. Critics can then attack the reasoning, not only the outcome.
+1. **Situation first.** Say what exists today and what goes wrong, in plain language, concretely enough to follow a day later with nothing else open. A table compares options; it can't tell a reader what the question is about, and the agent, deep in the design, doesn't feel that gap. Spell out what any internal ID (`D4`, `Finding 2`, `option B`) refers to rather than citing it bare. When an option is hard to picture, a small example does more than a longer description.
+2. **Deciding factor.** Name, in one line, what the recommendation optimizes: "no breaking change", "fewest moving parts", "matches how the rest of the module does it". If you can't name it, you don't have a recommendation yet.
+3. **Same criteria for every option.** Use a criteria × options table. Every option is scored on every row, so a recommendation that wins on one row and loses on three shows up as a bad trade rather than as a shorter list of cons.
+4. **"Pick X instead if"** for every option you don't recommend: the condition under which it would be the right call. This tells the user which facts would flip the answer, which is what they are best placed to know.
+5. **Fill in the table before choosing.** Write the criteria and score every option, then pick. Don't pick and then write the table to support it.
+6. **Persist the reasoning.** When the decision lives in an artifact (a design doc, a ledger), the situation, the table, and the recommendation go in the artifact, not only in chat. Critics can then attack the reasoning, not only the outcome.
 
 ## Shape
 
-Write this as message text before the `AskUserQuestion` call, per `rules/common/interaction.md` item 5 (message text, not the question or options; read the source, then write it out). If the reasoning lives in a file, reformat it into the markdown below.
+Write this as message text before the `AskUserQuestion` call, per `rules/common/interaction.md` item 5 (message text, not the question or options; read the source, then write it out). Writing it to a ledger or findings file doesn't show it: once it's on disk it feels said, and the user still has nothing on screen. So every question gets this, not just the first one in a run. If the reasoning lives in a file, reformat it into the markdown below.
 
 ```markdown
+**Situation:** <what exists today and what goes wrong>
+
 **Deciding factor:** <what the recommendation optimizes>
 
 | | A: <option> | B: <option> |
@@ -32,6 +35,6 @@ Write this as message text before the `AskUserQuestion` call, per `rules/common/
 **Pick B instead if** <condition>.
 ```
 
-Then ask the question. Keep option labels and descriptions short; the table carries the reasoning.
+Then ask the question. Keep option labels and descriptions short; the table carries the reasoning. Mark the recommended option by ending its label with ` (Recommended)`.
 
-A choice with one obvious answer that is easy to reverse can skip the table. Keep the deciding factor, the recommendation, and "pick X instead if".
+A choice with one obvious answer that is easy to reverse can skip the table. Keep the situation, the deciding factor, the recommendation, and "pick X instead if".

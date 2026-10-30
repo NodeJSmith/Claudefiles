@@ -72,6 +72,12 @@ Each gap becomes a decision in Phase 2, whatever the posture says. Its options a
 
 Stay within the places this change has to put something. Structural problems elsewhere in the area are an audit's job, not this sketch's.
 
+### Peer check
+
+Run `/mine-prior-art` once, before the posture, on how comparable projects handle this change's core problem. Its findings bear on both the stances and the decision tables, and a design reasoned out only in this session tends to engineer around limitations peers simply accept. "It's internal" isn't a reason to skip: how peers structure the same thing internally is exactly the question. (A convergence gate's skip for internal mechanisms is narrower: it means things like a project's own file format, with no outside equivalent.)
+
+Skip it when there's nothing to compare against (usually a private repo with no `peers` in the frontmatter and no public analogue you can name), when a brief, the parent ledger, or research from this session already covers it, or when the change is mechanical enough that no decision could turn on the answer. Say which in one line. Record the brief's path for the ledger's `**Prior art:**` line.
+
 ### Posture
 
 Ledgers bloat with decisions the user considers unwarranted: one per failure edge case, one per compatibility path, one per "should it also handle X". Most come from a few areas. Settle the change's stance on each one up front, so the draft doesn't turn every case they cover into a decision:
@@ -89,7 +95,7 @@ Add an axis when the change turns on one the table lacks, such as concurrency or
 
 Altitude decides what the ledger is for, not how cautious the change is, so infer it from the request rather than the minimal default below. The question is whether whoever builds this will read the ledger after the code it would cite has moved or been split. If so, it's `milestone`, and the request usually says as much by asking for a plan, a milestone, or issues. Otherwise it's `build`. The two halves of `milestone` go together: a ledger that has to survive refactors can't also be a file-level spec for one build session. A ledger with no Altitude line is `build`.
 
-Infer a stance for each axis from the request, the scan, the CLAUDE.md frontmatter (`audience`, `developers`, `data-sensitivity`; see `project-context.md`), and the repo itself. A public repo with releases or a changelog has consumers, and a private one with no installs usually doesn't. Your defaults skew toward more failure handling, more compatibility, and more scope than a project warrants, and a cautious posture invites a rubber stamp. So infer the minimal stance on each axis unless something you found argues for more, and name that evidence.
+Infer a stance for each axis from the request, the scan, the peer check, the CLAUDE.md frontmatter (`audience`, `developers`, `data-sensitivity`; see `project-context.md`), and the repo itself. A public repo with releases or a changelog has consumers, and a private one with no installs usually doesn't. Your defaults skew toward more failure handling, more compatibility, and more scope than a project warrants, and a cautious posture invites a rubber stamp. So infer the minimal stance on each axis unless something you found argues for more, and name that evidence.
 
 Write the proposed posture as message text, one line per axis with what drove it, then ask:
 
@@ -103,12 +109,9 @@ AskUserQuestion:
       description: "Draft the ledger within these stances"
     - label: "Adjust the posture"
       description: "Say which stances to change"
-    # Include only when the frontmatter declares `peers` and the change adds a new mechanism, not a routine edit:
-    - label: "Check peers first"
-      description: "Run /mine-prior-art on how <peers> handle this, then revisit the posture"
 ```
 
-On "Adjust the posture", ask which stances to change. On "Check peers first", invoke `/mine-prior-art` with the mechanism as the topic, and revise the stances its findings bear on. Peers routinely accept limitations a fresh design would engineer around. Either way, show the revised posture and ask again, without the peers option once it has run. Proceed on "Use this posture".
+On "Adjust the posture", ask which stances to change, then show the revised posture and ask again. Proceed on "Use this posture".
 
 ### Create the feature directory
 
@@ -131,7 +134,8 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md` and
 - **Name each home.** The Summary names where each new piece of state or behavior lives, so the comb and the build can check it.
 - **Resumable work state.** When the change owns work state across invocations (a background worker, batch job, queue consumer, scheduler, or persistent retry state), its lifecycle is a set of decisions: completion, retry eligibility and bounds, recovery from states that need user action, repeated-run convergence, and visible progress and failure accounting.
 - **Fill each table before recommending.** Ground the criteria in what the scan found, cited at the posture's altitude.
-- **Make each new setting, validator, guard, or mechanism earn its place.** When an option adds one, offer the version without it (delete the cause, or accept and document the limitation), and add criteria for how often the problem occurs and what peers do about it. Peers come from the frontmatter's `peers`, or comparable projects in a public repo; in a private repo with no `peers` declared, skip the peer criterion. When the addition is non-trivial or hard to reverse, no prior-art research this session covers it, and the user didn't decline "Check peers first", run `/mine-prior-art` once for all such decisions before ratifying. Later sessions commonly end up cutting machinery that peers don't carry.
+- **Make each new setting, validator, guard, or mechanism earn its place.** When an option adds one, offer the version without it (delete the cause, or accept and document the limitation), and add a criterion for how often the problem occurs. Later sessions commonly end up cutting machinery that peers don't carry.
+- **Use the peer check.** Give each decision a row for what peers do, with `unknown` where the brief is silent. When the peer check was skipped for lack of peers, there's no such row.
 - **Assumed** gets the facts the build relies on, each with evidence.
 - **Self-sufficient.** The build runs in a fresh session with only this file and the repo. Name what the change touches; don't refer to "as discussed".
 - **Write at the posture's altitude.** At `build`, cite files. At `milestone`, use names that survive a file being moved or split (concepts, packages, classes, public functions), and leave out paths, line numbers, and code-step lists. The scan's evidence comes back file-shaped and precise citations feel rigorous, so the pull is to paste them in; translate each finding to the concept it shows. Then write `## Breakdown`: the proposed issues, each independently landable and naming the decisions it implements, plus a Done-when for the milestone as a whole. Leave out `## Build`.
@@ -144,7 +148,7 @@ Every decision starts as `**Ratified:** pending`.
 
 Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 
-1. Write the decision's rubric as message text before the `AskUserQuestion` call: the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. This is the user's chance to push back on the reasoning, so write it in full, not summarized.
+1. Write the decision's rubric as message text before the `AskUserQuestion` call: the situation, the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. Do this for every decision. The ledger isn't on the user's screen, and this is their chance to push back on the reasoning, so write it in full, not summarized.
 2. Ask:
 
    ```

@@ -109,6 +109,7 @@ def test_sketch_decision_block_carries_the_rubric_and_pending_marker() -> None:
     assert decisions is not None
     assert re.search(r"^### D1: ", decisions, re.MULTILINE)
     for field in (
+        r"\*\*Situation:\*\*",
         r"\*\*Deciding factor:\*\*",
         r"^\| \| A: ",
         r"\*\*Recommendation:\*\*",

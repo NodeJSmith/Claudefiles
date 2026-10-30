@@ -10,6 +10,7 @@ Write the ledger to `<feature_dir>/design.md` using this template:
 **Mode:** sketch
 **Issues:** [tracker keys this change resolves, e.g. #123, #124; omit the line if none]
 **Parent:** [the milestone ledger's path when this ledger picks up one of its Breakdown issues; omit the line otherwise]
+**Prior art:** [the path of the brief from the peer check; omit the line if it was skipped]
 
 ## Summary
 
@@ -29,6 +30,8 @@ each new piece of state or behavior lives: files at build altitude, concepts and
 ## Decisions
 
 ### D1: <the question, phrased as a choice>
+
+**Situation:** [what exists today and what goes wrong, in plain language]
 
 **Deciding factor:** [what the recommendation optimizes, e.g. "no breaking change"]
 
@@ -87,7 +90,7 @@ never propose editing the sections above to "correct" it.]
 - **Posture is ratified as a whole.** The user confirmed it before drafting. A case it settles follows its stance and gets no decision block. Changing a stance reopens the decisions that relied on it, and a loosened stance can add decisions for cases it no longer settles.
 - **Every judgment call the posture leaves open is a decision.** If it has more than one reasonable answer, it gets a `### D<n>` block, not a line in Assumed or a silent pick.
 - **Each decision block follows the rubric** in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
-- **A small decision may collapse.** One with a single obvious answer and easy reversibility can drop the table. It keeps the deciding factor, the recommendation, and "Pick X instead if".
+- **A small decision may collapse.** One with a single obvious answer and easy reversibility can drop the table. It keeps the situation, the deciding factor, the recommendation, and "Pick X instead if".
 - **`**Ratified:**` is a state marker.** Every decision is created as `**Ratified:** pending`, matched literally on resume. Ratifying replaces `pending` with one sentence: "Chose X over Y, to achieve Q, accepting D."
 - **Behavior, not technique.** Decisions and assumptions state what behavior a test must pin, never how to test it: no fixtures, no capture mechanisms, no test-file layout.
 - **Assumed holds facts and inherited constraints only**, each with evidence. It is not an implementation plan.

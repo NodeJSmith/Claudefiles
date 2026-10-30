@@ -39,7 +39,7 @@ Each finding is a top-level section:
 
 **Why-it-matters:** <consequence if left unfixed>
 
-**When-it-bites:** <the concrete trigger and how often it happens for this project>
+**When-it-bites:** <the concrete trigger and how often it happens for this project; for a problem in the code's shape, who pays for it now>
 
 **Evidence:** <file:line, section reference, quoted text, or URL>
 
@@ -224,16 +224,24 @@ write the `**Ratified:**` sentence ("Chose X over Y, to achieve Q, accepting D."
 in the same edit, and add or update that option's column in the decision's criteria table, so the sketch doesn't ask again and the comb finds the table consistent. Only an edit the user never
 chose between (an Auto-apply edit) sets `**Ratified:**` back to `pending`.
 
-**Show the reasoning before every question.** Before each User-directed and
-TENSION `AskUserQuestion` below, write the finding's `**Deciding-factor:**`,
-`**Criteria:**` table, and `**Pick-instead-if:**` as message text before the
-call, copied from the findings file as markdown (see `interaction.md`, item 5).
-Synthesis wrote them before it chose the recommendation, so they are the
+**Show the finding before every question.** The findings file is never on the
+user's screen, and a finding's title rarely says enough on its own. Before each
+User-directed and TENSION `AskUserQuestion` below, write this as message text
+(see `interaction.md`, item 5):
+
+- The situation, from `**Why-it-matters:**` and `**When-it-bites:**`, in plain
+  language a reader could follow a day later, with `**Evidence:**` where it helps.
+  Spell out what any `D<n>` or finding number refers to.
+- For TENSION, both sides (`**Side-a:**`, `**Side-b:**`).
+- `**Deciding-factor:**`, the `**Criteria:**` table, `**Recommendation:**`, and
+  `**Pick-instead-if:**`, copied from the findings file as markdown.
+
+Synthesis wrote the table before it chose the recommendation, so it is the
 reasoning behind it, not a justification written afterwards.
-When a finding lacks them (an older findings file, or a producer that doesn't
-write them), show what it has. Don't build a table at this point: one written
-after the recommendation exists only argues for it. The recommendation is
-taken as-is more often than any other answer here, so the user needs the
+When a finding lacks these fields (an older findings file, or a producer that
+doesn't write them), show what it has. Don't build a table at this point: one
+written after the recommendation exists only argues for it. The recommendation
+is taken as-is more often than any other answer here, so the user needs the
 trade-offs in view to push back on it.
 
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
@@ -251,9 +259,9 @@ AskUserQuestion:
   header: "<raised-by>"
   options:
     - label: "A: <Option A text>"
-      description: "<why-it-matters>"
+      description: "<one line: what it changes>"
     - label: "B: <Option B text>"
-      description: ""
+      description: "<one line: what it changes>"
     - label: "Skip — defer to later"
       description: "Record this finding without acting on it"
     - label: "File as issue"
@@ -267,14 +275,10 @@ stays at four.
 Each option's `label` must be the letter and text exactly as they appear in the
 finding's `**Options:**` list (`A: <first option>`, `B: <second option>`, ...) —
 this is the same canonical string `challenge-gate.md` extracts into the
-`recommended` field. Prepend `(Recommended) ` to the `description` of whichever
-option (A, B, or C) carries the `*(recommended)*` marker in that source list — never
-the label — so the label the user selects (passed to `--chosen` in step 6)
-matches `recommended` exactly when the user follows the recommendation. Getting
-this wrong (baking the cue into the label, or hardcoding it onto one option
-regardless of which one the finding actually recommends) silently breaks the
-"did the user follow the recommendation" comparison between `chosen` and
-`recommended`.
+`recommended` field. End the label of whichever option carries the
+`*(recommended)*` marker with ` (Recommended)`, as every other question does.
+That suffix is display-only: strip it before recording `chosen`, so `chosen`
+matches `recommended` when the user follows the recommendation.
 
 Apply chosen option via Edit tool. Set `disposition: applied` for options
 (`accepted` for an `Accept as a known limitation` option, recorded as in Rare
@@ -330,19 +334,20 @@ batch: a pile of individually reasonable guards for unlikely cases is how a
 design bloats, and walking each one invites accepting each one. HIGH rare
 findings stay out of the batch: their consequence is large enough that the user
 should weigh the likelihood call themselves. If a
-convergence already superseded one, it keeps that resolution. Write a short
-message listing each remaining rare finding: its number, title, `When-it-bites`,
-and its recommended option. Mark any whose recommendation is a fix rather than
-Accept, so the code it would add doesn't pass unnoticed. Then ask once (a major gate, so prepend the
-`context-pct` result):
+convergence already superseded one, it keeps that resolution. Write a message
+listing each remaining rare finding: its number, what goes wrong in a sentence of
+plain language, `When-it-bites`, and its recommended option. This list is all the
+user has to go on, and an unlisted batch is a blind accept. Mark any whose
+recommendation is a fix rather than Accept, so the code it would add doesn't pass
+unnoticed. Then ask once (a major gate, so prepend the `context-pct` result):
 
 ```
 AskUserQuestion:
   question: "[Context: N%] {count} rare-case findings: accept the recommendations?"
   header: "Rare cases"
   options:
-    - label: "Accept recommendations"
-      description: "(Recommended) Record each recommended limitation; apply the fixes that were recommended"
+    - label: "Accept recommendations (Recommended)"
+      description: "Record each recommended limitation; apply the fixes that were recommended"
     - label: "Let me pick"
       description: "Walk the ones I name individually; accept the rest's recommendations"
 ```
