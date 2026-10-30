@@ -23,7 +23,7 @@ Skip review when it couldn't plausibly catch anything the tests and type checker
 ### Code Reviewer Loop
 
 Reviewers report everything, because a reviewer told to be conservative misses real bugs too. The filtering happens in step 1. Loop until no CRITICAL/HIGH issues remain after filtering:
-1. Filter the findings. Set aside a finding outside the change's requested scope, a risk with no concrete trigger you can name, or a risk the project lists under `accepted-risks` (see `project-context.md`). Never set aside a security finding or a bug the change itself introduced. Each set-aside finding gets one line in your report with its severity and the reason.
+1. Filter the findings. Set aside a finding outside the change's requested scope, a risk with no concrete trigger you can name, or a risk the project lists under `accepted-risks` (see `project-context.md`). A problem in the code's shape, such as a rule living apart from the code it protects or one value with two owners, isn't a risk waiting on a trigger: it costs something on every read, so judge it by whether it's worth fixing now. Never set aside a security finding or a bug the change itself introduced. Each set-aside finding gets one line in your report with its severity and the reason.
 2. Auto-fix unambiguous issues; defer to user for judgment calls
 3. Re-run `code-reviewer`, unless every fix since the last run falls under the skip criteria above
 4. Stop when no CRITICAL/HIGH remain after filtering

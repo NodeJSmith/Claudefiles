@@ -156,7 +156,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
   2. **Name the problem directly** — no hedging
   3. **Propose a fix**: `Classification: Auto-apply | User-directed` + one-sentence fix or options
   4. **Tag each finding**: severity (CRITICAL/HIGH/MEDIUM/TENSION), type, design-level
-  5. **Structure each finding**: `**Why it matters**`, `**When it bites**`, `**Evidence**`, `**Design challenge**`. `When it bites` names the concrete trigger and how often it happens for this project in normal use ("every restart", "only if the link flaps mid-resync"). Synthesis uses it to decide whether a fix is worth its code, so don't inflate it
+  5. **Structure each finding**: `**Why it matters**`, `**When it bites**`, `**Evidence**`, `**Design challenge**`. `When it bites` names the concrete trigger and how often it happens for this project in normal use ("every restart", "only if the link flaps mid-resync"); for a problem in the code's shape, it names who pays for it now ("every change to the cache rule"). Synthesis uses it to decide whether a fix is worth its code, so don't inflate it
   6. **Include a Pushback section**: findings you anticipate other critics raising that you'd disagree with
   7. **Read beyond provided files**: use Read, Grep, Glob; include **Files examined** at top of report
   8. **Ask what each side actually knows**: wherever the target coordinates state across components (client and server, cache and source, cursor and log, retry and remote effect), check whether any component infers another's state from partial evidence instead of being told it. Inferred state is a finding even when the inference usually holds — say what it guesses from and when the guess goes wrong

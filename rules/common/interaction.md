@@ -70,6 +70,8 @@ block or as a prose menu of options, call the `AskUserQuestion` tool.
 
    **Why:** the user decides from what's on screen. Message text renders formatted and stays visible while they read the question. For decisions with a recommendation, `references/common/presenting-decisions.md` gives the shape.
 
+   **When the user answers a question with a question,** or asks for more context, answer it in message text before asking again, with something they didn't already have: what the code does today, a concrete example, how the options actually differ. Check the code if you don't know. Rewording the option descriptions and re-asking is the failure to avoid: they asked because those words weren't enough, and a reworded menu reads as being ignored.
+
 ## Intellectual Honesty
 
 AI assistants default to deference bias: softening corrections, hedging disagreements, and validating weak reasoning to avoid friction. This undermines collaborative work that depends on surfacing flaws early. Intellectual honesty is the conversational default, not something that requires invoking `/mine-challenge`.

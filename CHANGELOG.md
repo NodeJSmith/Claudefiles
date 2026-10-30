@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-30
+
+### Changed
+
+- Sketch and challenge questions now show the situation and reasoning in message text, and a new `gate-reasoning-check.py` hook reminds the agent when a question went out without them. (#653)
+
+- Challenge rates problems in the code's shape as `routine` instead of `rare`, so they aren't batched and steered toward accept. (#653)
+
+- `/mine-sketch` runs prior art once before the posture, replacing the "Check peers first" option. (#653)
+
 ## 2026-10-28
 
 ### Changed
