@@ -63,7 +63,7 @@ The agent classifies findings and returns a `## Summary` line plus grouped findi
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Comb`
-- **`minor_blocks`**: `true` — the user invoked this to get what the comb finds, so minor findings are fixed along with blocking ones
+- **`minor_blocks`**: `true` — the user invoked this to get what the comb finds, so minor findings are fixed even in a run with no blocking ones
 - **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings — don't expand scope), then re-comb from the top
 
 The gate fixes and re-combs on its own for up to two cycles, and asks only about design decisions or a loop that hasn't converged (after which each further blocking run asks again).
