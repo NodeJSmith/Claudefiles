@@ -49,7 +49,7 @@ Before running tests, find out how the project expects them to run.
 
 1. **CLAUDE.md** — "Test Execution" section; if found, use that command
 2. **CI configuration** — `.github/workflows/`, `.gitlab-ci.yml`; use CI's exact commands
-3. **Task runners** — `noxfile.py`, `tox.ini`, `Makefile`, `pyproject.toml` scripts
+3. **Task runners** — `noxfile.py`, `tox.ini`, `Makefile`, `pyproject.toml` or `package.json` scripts
 4. **Documentation** — README, CONTRIBUTING
 5. **Ask the user** — store answer in CLAUDE.md
 6. **Fallback** — `pytest` or equivalent as last resort

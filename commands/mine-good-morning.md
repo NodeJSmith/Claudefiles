@@ -1,5 +1,5 @@
 ---
-description: Read the end-of-day handoff and orient for today's work.
+description: "Use when the user says: \"good morning\", \"pick up where I left off\", \"what was I working on\", \"read the handoff\". Read the end-of-day handoff and orient for today's work."
 ---
 
 # Good Morning

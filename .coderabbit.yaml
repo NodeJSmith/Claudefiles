@@ -24,7 +24,7 @@ reviews:
     - path: "agents/**"
       instructions: |
         Agent files use YAML frontmatter (model, tools list). Verify the model
-        declaration matches the project's model policy (see rules/common/performance.md).
+        declaration matches the project's model policy (see references/common/agents.md).
         Check that the system prompt is focused and doesn't duplicate rules.
 
     - path: "rules/**"

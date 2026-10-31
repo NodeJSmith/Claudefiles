@@ -223,20 +223,14 @@ async def test_create_user(client: AsyncClient):
 - Separate request models, response models, and internal domain models
 
 ### Anti-Patterns — Never Do These
-<!-- SYNC: rules/common/python.md, rules/common/coding-style.md — keep in sync with global rules -->
-- No `from __future__ import annotations` — breaks Pydantic runtime inspection
-- No `Optional[X]` — use `X | None` union syntax
-- No lazy imports (imports inside functions) — all imports at module top
-- No stdlib `datetime`/`date`/`timedelta` in application logic — use `whenever`, converting at library boundaries
 - No `os.path.join` — use `pathlib.Path`
 - No `pip` — always `uv`
-<!-- Agent-specific rules below -->
 - No blocking I/O in `async def` functions — use `run_in_executor` or make the function sync
 - No `asyncio.gather` for task groups — use `asyncio.TaskGroup`
 - No monkeypatching in tests — use `app.dependency_overrides`
 
 ### Test Execution
-Before running tests, follow the discovery order: (1) check CLAUDE.md "Test Execution" section; (2) CI configuration (`.github/workflows/`, `.gitlab-ci.yml`); (3) task runners (`Makefile`, `pyproject.toml` scripts, `noxfile.py`); (4) fallback to `pytest`.
+Follow the discovery order in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md`.
 
 ### Enforced Tooling
 - **Ruff** for linting + formatting (line-length=120, target=py311)

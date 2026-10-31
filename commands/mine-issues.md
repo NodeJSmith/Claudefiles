@@ -1,5 +1,5 @@
 ---
-description: Deep-dive issues by key, inferring one from the branch name if none are given.
+description: "Use when the user says: \"show issue\", \"investigate this issue\". Deep-dive issues by key, inferring one from the branch name if none are given."
 ---
 
 # Issues Command

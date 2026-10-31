@@ -4,5 +4,5 @@
 # No set -euo pipefail — this is a cosmetic hook; failure should not block session start.
 
 if [ -n "${TMUX:-}" ]; then
-  echo "You are inside a tmux session. Rename it now with: claude-tmux rename \"<project>-<context>\"" || true
+  echo "You are inside a tmux session. Rename it now with: claude-tmux rename \"<project>-<context>\" (kebab-case, max ~30 chars; project from the working directory, context from the branch or task)" || true
 fi

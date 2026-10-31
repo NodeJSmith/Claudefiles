@@ -143,9 +143,6 @@ test("calls onSelect with user ID when clicked", async () => {
 When a task prompt contains a `## Visual Verification` section, follow the screenshot capture protocol in `references/common/frontend.md` (Workflow section). Capture before/after screenshots for each scenario and include the structured output format in your result. If no dev server is available, mark each scenario SKIPPED with reason.
 
 ### Anti-Patterns — Never Do These
-<!-- SYNC: rules/common/coding-style.md, references/common/testing.md — keep in sync with global rules (python.md N/A for TS agent) -->
-- No direct state mutation — use immutable updates (`setState`, spread, `structuredClone`)
-<!-- Agent-specific rules below -->
 - No `any` type in TypeScript — use proper generics, `unknown`, or specific types
 - In React: no `useEffect` for derived/computed state — compute inline or use `useMemo` (only if measured as necessary)
 - Avoid inline style objects that create new references each render — use CSS classes or the project's established styling method
@@ -155,7 +152,7 @@ When a task prompt contains a `## Visual Verification` section, follow the scree
 - In React: no `export default` — use named exports for better refactoring and tree shaking. (Vue SFCs use `export default` by convention — follow the framework idiom.)
 
 ### Test Execution
-Before running tests, follow the discovery order: (1) check CLAUDE.md "Test Execution" section; (2) CI configuration (`.github/workflows/`, `.gitlab-ci.yml`); (3) `package.json` scripts (`test`, `test:unit`, `test:coverage`); (4) check for `vitest.config.*` or `jest.config.*`; (5) fallback to `npx vitest` or `npx jest`.
+Follow the discovery order in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md`.
 
 ### Enforced Tooling
 Discover the project's configured tools from `package.json` scripts and config files. Run all of them before writing the result to the output file. If tools aren't configured in `package.json`, run them directly and note in the output that they weren't pre-configured:
