@@ -18,7 +18,7 @@ When program state is unclear, add instrumentation or logging and read it as the
 
 ## Don't Call It Pre-existing Without Checking the Default Branch
 
-A failure that isn't obviously caused by your latest edit is not automatically "pre-existing" or "unrelated." It may have been introduced by an earlier commit in the same branch or session. Before ruling something out of scope, verify it against the actual default branch — see `pre-existing-verification.md`. A before/after comparison against a stash, a run's captured baseline, or an earlier commit on this branch answers a narrower question than "is this on the default branch," and reporting it as the broader claim is how a self-inflicted regression gets waved off as someone else's debt.
+A failure that isn't obviously caused by your latest edit is not automatically "pre-existing" or "unrelated." It may have been introduced by an earlier commit in the same branch or session. Before ruling something out of scope, verify it against the actual default branch — see `pre-existing-verification.md`.
 
 ## Reproduce First
 
@@ -28,4 +28,4 @@ A bug you cannot reproduce, you cannot prove fixed. If the bug will not reproduc
 
 Verify the fix on the same surface where the bug was observed. Unit tests show branch behavior, not bug absence. "Inconclusive" or wrong-surface is not a pass.
 
-For commit sequencing on bug fixes, see `commit-conventions.md`.
+For commit sequencing on bug fixes, see `sequence-verifiable-units.md`.

@@ -45,12 +45,3 @@ Cite specific lines. Don't hedge. If the reviewer is wrong, say so.
 1. Clarify any unclear findings before implementing any of them
 2. CRITICAL/HIGH before MEDIUM/LOW
 3. Simple/localized before complex/cross-cutting
-
-## Forbidden Responses
-
-Never respond to a finding with any of these before verifying:
-- "You're absolutely right!"
-- "Great point!"
-- "Let me implement that right away"
-
-Verification first. Always.

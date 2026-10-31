@@ -1,6 +1,6 @@
 # Autonomous Run Discipline
 
-Rules for long-running tasks driven to completion without human intervention ("going to bed", "run until done", "/loop until X"). For test-loop failures specifically, see the retry limit in `commit-conventions.md`.
+Rules for long-running tasks driven to completion without human intervention ("going to bed", "run until done", "/loop until X"). For test-loop failures specifically, see the retry limit in `references/common/testing.md`.
 
 ## State the Exit Condition First
 

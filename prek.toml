@@ -89,7 +89,7 @@ stages = ["pre-commit"]
 
 [[repos.hooks]]
 id = "lint-agent-models"
-name = "Agent metadata generation + staleness check (performance.md + install.py)"
+name = "Agent metadata generation + staleness check (install.py)"
 entry = "bin/lint-agent-models"
 language = "system"
 pass_filenames = false

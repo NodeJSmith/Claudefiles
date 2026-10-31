@@ -1,5 +1,5 @@
 ---
-description: Quick orientation — branch, tasks, errors, last commit.
+description: "Use when the user says: \"status\", \"where am I\", \"quick summary\". Quick orientation — branch, tasks, errors, last commit."
 ---
 
 # Status Command

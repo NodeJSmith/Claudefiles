@@ -9,7 +9,7 @@ A sequence of commits or PRs should tell a story a reviewer can check step by st
 ## Canonical Shapes
 
 **Bug fixes and new behavior:**
-1. Failing test (RED) — proves the bug existed / behavior was absent
+1. Failing test or reproduction script (RED) — proves the bug existed / behavior was absent
 2. Implementation (GREEN) — proves the fix is sufficient
 
 The RED commit is evidence. Without it, "trust me, it was broken before" is the only argument.

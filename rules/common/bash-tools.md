@@ -1,14 +1,4 @@
-# Bash Tool vs Dedicated Tools
-
-## Tool Mapping
-
-| Instead of... | Use... |
-|---------------|--------|
-| `cat` / `head` / `tail` | `Read` |
-| `grep` / `rg` | `Grep` |
-| `find` / `ls` | `Glob` |
-| `sed` / `awk` (edits) | `Edit` |
-| `echo >` / heredoc | `Write` |
+# Bash Tool
 
 ## Scripting Opportunities
 

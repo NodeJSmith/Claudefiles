@@ -1,6 +1,6 @@
 ---
 name: mine-debug
-description: "Use when encountering any bug, test failure, or unexpected behavior"
+description: "Use when the user says: \"debug this\", \"investigate this failure\", \"systematic debugging\", \"why is this failing\", \"stop retrying and investigate\", or when encountering any bug, test failure, or unexpected behavior"
 user-invocable: true
 ---
 

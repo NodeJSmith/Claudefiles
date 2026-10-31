@@ -32,7 +32,7 @@ Enumerate test cases across these seven categories, prioritized by risk and impa
 Then:
 
 1. **Scope** — read the feature code, tests, and specs; list explicit and implicit requirements. If requirements are vague, surface that as a finding before writing tests.
-2. **Write/execute** — follow the project's framework and conventions; run via Bash following test discovery order (CI config → task runners → fallback).
+2. **Write/execute** — follow the project's framework and conventions; run via Bash following the discovery order in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md`.
 3. **Exploratory** — go off-script with unexpected combinations and realistic data volumes; check UI states (loading, empty, error, overflow) if UI is involved.
 4. **Report** — separate confirmed bugs from potential improvements.
 

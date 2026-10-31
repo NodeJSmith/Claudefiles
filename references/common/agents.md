@@ -49,6 +49,16 @@ A dispatch names an agent — nothing else. Don't dispatch the harness's built-i
 
 Check the agent roster in `agents/` for a specialist whose role matches the work first. Only when none fits, pick the worker matching the tier the work needs — the caller supplies the full task methodology in its prompt either way. `tools:` grants broad access fleet-wide, so whether the work writes files, runs commands, or searches the web doesn't affect the choice.
 
+### Choosing a Model and Effort
+
+When writing or retuning an agent, set `model:` and `effort:` in its frontmatter:
+
+- **Haiku** (`effort: high`): lightweight, frequently invoked workers. Use Sonnet instead when the agent reads images or screenshots, when filtering false positives from ambiguous output is its main job, or when it does the same interactive work as a Sonnet agent.
+- **Sonnet** (`effort: medium`): main development work, orchestration, complex coding.
+- **Opus** (`effort: high`): deep reasoning, architecture decisions, research.
+
+A `do not downgrade` comment on a `model:` line protects that agent's tier. `lint-agent-models` checks that the field is present, not that its value fits the tier.
+
 ### Context & Output
 
 - Subagents start with a **fresh context** — pass file paths or embed excerpts explicitly
@@ -59,10 +69,6 @@ Check the agent roster in `agents/` for a specialist whose role matches the work
 
 - **Foreground** (default): blocks until complete; parallel foreground agents run concurrently
 - **Background** (`run_in_background: true`): cannot ask user questions or get new permissions; use for fire-and-forget tasks
-
-### Parallel Reviewer / Critic Pattern
-
-When launching 2+ independent reviewer or critic agents (e.g., code-reviewer + integration-reviewer, or the three challenge critics), issue multiple Agent tool calls in a **single message** so they run in parallel. Only set `run_in_background: true` if you're sure the agents won't need to ask the user questions or request additional file/command permissions.
 
 ### Parallel Executor Isolation (CRITICAL)
 

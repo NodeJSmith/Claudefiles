@@ -171,13 +171,12 @@ def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
 RULE_CATEGORIES: dict[str, RuleCategory] = {
     "core": RuleCategory(
         label="Core (always installed)",
-        description="Capabilities routing, compaction guidance, interaction style, domain reference routing, model selection, worktree safety, project context",
+        description="CLI tool routing, compaction guidance, interaction style, domain reference routing, worktree safety, project context",
         files=(
             "capabilities-core.md",
             "compact-instructions.md",
             "domain-references.md",
             "interaction.md",
-            "performance.md",
             "project-context.md",
             "worktrees.md",
         ),
@@ -242,8 +241,8 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "environment": RuleCategory(
         label="Environment & tooling",
-        description="Bash tool usage, command output capture, tmux conventions",
-        files=("bash-tools.md", "command-output.md", "tmux.md"),
+        description="Bash tool usage, command output capture",
+        files=("bash-tools.md", "command-output.md"),
     ),
 }
 

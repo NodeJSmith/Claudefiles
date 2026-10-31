@@ -1,5 +1,5 @@
 ---
-description: Analyze frequent permission prompts and recommend allow-list entries to reduce friction.
+description: "Use when the user says: \"audit permissions\", \"reduce permission prompts\". Analyze frequent permission prompts and recommend allow-list entries to reduce friction."
 ---
 
 # Permissions Audit

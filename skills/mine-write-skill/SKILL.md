@@ -26,7 +26,7 @@ AskUserQuestion:
 
 Derive the rest from the purpose and the codebase, and present it in the draft for correction instead of asking up front:
 
-- **Triggers** — phrases a user would say, in the style of the existing entries in `rules/common/capabilities-core.md`.
+- **Triggers** — phrases a user would say, in the style of the `description` of existing skills.
 - **Output** — a file, a report, a question, or an action, whichever the purpose implies.
 - **Invocability** — user-invocable unless the purpose is clearly a reference loaded by other skills.
 
@@ -79,6 +79,5 @@ Report results. Fix any failures before presenting to the user.
 
 After the user approves the skill:
 
-1. Add a routing entry to `rules/common/capabilities-core.md` using the trigger phrases from Phase 1
-2. Add a row to the matching skills table in `REFERENCE.md` (alphabetical order), and to `ONBOARDING.md` if a new adopter should know about the skill
-3. Remind the user to run `uv run install.py` to create the symlink
+1. Add a row to the matching skills table in `REFERENCE.md` (alphabetical order), and to `ONBOARDING.md` if a new adopter should know about the skill
+2. Remind the user to run `uv run install.py` to create the symlink

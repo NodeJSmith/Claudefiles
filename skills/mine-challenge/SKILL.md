@@ -1,6 +1,6 @@
 ---
 name: mine-challenge
-description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review with triage-driven critic selection, parallel critics (1–3 on first run; max 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
+description: "Use when the user says: \"challenge this\", \"poke holes in this\", \"what's wrong with this approach\", \"ask the critics\", \"see what the critics say\", or \"run it by the critics\". Adversarial review with triage-driven critic selection, parallel critics (1–3 on first run; max 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
 ---
 

@@ -159,21 +159,15 @@ src/{package}/gold/some_aggregation.py
 ```
 
 ### Anti-Patterns — Never Do These
-<!-- SYNC: rules/common/python.md, rules/common/coding-style.md — keep in sync with global rules -->
-- No `from __future__ import annotations` — breaks Pydantic runtime inspection
-- No `Optional[X]` — use `X | None` union syntax
-- No lazy imports (imports inside functions) — all imports at module top
-- No stdlib `datetime`/`date`/`timedelta` in application logic — use `whenever`, converting at library boundaries
 - No `os.path.join` — use `pathlib.Path`
 - No `pip` — always `uv`
-<!-- Agent-specific rules below -->
 - No `ABC` base classes or `@abstractmethod` decorators — use concrete base classes; if the project has an existing base task class, subclass it directly
 - No `dataclasses` in pipeline code — Pydantic for serializable models
 - No hardcoded fully-qualified table names in dbt SQL — use `{{ ref() }}` and `{{ source() }}`
 - No centralized schema registry — schemas in `constants.py` per module
 
 ### Test Execution
-Before running tests, follow the discovery order: (1) check CLAUDE.md "Test Execution" section; (2) CI configuration (`.github/workflows/`, `.gitlab-ci.yml`); (3) task runners (`Makefile`, `pyproject.toml` scripts, `noxfile.py`); (4) fallback to `pytest`.
+Follow the discovery order in `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md`.
 
 ### Enforced Tooling
 - **Ruff** for linting + formatting (line-length=120, target=py311)

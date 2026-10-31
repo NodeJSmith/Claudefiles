@@ -1,5 +1,5 @@
 ---
-description: Capture session state as a handoff file for morning pickup.
+description: "Use when the user says: \"end of day\", \"wrapping up\", \"eod\", \"signing off\", \"handoff for tomorrow\". Capture session state as a handoff file for morning pickup."
 ---
 
 # End of Day

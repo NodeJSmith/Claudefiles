@@ -73,7 +73,7 @@ The naive approach — compare `git rev-parse --show-toplevel`'s output against 
 - After adding directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
 - **Always update `REFERENCE.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts — it holds the full component tables
 - **Always update `ONBOARDING.md`** when adding a capability a new adopter should know about (new bundle, significant new skill, workflow change)
-- **Always add trigger phrases for new skills** to `rules/common/capabilities-core.md`
+- **Always put trigger phrases for new skills** in the skill's `description` frontmatter
 - **When bundling a new plugin:** add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it in the Plugins table in `REFERENCE.md` and the relevant path in `ONBOARDING.md`
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.
 - **CodeRabbit reviews are manual.** Auto-review is disabled (`.coderabbit.yaml`). After the full PR workflow is complete (commit, push, PR created and marked ready), comment `@coderabbitai review` on the PR when the change is substantial: new or changed logic in scripts, hooks, or packages, or a multi-file rework of skills or agents. Skip it for small instruction or doc tweaks, where the run costs more than it's likely to catch.
