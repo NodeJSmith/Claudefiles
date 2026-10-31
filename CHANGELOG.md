@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-10-31
+
+### Changed
+
+- Removed redundant always-loaded instructions: skill triggers now live in skill descriptions, and repeated rules each have one home. (#655)
+
+### Removed
+
+- `rules/common/performance.md` and `rules/common/tmux.md`. Run `uv run install.py` to clear their symlinks. (#655)
+
 ## 2026-10-30
 
 ### Changed
