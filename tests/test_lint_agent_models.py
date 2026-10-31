@@ -42,7 +42,6 @@ def _write_agent(
     model: str = "sonnet",
     effort: str = "high",
     bundle: str = "base",
-    model_comment: str = "",
     include_fields: tuple[str, ...] = (
         "model",
         "effort",
@@ -57,7 +56,7 @@ def _write_agent(
     completeness check; the omitted field's line is simply not written.
     """
     fields = {
-        "model": f"model: {model}{model_comment}",
+        "model": f"model: {model}",
         "effort": f"effort: {effort}",
         "tools": 'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]',
         "description": f"description: {stem} test agent.",
