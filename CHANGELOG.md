@@ -8,6 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `install.py` no longer has selections or prompts: every machine installs everything, and symlinks to retired files are removed automatically. Run `uv run install.py` to pick up anything you had deselected. (#656)
 - CodeRabbit is off for this repo, and its guidance is gone. (#656)
+- `mine-sketch` milestone pickups run the peer check, or say in one line why they skip it, and show the posture text directly before the posture question. (#659)
 
 ### Removed
 
