@@ -52,7 +52,7 @@ If the request names a brief or research file (from `/mine-research`, `/mine-gri
 
 ### Picking up a milestone issue
 
-When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Propose the posture from the parent's stances with Altitude set to `build`, and confirm it as usual.
+When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Run the [peer check](#peer-check) before the posture, unless the parent ledger's `**Prior art:**` brief covers this issue's core problem, and say which in one line. Then propose the posture from the parent's stances with Altitude set to `build`, write it as message text in the same turn, directly before the question, and confirm it as usual.
 
 The scan is what's different. The parent was written before the code it describes was built, and earlier issues in the milestone have since landed. So expect it to be wrong or silent in places, and check it before relying on it:
 
