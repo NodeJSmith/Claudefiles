@@ -8,7 +8,7 @@
 # The printed path is keyed to the stable main-clone repo root (shared by
 # every worktree of that repo), not to whichever worktree the caller is in —
 # this logic must run as a single bare command, not inlined in a caller's own
-# Bash tool call; see rules/common/worktrees.md Safety Rule 4.
+# Bash tool call, which a worktree-isolated session can refuse outright.
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
 Usage: resolve-agent-memory-path <agent-name>
