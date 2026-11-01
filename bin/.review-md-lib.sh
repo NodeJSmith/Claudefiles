@@ -8,7 +8,7 @@
 #
 # Sourced only — never executed directly, never installed on PATH. The
 # leading-dot filename is what keeps both tools off this file: install.py's
-# create_symlinks_dir_level explicitly skips any name starting with "."
+# link_dir explicitly skips any name starting with "."
 # (its only filter — it has no permission check to speak of), and
 # lint-cli-conventions's `for script in "${BIN_DIR}"/*` loop is a bare
 # glob — bash doesn't match dotfiles with `*` by default, so this file is

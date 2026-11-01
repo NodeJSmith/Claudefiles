@@ -4,7 +4,6 @@ model: sonnet
 effort: medium
 description: Generic worker for full-prompt dispatches that need no specialist — synthesis, drafting, and exploration.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "Skill", "Agent"]
-bundle: base
 ---
 
 # Standard Worker

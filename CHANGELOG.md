@@ -2,6 +2,17 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-11-01
+
+### Changed
+
+- `install.py` no longer has selections or prompts: every machine installs everything, and symlinks to retired files are removed automatically. Run `uv run install.py` to pick up anything you had deselected. (#656)
+- CodeRabbit is off for this repo, and its guidance is gone. (#656)
+
+### Removed
+
+- The `install.py` flags `--reconfigure` and `--dry-run`, and the saved install config. (#656)
+
 ## 2026-10-31
 
 ### Changed

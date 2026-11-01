@@ -7,7 +7,6 @@ color: "#e63946"
 emoji: 🛡️
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 vibe: Reliability is a feature. Error budgets fund velocity — spend them wisely.
-bundle: engineering
 ---
 
 # SRE (Site Reliability Engineer) Agent

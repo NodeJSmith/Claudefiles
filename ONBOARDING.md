@@ -4,7 +4,7 @@
 
 Claudefiles is a set of skills, rules, and agents that make Claude Code better at planning, reviewing, and shipping code. The core value is a complete workflow — from raw idea to merged PR — with structured tools for each step. You get better code review, consistent coding standards that apply automatically, and a pipeline that keeps Claude focused on the right work at each stage.
 
-It's for anyone using Claude Code who wants more structure than raw prompting. You don't need to adopt everything at once. The base bundle gives you the full pipeline; optional bundles add capabilities as you need them.
+It's for anyone using Claude Code who wants more structure than raw prompting. You don't need to adopt everything at once: everything installs, but you only pay attention to the parts you invoke.
 
 ## Install
 
@@ -16,7 +16,7 @@ cd ~/Claudefiles
 uv run install.py
 ```
 
-The base (pipeline workflow) always installs. On a first install the wizard asks which optional bundles you want, then which rule categories to install. Re-running later applies your saved selections silently and only prompts for bundles or rule categories added since last time. Use `--reconfigure` to change selections, or `--uninstall` to remove everything.
+Everything installs, with no prompts, and re-running is safe. Use `--uninstall` to remove everything.
 
 ## Key Concepts
 
@@ -24,15 +24,13 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Commands** — lightweight slash commands for daily tasks (`/mine-status`, `/mine-end-of-day`). Quicker than skills, no multi-step flow.
 
-**Agents** — specialized subagents dispatched by skills (code-reviewer, researcher, planner). A dispatch always names an agent directly — there's no separate model parameter at the call site. Each agent's own frontmatter (in `agents/`) declares its model, effort, tools, description, and bundle in one place, so retuning an agent's model touches only that file. You don't invoke agents directly; skills launch them when needed.
+**Agents** — specialized subagents dispatched by skills (code-reviewer, researcher, planner). A dispatch always names an agent directly — there's no separate model parameter at the call site. Each agent's own frontmatter (in `agents/`) declares its model, effort, tools, and description in one place, so retuning an agent's model touches only that file. You don't invoke agents directly; skills launch them when needed.
 
 **Rules** — coding guidelines that load automatically. They shape how Claude writes code, handles git, runs tests, and approaches security. Always active, no invocation needed.
 
 **Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, tmux session naming). Background infrastructure you don't think about.
 
 **Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume).
-
-**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: engineering specialists and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
 
 ## Choose Your Path
 
@@ -41,28 +39,28 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 Start with whatever problem you have right now.
 
 **"I want better code review"**
-The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine-review`. For a style and debt check: `/mine-clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine-humanize`. To comb a brief, design, plan, or implementation for consistency, accuracy, and drift: `/mine-comb`. Included in base — no extra bundles needed.
+Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine-review`. For a style and debt check: `/mine-clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine-humanize`. To comb a brief, design, plan, or implementation for consistency, accuracy, and drift: `/mine-comb`.
 
 **"I want structured planning for complex features"**
-The base is enough. `/mine-sketch` writes a decision ledger you ratify one decision at a time, then a fresh session builds the whole change from it with `/mine-sketch <dir>`. Work too big for one session splits into separate ledgers. When a change leaves only a few small, independent choices open, Claude asks them inline and builds in the same session, without a ledger. Start with `/mine-grill` to sharpen a raw idea, or `/mine-research` when you don't yet know enough to decide. Included in base.
+`/mine-sketch` writes a decision ledger you ratify one decision at a time, then a fresh session builds the whole change from it with `/mine-sketch <dir>`. Work too big for one session splits into separate ledgers. When a change leaves only a few small, independent choices open, Claude asks them inline and builds in the same session, without a ledger. Start with `/mine-grill` to sharpen a raw idea, or `/mine-research` when you don't yet know enough to decide.
 
 **"I want to brainstorm and challenge ideas"**
-The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.
+`/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better.
 
 **"I want to keep terminology and decisions straight during design conversations"**
-The base is enough. `/mine-domain-model` maintains a `CONTEXT.md` glossary and ADRs as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes. Included in base.
+`/mine-domain-model` maintains a `CONTEXT.md` glossary and ADRs as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes.
 
 **"I need to write up technical research for my boss"**
-The base is enough. `/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope at outline approval, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Before showing you the draft, it has a `cold-reader` agent read it as your audience and checks whether the intended takeaways landed and whether the numbers hold up. Included in base.
+`/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope at outline approval, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Before showing you the draft, it has a `cold-reader` agent read it as your audience and checks whether the intended takeaways landed and whether the numbers hold up.
 
 **"I want conversation memory across sessions"**
 Enable the **`ccrecall`** plugin (wired in `settings.json`; its hook binaries come from the `ccrecall` PyPI package that `install.py` installs). Claude remembers corrections, architectural decisions, and preferences across sessions. `/ccrecall:ccr-recall` searches past sessions; `/ccrecall:ccr-resume` picks up a fresh session after `/clear`.
 
 **"I want domain-specific engineering agents"**
-Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
+Dispatch the `engineering-*` agents. They cover FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), and technical writing, and `testing-reality-checker` is an adversarial pre-ship testing gate.
 
 **"I want architecture and QA agents"**
-Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks a feature into a step-by-step plan. QA Specialist finds defects adversarially.
+Dispatch `architect`, `planner`, or `qa-specialist`. Architect produces Mermaid diagrams and high-level overviews. Planner breaks a feature into a step-by-step plan. QA Specialist finds defects adversarially.
 
 ---
 
@@ -122,7 +120,7 @@ That's the full loop. For a feature like rate limiting — limiter logic, config
 
 ### Path C: Everything
 
-When you have all bundles installed, the system covers the full development lifecycle plus the surrounding workflow.
+Put together, the system covers the full development lifecycle plus the surrounding workflow.
 
 **Daily workflow pattern:**
 
@@ -160,15 +158,13 @@ The result is a consistent development environment that works the same way every
 
 ## Customizing
 
-**Choosing rule categories** — every rule in `rules/common/` loads into Claude's context each session, so the installer lets you install only the categories you need. A small **Core** set (CLI tool routing, interaction style, domain reference routing, project context calibration, worktree safety) always installs. Everything else — language conventions, testing discipline, planning rules, and so on — is grouped into opt-out categories: selected by default, but you can drop the ones that don't fit your stack (a Python-only user might skip nothing, a backend-only user might drop frontend rules). Run `uv run install.py --reconfigure` to change the selection. If a rule you keep references one you dropped, the installer warns but installs anyway — the references are pointers, not hard dependencies. See the Rules table in [REFERENCE.md](REFERENCE.md) for the categories and their files.
-
 **Add your own rules** — drop a `.md` file straight into `$CLAUDE_CONFIG_DIR/rules/common/` (defaults to `~/.claude/rules/common/`) and it loads automatically next session, no installer step. If you add it to the repo's `rules/common/` instead (so it's version-controlled), re-run `uv run install.py` to symlink it.
 
 **Add your own skills** — `/mine-write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and adds it to `REFERENCE.md`. The result lands in `skills/` ready to install.
 
 **Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to write `$CLAUDE_CONFIG_DIR/settings.json`. It merges the repo's shared settings with a per-machine `$CLAUDE_CONFIG_DIR/settings.machine.json`, so each box can keep its own permissions, env vars, and hook tweaks without touching the version-controlled config. When you re-run the merge, it detects permissions you granted at runtime and offers to promote them into the machine file so they survive. Only the layers that actually exist are applied.
 
-**Removing things** — run `uv run install.py --reconfigure` and deselect the bundle or rule category. For an individual rule file within a category you otherwise want, delete the symlink from `$CLAUDE_CONFIG_DIR/rules/common/` or remove the source file.
+**Removing things** — to drop a single rule, delete its symlink from `$CLAUDE_CONFIG_DIR/rules/common/`. The next install puts it back, so remove the source file too if you want it gone for good.
 
 ## Reference
 

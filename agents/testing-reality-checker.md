@@ -6,7 +6,6 @@ description: Adversarial pre-ship gate — defaults to "NEEDS WORK", requires ov
 color: red
 emoji: 🧐
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "mcp__plugin_playwright_playwright__browser_navigate", "mcp__plugin_playwright_playwright__browser_console_messages", "mcp__plugin_playwright_playwright__browser_resize", "mcp__plugin_playwright_playwright__browser_take_screenshot", "mcp__plugin_playwright_playwright__browser_click", "mcp__plugin_playwright_playwright__browser_fill_form", "mcp__plugin_playwright_playwright__browser_snapshot", "Skill", "Agent"]
-bundle: engineering
 ---
 
 # Reality Checker

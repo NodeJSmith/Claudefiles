@@ -15,6 +15,4 @@ testpaths = ["tests"]
 dev = [
     "pytest>=9.0",
     "pyyaml",
-    "questionary>=2.0",
-    "rich>=13.0",
 ]
