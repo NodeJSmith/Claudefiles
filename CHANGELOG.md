@@ -16,6 +16,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 
+- The worktree command guard rule (`rules/common/worktrees.md` item 4). (#661)
 - The `install.py` flags `--reconfigure` and `--dry-run`, and the saved install config. (#656)
 
 ## 2026-10-31
