@@ -16,7 +16,7 @@ Do not modify source files or the working tree — no `git checkout`, `git resto
 
 ## Memory
 
-Before starting, resolve the stable memory path by running this bare command — do not inline its logic (a worktree-isolated session's Bash tool can refuse multi-step `git` resolution outright; see `rules/common/worktrees.md` Safety Rule 4):
+Before starting, resolve the stable memory path by running this bare command — do not inline its logic (a worktree-isolated session's Bash tool can refuse multi-step `git` resolution outright):
 
 ```bash
 resolve-agent-memory-path integration-reviewer
