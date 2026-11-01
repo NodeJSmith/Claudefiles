@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-11-01
 
+### Added
+
+- `rules/common/bash-tools.md` tells agents to quote separators and globs under zsh. (#660)
+
 ### Changed
 
 - `install.py` no longer has selections or prompts: every machine installs everything, and symlinks to retired files are removed automatically. Run `uv run install.py` to pick up anything you had deselected. (#656)
