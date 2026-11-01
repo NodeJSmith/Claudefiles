@@ -300,7 +300,8 @@ def main() -> int:
     if args.uninstall:
         do_uninstall(repo_dir, claude_dir)
         return 0
-    return 1 if do_install(repo_dir, claude_dir) else 0
+    errors = do_install(repo_dir, claude_dir)
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":
