@@ -6,6 +6,10 @@
 - **Same tool called 3+ times in one block** — suggest batch mode
 - **3+ pipe stages** — suggests a missing flag on the upstream tool
 
+## Zsh Quoting
+
+Where the Bash tool's shell is zsh, quote separators and globs (`echo "=== x ==="`, `--include='*.py'`). Unquoted, a word starting with `=` fails with `not found` and a glob with no match fails with `no matches found`, and either one stops the command there.
+
 ## Sudo
 
 Local `sudo` cannot authenticate: there is no TTY for the password prompt. Give the user the exact command to run (`! sudo <cmd>` in the CLI runs it in-session), or for multi-step work write a script to the scratchpad that logs through `tee -a` to a file created with `install -m 600` and confirms (default-N) between destructive phases. Remote `ssh host 'sudo ...'` runs normally.
