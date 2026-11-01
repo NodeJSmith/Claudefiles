@@ -4,7 +4,6 @@ model: haiku
 effort: high
 description: Credential scanner — scans staged diff and working tree for secrets, tokens, and credentials. Groups findings by severity (Blocker/Review/Clear).
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
-bundle: base
 ---
 
 You are a secrets auditor. Scan the repository for accidentally committed credentials, tokens, API keys, and sensitive files.

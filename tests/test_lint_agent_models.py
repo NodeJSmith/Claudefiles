@@ -1,10 +1,8 @@
 """Tests for bin/lint-agent-models.
 
-The script is both the generator and the pre-commit gate for install.py's
-per-bundle `agents=(...)` tuples, derived from agent frontmatter. These tests
-build a minimal fixture repo under tmp_path (agents/, install.py) rather than
-touching the real repo, and drive the script through `--root` so generation and
-staleness checks run against the fixture.
+The script is the pre-commit gate for required agent frontmatter. These tests
+build a minimal fixture repo under tmp_path rather than touching the real repo,
+and drive the script through `--root`.
 """
 
 import runpy
@@ -13,22 +11,6 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parent.parent / "bin" / "lint-agent-models"
-
-INSTALL_PY_FIXTURE = """def get_bundles():
-    return {
-        "base": Bundle(
-            label="Base",
-            agents=(
-                "foo",
-                "bar",
-            ),
-        ),
-        "extra": Bundle(
-            label="Extra",
-            agents=("baz",),
-        ),
-    }
-"""
 
 
 def _load_script() -> dict:
@@ -41,13 +23,11 @@ def _write_agent(
     *,
     model: str = "sonnet",
     effort: str = "high",
-    bundle: str = "base",
     include_fields: tuple[str, ...] = (
         "model",
         "effort",
         "tools",
         "description",
-        "bundle",
     ),
 ) -> None:
     """Write agents/<stem>.md with the given frontmatter fields.
@@ -60,7 +40,6 @@ def _write_agent(
         "effort": f"effort: {effort}",
         "tools": 'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]',
         "description": f"description: {stem} test agent.",
-        "bundle": f"bundle: {bundle}",
     }
     lines = ["---", f"name: {stem}"]
     lines += [fields[f] for f in include_fields]
@@ -70,74 +49,26 @@ def _write_agent(
 
 def _build_fixture_repo(root: Path) -> None:
     (root / "agents").mkdir(parents=True)
-    _write_agent(root / "agents", "foo", bundle="base")
-    _write_agent(root / "agents", "bar", bundle="base")
-    _write_agent(root / "agents", "baz", bundle="extra")
-    (root / "install.py").write_text(INSTALL_PY_FIXTURE)
+    _write_agent(root / "agents", "foo")
+    _write_agent(root / "agents", "bar")
 
 
-def test_generation_is_idempotent(tmp_path: Path) -> None:
-    """A second --write with no frontmatter changes produces byte-identical output."""
-    _build_fixture_repo(tmp_path)
-    module = _load_script()
-
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
-    install_after_first = (tmp_path / "install.py").read_text()
-
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
-    assert (tmp_path / "install.py").read_text() == install_after_first
-
-    # And check mode (no --write) is clean against what --write produced.
-    assert module["main"](["--root", str(tmp_path)]) == 0
-
-
-def test_generation_produces_expected_content(tmp_path: Path) -> None:
-    _build_fixture_repo(tmp_path)
-    module = _load_script()
-
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
-
-    install_text = (tmp_path / "install.py").read_text()
-    assert '"foo"' in install_text and '"bar"' in install_text
-    assert '"baz"' in install_text
-    # baz belongs to the "extra" bundle, not "base".
-    base_block = install_text.split('"base": Bundle(')[1].split('"extra": Bundle(')[0]
-    assert '"baz"' not in base_block
-
-
-def test_staleness_check_fires_on_mutated_artifact(tmp_path: Path) -> None:
-    """Hand-editing a generated artifact without regenerating fails check mode."""
-    _build_fixture_repo(tmp_path)
-    module = _load_script()
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
-
-    install_path = tmp_path / "install.py"
-    install_path.write_text(install_path.read_text().replace('"foo",', '"renamed",'))
-
-    assert module["main"](["--root", str(tmp_path)]) == 1
-
-
-def test_staleness_check_fires_on_unregenerated_frontmatter_change(
-    tmp_path: Path,
+def test_complete_frontmatter_passes(
+    tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
-    """Changing an agent's frontmatter without running --write fails check mode."""
     _build_fixture_repo(tmp_path)
     module = _load_script()
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
 
-    _write_agent(tmp_path / "agents", "foo", bundle="extra")
-
-    assert module["main"](["--root", str(tmp_path)]) == 1
+    assert module["main"](["--root", str(tmp_path)]) == 0
+    assert "2 agents" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize(
-    "missing_field", ["model", "effort", "tools", "description", "bundle"]
-)
+@pytest.mark.parametrize("missing_field", ["model", "effort", "tools", "description"])
 def test_completeness_check_names_missing_field(
     tmp_path: Path, capsys: pytest.CaptureFixture, missing_field: str
 ) -> None:
     _build_fixture_repo(tmp_path)
-    all_fields = ("model", "effort", "tools", "description", "bundle")
+    all_fields = ("model", "effort", "tools", "description")
     _write_agent(
         tmp_path / "agents",
         "foo",
@@ -209,16 +140,3 @@ def test_block_style_tools_rejected_with_distinct_message(
     assert "agents/foo.md" in output.err
     assert "block-style" in output.err
     assert "missing required frontmatter field(s): tools" not in output.err
-
-
-def test_write_mode_reports_up_to_date_when_nothing_changed(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-) -> None:
-    _build_fixture_repo(tmp_path)
-    module = _load_script()
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
-    capsys.readouterr()
-
-    assert module["main"](["--root", str(tmp_path), "--write"]) == 0
-    output = capsys.readouterr()
-    assert "already up to date" in output.out

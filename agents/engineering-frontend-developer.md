@@ -7,7 +7,6 @@ color: cyan
 emoji: 🖥️
 vibe: Builds responsive, accessible web apps with pixel-perfect precision.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
-bundle: engineering
 ---
 
 # Frontend Developer Agent

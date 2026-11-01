@@ -4,7 +4,6 @@ model: opus
 effort: high
 description: Generic worker at the deep tier for judgment-heavy dispatches — cross-report synthesis and root-cause reasoning, where the answer depends on connecting evidence across several inputs. The caller supplies the full task methodology in its prompt.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
-bundle: base
 ---
 
 # Deep Worker

@@ -1,6 +1,6 @@
 # Claudefiles
 
-My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) configuration — skills, commands, agents, rules, and hooks that make Claude Code better at planning, reviewing, and shipping code. Built up and refined over daily use. The core takes an idea to a merged PR: a ratified sketch ledger, a one-session build, then ship; optional bundles add engineering specialists and extra planning agents.
+My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) configuration — skills, commands, agents, rules, and hooks that make Claude Code better at planning, reviewing, and shipping code. Built up and refined over daily use. The core takes an idea to a merged PR: a ratified sketch ledger, a one-session build, then ship. Engineering specialists and extra planning agents are there when you need them.
 
 Read [ONBOARDING.md](ONBOARDING.md) to understand what's here and decide what to try first.
 
@@ -14,7 +14,7 @@ cd ~/Claudefiles
 uv run install.py
 ```
 
-The base bundle (the core workflow) always installs. The wizard asks about optional add-ons. Use `--reconfigure` to change selections, `--uninstall` to remove everything.
+Everything installs, and re-running is safe. Use `--uninstall` to remove everything.
 
 ## Requirements
 

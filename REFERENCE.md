@@ -39,7 +39,7 @@ Full component tables for Claudefiles. For context on what each component type d
 
 Conversation memory (recall, resume) now ships as the external
 [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin (`/ccrecall:ccr-recall`,
-`/ccrecall:ccr-resume`) — see [Plugins](#plugins) — not as a Claudefiles bundle.
+`/ccrecall:ccr-resume`) — see [Plugins](#plugins).
 
 ## Commands
 
@@ -53,7 +53,7 @@ Conversation memory (recall, resume) now ships as the external
 
 ## Agents
 
-### Base agents (always installed)
+### Core agents
 
 | Agent | Description |
 |-------|-------------|
@@ -74,7 +74,7 @@ Conversation memory (recall, resume) now ships as the external
 | `writing-quality-reviewer` | Writing quality reviewer for instruction files — detects AI prose patterns, voice issues, and mechanical writing |
 | `wtf-reviewer` | Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now |
 
-### Engineering Specialists — Engineering bundle
+### Engineering Specialists
 
 | Agent | Description |
 |-------|-------------|
@@ -85,7 +85,7 @@ Conversation memory (recall, resume) now ships as the external
 | `engineering-technical-writer` | Developer docs, API references, READMEs, tutorials that developers actually read |
 | `testing-reality-checker` | Adversarial pre-ship gate via Playwright MCP — defaults to "NEEDS WORK", requires visual evidence |
 
-### Extra agents — Extra agents bundle
+### Extra agents
 
 | Agent | Description |
 |-------|-------------|
@@ -95,20 +95,18 @@ Conversation memory (recall, resume) now ships as the external
 
 ## Rules
 
-Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code. The installer groups them into **categories** you select at install time (see `RULE_CATEGORIES` in `install.py`). The **Core** category always installs and is never offered for deselection; every other category is opt-out (selected by default on a fresh install). Use `uv run install.py --reconfigure` to change selections.
+Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code.
 
-| Category | Installer key | Rule files |
-|----------|---------------|-----------|
-| Core (always installed) | — | `capabilities-core`, `compact-instructions`, `interaction`, `domain-references`, `project-context`, `worktrees` |
-| Code structure & style | `style` | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
-| Languages | `languages` | `python` |
-| Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
-| Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `sketch-before-building`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
-| Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline`, `pre-existing-verification` |
-| Authoring | `authoring` | `eval-discipline`, `writing-discipline` |
-| Environment & tooling | `environment` | `bash-tools`, `command-output` |
-
-Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.
+| Category | Rule files |
+|----------|-----------|
+| Core | `capabilities-core`, `compact-instructions`, `interaction`, `domain-references`, `project-context`, `worktrees` |
+| Code structure & style | `coding-style`, `logging`, `reader-load`, `laziness-protocol`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
+| Languages | `python` |
+| Git workflow | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
+| Planning & execution | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `sketch-before-building`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
+| Verification & debugging | `verification`, `debugging-discipline`, `performance-discipline`, `pre-existing-verification` |
+| Authoring | `eval-discipline`, `writing-discipline` |
+| Environment & tooling | `bash-tools`, `command-output` |
 
 ## References
 
@@ -194,12 +192,12 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `find-review-md` | List `REVIEW.md` files applicable to the current branch's diff — for each changed file's directory, walks up to the repo root and prints any `REVIEW.md` found (deduped, one path per line). Called by `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` so all three shell out to the same deterministic ancestor walk instead of each freehand-reimplementing it in prose. Its callers run pre-commit against uncommitted changes, so with no arguments it self-discovers via its own uncommitted-first cascade (staged+unstaged+untracked → `@{upstream}...HEAD` → `origin/<default-branch>...HEAD` → `HEAD~1`) rather than sourcing `.review-md-lib.sh`'s post-commit-only default-branch diff. Takes an optional `<base>` ref to override the cascade with a three-dot diff against that ref, or `--paths` to read an explicit, already-scoped file list from stdin instead of discovering — used when a caller (mine-review path mode, integration-reviewer) already has one and self-discovery would ignore that scope. Empty output = no `REVIEW.md` applies |
 | `resolve-agent-memory-path` | Resolve (and create) a reviewer agent's persistent memory directory, keyed to the stable main-clone repo root rather than the current worktree. Called by `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` as a single bare invocation — the logic can't be inlined in an agent's own prompt because a worktree-isolated session's Bash tool can refuse multi-step `git` resolution outright (see `rules/common/worktrees.md` Safety Rule 4). Prints `<memory_dir>/MEMORY.md` |
 | `lint-agent-files` | SKILL.md/agent frontmatter lint — required `name`/`description` fields, kebab-case skill names matching their parent directory, a "Use when..." trigger phrase in every skill description, no hardcoded `/home/<realname>/` paths anywhere in the tree, and — on bash/sh scripts under `scripts/hooks/` and `bin/` — no bare `~/.claude`/`$HOME/.claude` on a code line (comments exempt) outside a `${CLAUDE_CONFIG_DIR:-...}` fallback. The last check is deliberately narrow: it catches the direct-hardcode mistake (recurred in `2f65047` and `34a0cd8`) but not every possible shape, e.g. a bare `.claude/projects` substring with no `~`/`$HOME` prefix — see CLAUDE.md's "Path References to the Claude Config Directory" |
-| `lint-agent-models` | Generator and staleness gate for `install.py`'s per-bundle `agents=(...)` tuples, derived from agent frontmatter. Each agent's own frontmatter (model, effort, tools, description, bundle) is the single declaration site; this script never writes it. Default (pre-commit) mode rejects any agent file missing a required field and fails if the tuples diverge from what regenerating would produce; `--write` regenerates and saves them |
+| `lint-agent-models` | Pre-commit check that every `agents/*.md` declares the required frontmatter (model, effort, tools, description) and that its `tools:` list includes the fleet baseline |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 
 ## Packages
 
-`merge-settings` is part of the base and always installs. `ccrecall` is installed from PyPI by `install.py` when not already on PATH (it backs the `ccrecall` plugin — see [Plugins](#plugins)). `ado-api` is not wired into a bundle — if you work in Azure DevOps repos, install it on its own with `uv tool install -e packages/ado-api`. Any package can be installed manually the same way.
+`merge-settings` always installs. `ccrecall` is installed from PyPI by `install.py` when not already on PATH (it backs the `ccrecall` plugin — see [Plugins](#plugins)). `ado-api` is opt-in — if you work in Azure DevOps repos, install it with `uv tool install -e packages/ado-api`.
 
 | Name | Description |
 |------|-------------|
