@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
+- `mine-create-pr` and `mine-ship` now open PRs ready for review instead of as drafts, and write the changelog entry before the PR opens, so new entries no longer carry a PR number.
 - `mine-prior-art` runs now read the implementation of the projects an answer depends on, and briefs record what was actually opened. (#663)
 
 ## 2026-11-01
