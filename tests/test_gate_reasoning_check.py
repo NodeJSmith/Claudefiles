@@ -200,7 +200,6 @@ def test_triggers_match_the_question_wording_in_the_skills():
     assert 'question: "Decision <N> of <M>:' in sketch
     assert 'header: "D<n>"' in sketch
     assert 'Finding N/{total}: <title> (<severity>)"' in protocol
-    assert "Finding N/{total}: <title> (TENSION)" in protocol
     assert '{count} rare-case findings: accept the recommendations?"' in protocol
 
 

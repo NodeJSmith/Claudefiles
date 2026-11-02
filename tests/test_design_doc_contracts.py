@@ -143,14 +143,13 @@ def test_sketch_content_rules_cite_the_rubric_without_restating_it() -> None:
 
 
 def test_challenge_questions_cite_the_rubric() -> None:
-    """The rubric's second consumer: every User-directed and TENSION question
-    in the challenge walkthrough shows the reasoning first."""
+    """The rubric's second consumer: every User-directed question in the
+    challenge walkthrough shows the reasoning first."""
     assert (REPO_ROOT / PRESENTING_DECISIONS).is_file()
     flow = _section(_text(CHALLENGE_FINDINGS_PROTOCOL), "Inline Resolution Flow")
     assert flow is not None
     assert re.search(CITES_PRESENTING_DECISIONS, _text(CHALLENGE_FINDINGS_PROTOCOL))
     assert re.search(r"\*\*Criteria:\*\*", flow)
-    assert re.search(r"TENSION", flow)
 
 
 def test_challenge_synthesis_fills_the_table_before_recommending() -> None:
