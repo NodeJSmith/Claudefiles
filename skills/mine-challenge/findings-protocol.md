@@ -48,7 +48,7 @@ Each finding is a top-level section:
 <!-- For Auto-apply findings: -->
 **Better-approach:** <specific change to apply>
 
-<!-- For User-directed findings: -->
+<!-- For User-directed findings, TENSION included: -->
 **Deciding-factor:** <what the recommendation optimizes>
 
 **Criteria:**
@@ -62,19 +62,6 @@ Each finding is a top-level section:
 
 **Recommendation:** <which option and why>
 **Pick-instead-if:** B: <condition under which B is the right call>
-
-<!-- For TENSION findings: -->
-**Side-a:** <argument for side A>
-**Side-b:** <argument for side B>
-**Deciding-factor:** <question or data point that resolves the tension>
-
-**Criteria:**
-| | Side A | Side B |
-|---|---|---|
-| <criterion> | <how side A fares> | <how side B fares> |
-
-**Pick-instead-if:** Side A: <condition>. Side B: <condition>.
-**Chosen:** side-a | side-b   <!-- set during inline resolution; absent until resolved -->
 ```
 
 Finding IDs are sequential starting from 1. `## Finding N:` headings must
@@ -88,6 +75,14 @@ without `**Likelihood:**` is resolved as if it were not `rare`.
 `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/presenting-decisions.md`.
 They are presentation fields, like `**Evidence:**`: synthesis fills them in
 before choosing the recommendation, and they are not written to the review log.
+
+A `TENSION` finding's first two options are its two sides, and it may have a third
+(`synthesis-procedure.md` step 6). Its recommendation can be either side or neither.
+When the answer turns on a fact only the user has, the field reads
+`**Recommendation:** No call: depends on <the fact>`, no option carries the
+`*(recommended)*` marker, and `**Pick-instead-if:**` covers every option. A `rare`
+finding is never `No call`, because the Rare Findings batch has to carry out a
+recommendation.
 
 ## Convergence Findings
 
@@ -112,7 +107,7 @@ mechanism should be re-evaluated; they do not prescribe a replacement.
 | `CRITICAL` | Breaks a core requirement or contract; must be user-directed |
 | `HIGH` | Significant gap or fragility |
 | `MEDIUM` | Meaningful but not blocking |
-| `TENSION` | Legitimate competing concerns; resolved via user choice |
+| `TENSION` | Legitimate competing concerns, with no plain defect on either side |
 
 ## Type Taxonomy
 
@@ -214,25 +209,24 @@ findings in order.
 
 **Design-doc targets.** When the target type is `design-doc` (see
 `skills/mine-challenge/SKILL.md`'s target-type table), every edit below —
-Auto-apply, User-directed, and TENSION alike — follows the Content Rules in
+Auto-apply and User-directed alike — follows the Content Rules in
 `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`. In
 particular, don't restate a fact that already lives elsewhere in the doc —
 cite its existing home instead. In a sketch ledger, a finding that adds or
 changes a decision edits that decision's `### D<n>` block. When the user chose
-the option (a User-directed or TENSION answer), that choice is the ratification:
+the option (a User-directed answer), that choice is the ratification:
 write the `**Ratified:**` sentence ("Chose X over Y, to achieve Q, accepting D.")
 in the same edit, and add or update that option's column in the decision's criteria table, so the sketch doesn't ask again and the comb finds the table consistent. Only an edit the user never
 chose between (an Auto-apply edit) sets `**Ratified:**` back to `pending`.
 
 **Show the finding before every question.** The findings file is never on the
 user's screen, and a finding's title rarely says enough on its own. Before each
-User-directed and TENSION `AskUserQuestion` below, write this as message text
+User-directed `AskUserQuestion` below, write this as message text
 (see `interaction.md`, item 5):
 
 - The situation, from `**Why-it-matters:**` and `**When-it-bites:**`, in plain
   language a reader could follow a day later, with `**Evidence:**` where it helps.
   Spell out what any `D<n>` or finding number refers to.
-- For TENSION, both sides (`**Side-a:**`, `**Side-b:**`).
 - `**Deciding-factor:**`, the `**Criteria:**` table, `**Recommendation:**`, and
   `**Pick-instead-if:**`, copied from the findings file as markdown.
 
@@ -244,12 +238,17 @@ written after the recommendation exists only argues for it. The recommendation
 is taken as-is more often than any other answer here, so the user needs the
 trade-offs in view to push back on it.
 
+**A recommendation can change here.** The findings file is a starting point, and
+this session may know more than synthesis did: an earlier answer, or a code check
+made while presenting the finding. When that changes the answer, update the
+affected table rows, then the recommendation, and say what changed.
+
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
 
 **User-directed** (`Classification: User-directed`, `disposition: pending`): Emit
-one AskUserQuestion per finding — do not batch. MEDIUM `rare` findings wait for
-the Rare Findings batch below; a HIGH `rare` finding is asked here like any other,
+one AskUserQuestion per finding — do not batch. MEDIUM and TENSION `rare` findings
+wait for the Rare Findings batch below; a HIGH `rare` finding is asked here like any other,
 with its Accept option still recommended. This is a major gate (finding walkthrough,
 see `interaction.md`) — run `context-pct` and prepend the result to the question:
 
@@ -270,7 +269,7 @@ AskUserQuestion:
 
 When the finding's Options end in `Accept as a known limitation`, that option
 takes Skip's place: accepting is the recorded form of not fixing, and the menu
-stays at four.
+stays at four. A TENSION finding's third option takes Skip's place the same way.
 
 Each option's `label` must be the letter and text exactly as they appear in the
 finding's `**Options:**` list (`A: <first option>`, `B: <second option>`, ...) —
@@ -279,6 +278,9 @@ this is the same canonical string `challenge-gate.md` extracts into the
 `*(recommended)*` marker with ` (Recommended)`, as every other question does.
 That suffix is display-only: strip it before recording `chosen`, so `chosen`
 matches `recommended` when the user follows the recommendation.
+
+For a `No call` finding, mark no option, and end the question with the fact it
+depends on: `Finding N/{total}: <title> (<severity>) — <the fact>`.
 
 Apply chosen option via Edit tool. Set `disposition: applied` for options
 (`accepted` for an `Accept as a known limitation` option, recorded as in Rare
@@ -303,33 +305,8 @@ the final report, not a prompt. If the user picks
 individually as they come up. Skip and File as issue behave as for any other
 finding, and the converging findings still come up individually.
 
-**TENSION findings** (`Classification: User-directed`, `Severity: TENSION`). Same
-major-gate rule applies — prepend the `context-pct` result:
-
-```
-AskUserQuestion:
-  question: "[Context: N%] Finding N/{total}: <title> (TENSION) — <deciding-factor>"
-  header: "<raised-by>"
-  options:
-    - label: "Side A: <side-a summary>"
-      description: "<side-a detail>"
-    - label: "Side B: <side-b summary>"
-      description: "<side-b detail>"
-    - label: "Skip — defer to later"
-      description: "Record this finding without acting on it"
-    - label: "File as issue"
-      description: "Create an issue for this finding"
-```
-
-Apply chosen side via Edit tool. Set `disposition: applied` and append
-`**Chosen:** side-a` or `**Chosen:** side-b` to the finding. For Skip, set
-`disposition: skipped`. For File as issue, set `disposition: filed` and
-create an issue in the project's issue tracker, same as the User-directed
-case. TENSION findings are always resolved here, one at a time, whatever their
-likelihood.
-
-**Rare Findings** (User-directed, `Severity: MEDIUM`, likelihood `rare`,
-`disposition: pending`). Resolve these after every other finding, as one
+**Rare Findings** (User-directed, `Severity: MEDIUM` or `TENSION`, likelihood
+`rare`, `disposition: pending`). Resolve these after every other finding, as one
 batch: a pile of individually reasonable guards for unlikely cases is how a
 design bloats, and walking each one invites accepting each one. HIGH rare
 findings stay out of the batch: their consequence is large enough that the user
