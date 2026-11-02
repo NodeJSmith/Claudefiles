@@ -73,7 +73,7 @@ This subagent returns its findings as its result message (no file output needed 
 
 ### Subagent B: Web Research (`subagent_type: standard-worker`)
 
-This is the PRIMARY phase. Replace `<topic>` with the exact topic from Phase 1 before dispatching. The subagent prompt must include:
+This is the PRIMARY phase. Replace `<topic>` with the exact topic from Phase 1 and `<tmpdir>` with the directory from step 1 before dispatching. The subagent prompt must include:
 
 ```
 Cite URLs where found. If you can't find a source for a pattern, mark it with [no source found] — do not fabricate URLs.
@@ -83,13 +83,20 @@ You are researching prior art and best practices for: <topic>
 <If peers were found: "Comparable projects: <peers>. Search these first: their source, docs, and issue trackers show what projects like this one actually do. If none of them handle the problem, say so.">
 <If peers were not found: "Before searching, name 2-5 projects that solve the same problem for a similar audience as the project described in the topic, and search those first.">
 
-Perform 5-8 targeted web searches using WebSearch covering:
+Search the web to find what to read, covering:
 - How popular open-source projects handle this
 - Where projects deliberately don't handle it: issues closed as won't-fix, documented limitations, FAQ entries explaining why something isn't supported. Accepting a limitation is a pattern; record it as one.
 - Blog posts and experience reports from teams who've solved this
 - Official documentation, RFCs, or style guides if they exist
 - Conference talks or technical writeups
 - Common pitfalls and anti-patterns others have documented
+
+Then read. Searching only finds candidates, and most of your effort belongs in what comes next, because the brief will be used to make a design decision and a wrong claim about what a project does is worse than no claim.
+
+- For each project the answer depends on, open the code that does the thing. Docs say what a project intends; the code shows what it does, including the edge cases this research exists to compare. If the topic isn't about how software behaves, read the primary source instead: the paper, the spec, the thread where a maintainer explains the decision.
+- A search snippet or highlight tells you a page exists, not what it says. A changelog or release note can date a behavior or point you to the PR that introduced it; follow that to the code rather than citing the entry as how it works.
+- Read source with `gh`, or a `git clone --depth 1` into `<tmpdir>/src/<repo>` when you'll need to grep around. List the tree (`gh api 'repos/OWNER/REPO/git/trees/HEAD?recursive=1' --jq '.tree[].path' | grep -i <keyword>`) or search it (`gh search code '<term>' --repo OWNER/REPO`) rather than guessing paths, then fetch the file (`gh api repos/OWNER/REPO/contents/PATH -H 'Accept: application/vnd.github.raw'`). Page-fetch tools summarize or truncate, which loses the detail you came for, so use them for prose pages.
+- Treat a gap as something you tried and couldn't get, and record what you tried under `## Gaps`. A project you didn't get to isn't a gap; go read it, or leave it out of the answer.
 
 For each useful source, capture: URL, key takeaway, and relevance.
 
@@ -102,6 +109,7 @@ Use this structure:
 ### [Source title]
 - **URL**: [url]
 - **Type**: [reference implementation / blog post / documentation / standard]
+- **Opened**: [yes, or no if you only saw it in search results]
 - **Key takeaway**: [1-2 sentences]
 - **Relevance**: [how this applies to the topic]
 
@@ -116,6 +124,7 @@ For each distinct pattern or approach found across sources:
 **Strengths**: [what makes this work well]
 **Weaknesses**: [known limitations or tradeoffs]
 **Example**: [link to reference implementation or documentation, or [no source found]]
+**Read**: [for each project in Used by, the file or page you opened, as a path or permalink. If you did not read its implementation or a primary source, write "secondary:" and what the claim rests on (docs, changelog, snippet)]
 
 ## Anti-Patterns (Optional — omit entirely if nothing notable)
 
@@ -124,12 +133,17 @@ For each distinct pattern or approach found across sources:
 ## Emerging Trends (Optional — omit entirely if nothing notable)
 
 [What's new or changing. Skip if nothing notable.]
+
+## Gaps (Optional — omit entirely if none)
+
+[What you tried and couldn't get, and how you tried.]
 ```
 
 3. After both subagents complete, **verify the output**:
    - Read `<tmpdir>/web-research.md` and check it exists and contains `## Patterns Found`
    - If the file is completely empty or missing, offer to retry the web research subagent
    - If the file exists but is thin (few patterns, few sources), proceed anyway — flag the coverage gap in Phase 3 rather than gating the user
+   - Check the **Read** fields. If a claim you expect the recommendation to rest on is marked `secondary:` and the code is publicly readable, read it yourself or send the subagent back before synthesizing. A recommendation shouldn't rest on code nobody opened when opening it takes a minute.
 
 4. **Synthesize** the local context (from Subagent A's return value) and web research into a single brief. Map web research patterns into the brief format below — this is a merge, not a translation (both use the same section names). Write to `<tmpdir>/brief.md`.
 
@@ -152,9 +166,9 @@ status: Draft
 
 [Brief summary of the current local approach from Subagent A. "We don't have this yet" is a valid answer. Keep this short — it is comparison context, not the subject of the brief.]
 
-## Patterns Found / Anti-Patterns / Emerging Trends
+## Patterns Found / Anti-Patterns / Emerging Trends / Gaps
 
-Same section schema as the subagent `web-research.md` format above — this is a merge, not a translation. Carry the patterns through (3-5 total, more if the space is rich), keep the Optional sections optional, and preserve the **Used by / How it works / Strengths / Weaknesses / Example** fields per pattern.
+Same section schema as the subagent `web-research.md` format above — this is a merge, not a translation. Carry the patterns through (3-5 total, more if the space is rich), keep the Optional sections optional, and preserve the **Used by / How it works / Strengths / Weaknesses / Example / Read** fields per pattern.
 
 ## Relevance to Us
 
@@ -166,7 +180,7 @@ Same section schema as the subagent `web-research.md` format above — this is a
 
 ## Sources
 
-[All URLs from web research, organized by category. Note: these URLs were not live-verified.]
+[All URLs from web research, organized by category. Mark any URL whose **Opened** is no as (not opened).]
 
 ### Reference implementations
 - [url] — [one-line description]
@@ -196,7 +210,7 @@ Save the brief to `design/research/YYYY-MM-DD-<topic>/prior-art.md` (create the 
 ## Principles
 
 1. **World-first, codebase-second** — the whole point is to look outside. Codebase exploration is only for comparison context.
-2. **Breadth over depth** — survey the landscape, don't deep-dive any single approach.
-3. **Sources matter** — patterns should be backed by URLs where possible. Unsourced patterns are marked, not fabricated. Note that URLs are not live-verified.
+2. **Wide survey, real reading** — cover several projects rather than exhausting one, and read the implementation of each one the answer depends on. A survey of snippets is a list of guesses.
+3. **Sources matter** — patterns should be backed by URLs where possible, and by what was actually opened. Unsourced patterns are marked, not fabricated.
 4. **Honest about coverage** — if the search didn't find much, say so. "This is a thin area with little documented prior art" is valuable information.
 5. **Get out of the way** — this skill is typically invoked mid-conversation during design work. Present findings and return control. Don't gate the user with follow-up menus.
