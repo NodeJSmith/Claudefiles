@@ -8,7 +8,7 @@ user-invocable: true
 
 Run these steps yourself, in order, in this conversation, using what you already know about the branch to skip re-deriving context.
 
-If any step fails, stop and report which step failed and why. Do not carry on: Step 7 needs the PR number from Step 6, and Step 8 runs only when Step 6 succeeded and the Step 7 push landed (or Step 7 was legitimately skipped), because marking ready triggers reviewers and CI on the PR as it stands.
+If any step fails, stop and report which step failed and why. Do not carry on: opening the PR triggers reviewers and CI on the branch as it stands, so every commit has to land first.
 
 ## Step 1: Review-Question Staleness Check
 
@@ -134,52 +134,34 @@ Example shape:
 - If found, append `Closes #N` per issue.
 - Skip for Azure DevOps.
 
-## Step 6: Create PR (Draft)
+## Step 6: Write CHANGELOG Entry
+
+Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md`. The first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, skip this step.
+
+Once located, analyze the full branch diff (`git diff origin/<base>...HEAD`) — not individual commits:
+- **Add an entry** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
+- **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
+- If the branch already has changelog entries (check `git diff origin/<base>...HEAD -- <changelog-path>`), keep them as-is and go to Step 7.
+
+If adding an entry, **match the existing changelog structure**: read the file to determine whether it uses `## [Unreleased]` sections or date-based sections (`## YYYY-MM-DD`). Add entries under the appropriate heading — either the existing `[Unreleased]` section or today's date section (creating it if needed). Keep them **high-level and terse** — one bullet per logical change, describing what changed for the user, not implementation details. The PR doesn't exist yet, so entries carry no PR number, even where older entries have one.
+
+If you added an entry, stage only `<changelog-path>` (the working tree may hold unrelated edits), commit as `docs: update changelog`, and push.
+
+## Step 7: Create PR
 
 1. Run `mktemp -d <scratchpad>/mine-create-pr-XXXXXX` to create a temp directory
 2. Write the PR body to `<dir>/body.md`
 3. Create the PR:
    - **GitHub**:
      ```bash
-     gh pr create --draft --title "..." --body-file <dir>/body.md
+     gh pr create --title "..." --body-file <dir>/body.md
      ```
    - **Azure DevOps**: Read the body file content, then pass it as a literal string:
      ```bash
-     az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
+     az repos pr create --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
      ```
 
-## Step 7: Write CHANGELOG Entry
-
-Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md`. The first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, skip this step.
-
-Once located:
-
-### 7a: Determine if the branch deserves a changelog entry
-
-Analyze the full branch diff (`git diff origin/<base>...HEAD`) — not individual commits:
-- **Add an entry** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
-- **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
-- If the branch already has changelog entries (check `git diff origin/<base>...HEAD -- <changelog-path>`), keep them as-is and skip to step 7b.
-
-If adding an entry, **match the existing changelog structure**: read the file to determine whether it uses `## [Unreleased]` sections or date-based sections (`## YYYY-MM-DD`). Add entries under the appropriate heading — either the existing `[Unreleased]` section or today's date section (creating it if needed). Keep them **high-level and terse** — one bullet per logical change, describing what changed for the user, not implementation details.
-
-### 7b: Annotate entries with PR number
-
-1. Extract the PR number from the PR URL
-2. Use the platform-appropriate prefix:
-   - **GitHub**: `#` (e.g., `(#123)`)
-   - **Azure DevOps**: `!` (e.g., `(!123)`)
-3. Use `git diff origin/<base>...HEAD -- <changelog-path>` to identify lines added in this branch (including any just written in 7a)
-4. For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps
-5. If there is anything to commit, stage only `<changelog-path>` (the working tree may hold unrelated edits) and commit: `docs: update changelog for PR #<NUMBER>` (or `!<NUMBER>` for ADO)
-6. Push
-
-## Step 8: Mark PR Ready
-
-- **GitHub**: `gh pr ready`
-- **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
-
-## Step 9: Present Result
+## Step 8: Present Result
 
 Present the PR URL on its own line, preceded by any notes (e.g., no CHANGELOG found). If a step failed, say which step and why instead of a URL.
 

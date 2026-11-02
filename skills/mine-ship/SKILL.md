@@ -48,4 +48,4 @@ If any checker subagent fails to complete, skip that checker's findings and say 
 
 ### Phase 2 — Create PR
 
-Follow **all steps in `mine-create-pr`** exactly (read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, changelog entry + PR-number annotation, ready transition). Phase 1 already committed and pushed, so create-pr's push check passes. Return the PR URL it produces.
+Follow **all steps in `mine-create-pr`** exactly (read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and execute its full workflow — platform detection, changelog entry, PR creation). Phase 1 already committed and pushed, so create-pr's push check passes. Return the PR URL it produces.
