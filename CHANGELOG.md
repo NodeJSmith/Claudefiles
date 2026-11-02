@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-11-02
+
+### Changed
+
+- `mine-prior-art` runs now read the implementation of the projects an answer depends on, and briefs record what was actually opened. (#663)
+
 ## 2026-11-01
 
 ### Added
