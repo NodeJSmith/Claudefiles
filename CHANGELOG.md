@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-11-03
+
+### Changed
+
+- `mine-review-pr` with no argument now infers the PR number from a review worktree's branch or directory name (`review-pr-50058`) before asking.
+
 ## 2026-11-02
 
 ### Changed

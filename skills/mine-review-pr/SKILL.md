@@ -18,7 +18,12 @@ $ARGUMENTS can be a PR number, branch name, or PR URL. Examples:
 - `/mine-review-pr https://dev.azure.com/.../pullrequest/50058`
 - `/mine-review-pr https://github.com/org/repo/pull/123`
 
-If empty, ask for one:
+If empty, try to infer a PR number before asking. A review worktree is usually launched named for its PR (`claude --worktree review-pr-50058`), so asking again is friction:
+
+1. Run `git branch --show-current` and `git rev-parse --show-toplevel`, each as its own Bash call. Use the last path component of the second as the worktree directory name; it still holds the number when a previous run left HEAD detached and the branch is empty.
+2. Infer a number only when a name pairs it with an explicit PR marker: `review-pr-50058`, `pr-50058`, `pr/50058`, or the same with the `worktree-` prefix Claude Code puts on worktree branches (`worktree-review-pr-50058`). A bare number or other leading number is not enough (`2026-08-cleanup`, `123-fix-thing`). If the two names give different numbers, treat it as not inferred.
+3. **If a number is inferred**, use it as the argument and, once Phase 0 has fetched the PR, say where it came from along with the title ("Inferred PR #50058 from the worktree name: *Add claims export*") so a wrong guess is easy to spot.
+4. **If no number is inferred, or Phase 0 finds no PR with the inferred number**, ask for one. After a failed lookup, say the inferred number didn't match a PR:
 
 ```
 AskUserQuestion:
@@ -48,7 +53,7 @@ These hold for every phase:
 2. If given a URL, extract the PR number from it. GitHub URLs follow `github.com/<owner>/<repo>/pull/<number>`. ADO URLs follow `dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/<number>`. If given a branch name, look up the PR for that branch (`gh pr list --head <branch> --json number` or `ado-api pr list --json` and match on source).
 
    **URL repo mismatch check.** A URL also names a repository. Extract it (`<owner>/<repo>` for GitHub, `<org>/<project>/<repo>` for ADO). Run `git remote get-url origin` and normalize both sides to a bare `owner/repo` (or `org/project/repo`) tuple before comparing — strip the protocol/host and any trailing `.git`, so both `git@github.com:owner/repo.git` (SSH) and `https://github.com/owner/repo.git` (HTTPS) reduce to `owner/repo`; compare case-insensitively. If `origin` doesn't exist or the command errors, treat that as unknown rather than a mismatch and ask the user to confirm the target repo before proceeding. If the normalized values don't match, stop and tell the user — this worktree isn't checked out against that repo, and reusing its PR number against the wrong remote would review or comment on the wrong PR. Don't guess; a fresh worktree against the right remote is the fix.
-3. Fetch PR metadata. Extract: `source` branch, `target` branch, `title`, `author`, `description`, and `state`.
+3. Fetch PR metadata. If the PR doesn't exist and its number was inferred from the branch or worktree name, go back to step 4 of the Arguments section and ask instead of stopping. Extract: `source` branch, `target` branch, `title`, `author`, `description`, and `state`.
 4. **Check PR state.** If the PR is merged or closed/abandoned, say so in one line and proceed; review is read-only and posting is gated separately in Phase 7. If a merged PR's head can no longer be fetched in Phase 1, say so and stop.
 5. **Check PR author.** On GitHub, compare the PR's `author.login` against `gh api user --jq .login`. On ADO, compare against the `git config user.email` value (ADO PR metadata includes the author's email). If it is the user's own PR, say so and suggest `/mine-review` instead.
 6. **Gather context in one batch.** Run the linked-work-items and list-threads commands from the table in parallel, one command per call, without asking about each one. Get the PR's CI or validation-build status too (`gh pr checks <id>` on GitHub; on ADO, `az` with the devops extension works), and note any run or build links the author left in the description or threads. A command that errors is recorded as "no answer" for that item, not skipped silently. This context is what the reviewers and the investigation work from: what the PR says it does, what it's meant to fix, whether CI passed, and what has already been raised.
