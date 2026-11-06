@@ -32,6 +32,12 @@ set -euo pipefail
 repo="$PWD"
 if [[ "${1:-}" == "-C" ]]; then
   repo="${2:-}"
+  # `git -C ""` silently means the cwd, which would answer for the wrong repo.
+  if [[ -z "$repo" ]]; then
+    echo "git-platform: -C needs a path" >&2
+    echo "unknown"
+    exit 0
+  fi
 fi
 
 url=$(git -C "$repo" remote get-url origin 2> /dev/null || true)
