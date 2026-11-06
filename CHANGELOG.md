@@ -2,6 +2,13 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-11-06
+
+### Fixed
+
+- `git-platform` explains an `unknown` result on stderr (no origin remote, usually the wrong directory, versus an unrecognized host, with credentials stripped) and accepts `-C <repo>`; `mine-create-pr` and `mine-address-pr-issues` read that before calling a platform unsupported.
+- `ado-api logs read <id> --failed` with no content flag now prints the last 100 lines of each failed step instead of only step headers.
+
 ## 2026-11-03
 
 ### Changed
