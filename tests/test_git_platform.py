@@ -67,7 +67,12 @@ def test_unrecognized_url_never_echoes_credentials(tmp_path: Path) -> None:
     assert "gitlab.com" in result.stderr
 
 
-def test_empty_dash_c_still_exits_zero_with_unknown(tmp_path: Path) -> None:
-    result = run_script("-C", "", cwd=tmp_path)
+@pytest.mark.parametrize("args", [("-C", ""), ("-C",)])
+def test_empty_dash_c_never_falls_back_to_the_cwd(
+    tmp_path: Path, args: tuple[str, ...]
+) -> None:
+    # From inside a GitHub repo, an empty -C must not answer for the cwd's repo.
+    repo = make_repo(tmp_path / "repo", "git@github.com:owner/repo.git")
+    result = run_script(*args, cwd=repo)
     assert result.stdout.strip() == "unknown"
-    assert "no origin remote" in result.stderr
+    assert "-C needs a path" in result.stderr
