@@ -487,7 +487,6 @@ class TestLogsReadDefaultContent:
         self,
         mock_fetch: MagicMock,
         mock_lines: MagicMock,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_fetch.return_value = [
             _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
