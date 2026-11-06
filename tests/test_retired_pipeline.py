@@ -16,7 +16,6 @@ INSTRUCTION_DIRS = ("skills", "commands", "agents", "rules", "references")
 INSTRUCTION_SUFFIXES = (".md", ".sh", ".py")
 # Scanned regardless of suffix: scripts often have none.
 SCRIPT_DIRS = ("bin", "scripts")
-# CHANGELOG.md is history and keeps the retired names on purpose.
 ROOT_FILES = ("README.md", "REFERENCE.md", "ONBOARDING.md", "CLAUDE.md", "install.py")
 
 # Skill, agent, script and file names, plus one sentinel token and one
