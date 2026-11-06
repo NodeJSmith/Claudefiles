@@ -41,7 +41,7 @@ These hold for every phase:
 
 ## Phase 0: Resolve the PR and gather its context
 
-1. Run `git-platform` to determine `github` or `ado`. All PR commands below adapt to the platform:
+1. Run `git-platform` to determine `github` or `ado`. If it prints `unknown`, its stderr says why: when it points at the wrong directory, rerun from the repo root (or with `-C <repo>`); only stop and tell the user the platform is unsupported when the remote itself isn't recognized. All PR commands below adapt to the platform:
 
    | Operation | GitHub | ADO |
    |-----------|--------|-----|
