@@ -193,3 +193,21 @@ def test_silent_outside_tmux(tmp_path):
 
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+def test_claude_tmux_rename_marks_session(server, tmp_path):
+    repo = make_repo(tmp_path / "hassette", "main")
+    pane = server.new_session("hassette", repo)
+    env = clean_env()
+    env["TMUX"] = f"{server.socket},0,0"
+    env["TMUX_PANE"] = pane
+
+    subprocess.run(
+        [str(REPO_ROOT / "bin" / "claude-tmux"), "rename", "hassette-url-fix"],
+        env=env,
+        check=True,
+        capture_output=True,
+    )
+    server.run_hook(pane, repo)
+
+    assert server.session_of(pane) == "hassette-url-fix"

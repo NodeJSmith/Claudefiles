@@ -60,8 +60,8 @@ desired="$project"
 desired="$(printf '%s' "$desired" | cut -c1-"$MAX_NAME_LEN" | sed 's/-$//')"
 [ -n "$desired" ] || exit 0
 
-# A name that extends <desired> (a suffixed copy, or one Claude picked before
-# this hook existed) already identifies the work: keep it and mark it.
+# A name that extends <desired> (a suffixed copy, or a more specific name
+# Claude chose) already identifies the work: keep it and mark it.
 case "$current" in
   "$desired"-*)
     tmux set-option -t "$session_id" @claude_autonamed 1 2> /dev/null
