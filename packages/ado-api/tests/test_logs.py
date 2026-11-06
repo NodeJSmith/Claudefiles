@@ -11,6 +11,17 @@ from tests.conftest import FAKE_CTX, _make_timeline_record
 # ── Fixtures ──────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def no_real_log_fetch():
+    """Selections without content flags now fetch the log; keep every test offline.
+
+    Tests that care about log text patch ``_fetch_log_lines`` themselves, which
+    takes precedence over this default.
+    """
+    with patch("ado_api.commands.logs._fetch_log_lines", return_value=[]) as mock:
+        yield mock
+
+
 class TestLogsReadNoSelector:
     """logs read with no selector flags — selects nothing, prints nothing."""
 
@@ -425,3 +436,63 @@ class TestFormatDuration:
 
     def test_both_none(self) -> None:
         assert format_duration(None, None) == "-"
+
+
+class TestLogsReadDefaultContent:
+    """logs read with a selector but no content flag — prints the last 100 lines per step."""
+
+    @patch("ado_api.commands.logs._fetch_log_lines")
+    @patch("ado_api.commands.logs._fetch_timeline")
+    def test_defaults_to_last_100_lines_with_note(
+        self,
+        mock_fetch: MagicMock,
+        mock_lines: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_fetch.return_value = [
+            _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
+        ]
+        mock_lines.return_value = [f"line {i}" for i in range(1, 151)]
+
+        cmd_logs_read(FAKE_CTX, 100, failed=True)
+
+        out = capsys.readouterr().out
+        assert "  line 150" in out
+        assert "  line 51\n" in out
+        assert "  line 50\n" not in out
+        assert "last 100 of 150 lines" in out
+
+    @patch("ado_api.commands.logs._fetch_log_lines")
+    @patch("ado_api.commands.logs._fetch_timeline")
+    def test_short_log_printed_whole_without_note(
+        self,
+        mock_fetch: MagicMock,
+        mock_lines: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_fetch.return_value = [
+            _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
+        ]
+        mock_lines.return_value = ["only line"]
+
+        cmd_logs_read(FAKE_CTX, 100, failed=True)
+
+        out = capsys.readouterr().out
+        assert "  only line" in out
+        assert "lines;" not in out
+
+    @patch("ado_api.commands.logs._fetch_log_lines")
+    @patch("ado_api.commands.logs._fetch_timeline")
+    def test_issues_alone_does_not_add_log_text(
+        self,
+        mock_fetch: MagicMock,
+        mock_lines: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_fetch.return_value = [
+            _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
+        ]
+
+        cmd_logs_read(FAKE_CTX, 100, failed=True, issues=True)
+
+        mock_lines.assert_not_called()
