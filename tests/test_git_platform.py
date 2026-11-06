@@ -57,3 +57,17 @@ def test_unknown_explains_unrecognized_url_on_stderr(tmp_path: Path) -> None:
     result = run_script(cwd=repo)
     assert result.stdout.strip() == "unknown"
     assert "gitlab.com" in result.stderr
+
+
+def test_unrecognized_url_never_echoes_credentials(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path / "repo", "https://user:s3cret@gitlab.com/owner/repo.git")
+    result = run_script(cwd=repo)
+    assert result.stdout.strip() == "unknown"
+    assert "s3cret" not in result.stderr
+    assert "gitlab.com" in result.stderr
+
+
+def test_empty_dash_c_still_exits_zero_with_unknown(tmp_path: Path) -> None:
+    result = run_script("-C", "", cwd=tmp_path)
+    assert result.stdout.strip() == "unknown"
+    assert "no origin remote" in result.stderr
