@@ -17,6 +17,10 @@ from ado_api.commands.builds import (
 )
 from ado_api.formatting import json_output
 
+# With a selector but no content flag, `logs read` shows this many trailing lines per
+# step. A failed step's error is almost always at the end of its log.
+DEFAULT_TAIL_LINES = 100
+
 
 def _log_url(ctx: AdoContext, build_id: int, log_id: int) -> str:
     return f"{ctx.config.base_url}/_apis/build/builds/{build_id}/logs/{log_id}?api-version={ADO_API_VERSION}"
@@ -145,8 +149,8 @@ def cmd_logs_read(
     Content is controlled independently of selection: ``--issues`` prints the timeline's
     extracted error/warning data, ``--tail``/``--head`` slice each selected step's raw log
     text client-side, and ``--grep``/``--context`` search that text for a pattern. None,
-    some, or all of these may be combined; a selection with no content flags simply
-    announces which steps were selected.
+    some, or all of these may be combined. A selection with no content flag (``--issues``
+    counts as one) shows the last ``DEFAULT_TAIL_LINES`` lines of each selected step's log.
     """
     records = _fetch_timeline(ctx, build_id)
     selected, unmatched_steps = _select_records(
@@ -161,7 +165,12 @@ def cmd_logs_read(
             json_output([])
         return
 
-    needs_log = tail is not None or head is not None or grep is not None
+    default_tail = not (
+        issues or tail is not None or head is not None or grep is not None
+    )
+    effective_tail = DEFAULT_TAIL_LINES if default_tail else tail
+    slicing = effective_tail is not None or head is not None
+    needs_log = slicing or grep is not None
 
     if as_json:
         payloads = []
@@ -173,8 +182,11 @@ def cmd_logs_read(
             record_log_id = payload.get("log_id")
             if needs_log and record_log_id is not None:
                 lines = _fetch_log_lines(ctx, build_id, record_log_id)
-                if tail is not None or head is not None:
-                    payload["log_lines"] = _slice_lines(lines, tail=tail, head=head)
+                if slicing:
+                    payload["log_lines"] = _slice_lines(
+                        lines, tail=effective_tail, head=head
+                    )
+                    payload["log_total_lines"] = len(lines)
                 if grep is not None:
                     payload["matches"] = [
                         {"line_number": i, "text": lines[i]}
@@ -195,12 +207,19 @@ def cmd_logs_read(
         record_log_id = _record_log_id(record)
         if needs_log:
             if record_log_id is None:
-                print("  (no log attached to this step)")
+                # Stage/Job records carry no log; only say so when content was asked for.
+                if not default_tail:
+                    print("  (no log attached to this step)")
             else:
                 lines = _fetch_log_lines(ctx, build_id, record_log_id)
-                if tail is not None or head is not None:
-                    for line in _slice_lines(lines, tail=tail, head=head):
+                if slicing:
+                    for line in _slice_lines(lines, tail=effective_tail, head=head):
                         print(f"  {line}")
+                if default_tail and len(lines) > DEFAULT_TAIL_LINES:
+                    print(
+                        f"  (last {DEFAULT_TAIL_LINES} of {len(lines)} lines; "
+                        "use --tail/--head/--grep for more)"
+                    )
                 if grep is not None:
                     rendered = _render_grep_matches(lines, grep, context)
                     if rendered:

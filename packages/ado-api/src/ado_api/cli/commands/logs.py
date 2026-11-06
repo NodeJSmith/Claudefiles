@@ -54,7 +54,8 @@ def cli_logs_read(
     """Read log content for steps selected by --step/--failed/--log-id.
 
     At least one selector is required. Content flags (--issues, --tail/--head, --grep)
-    are independent of the selector and may combine freely with each other.
+    are independent of the selector and may combine freely with each other. With no
+    content flag, prints the last 100 lines of each selected step's log.
     """
     ado_ctx = make_ado_context(ctx)
     cmd_logs_read(
