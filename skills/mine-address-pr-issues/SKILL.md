@@ -24,7 +24,7 @@ If no PR number is given, auto-detect from the current branch.
 git-platform
 ```
 
-Output is `github`, `ado`, or `unknown`. If `unknown`, tell the user the platform could not be detected from the git remote and stop.
+Output is `github`, `ado`, or `unknown`. If `unknown`, its stderr says why: when it points at the wrong directory, rerun from the repo root (or with `-C <repo>`); only tell the user the platform could not be detected and stop when the remote itself isn't recognized.
 
 ### PR metadata
 

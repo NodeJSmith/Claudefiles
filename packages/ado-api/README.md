@@ -80,7 +80,9 @@ ado-api logs read BUILD-ID (--step ID | --failed | --log-id ID)
 
 At least one selector (`--step`, `--failed`, `--log-id`) is required; the content flags (`--issues`,
 `--tail`/`--head`, `--grep`) are independent of the selector and combine freely with each other and
-with `--json`. `--failed` is the fastest path to understanding a build failure:
+with `--json`. With no content flag, it prints the last 100 lines of each selected step's log (JSON adds
+`log_total_lines` so a cut-off log is visible). `--failed` is the fastest path to understanding a build
+failure:
 
 ```bash
 ado-api logs read <build-id> --failed --issues

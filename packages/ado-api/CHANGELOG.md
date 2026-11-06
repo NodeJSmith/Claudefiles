@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-06
+
+- `logs read` with a selector but no content flag now prints the last 100 lines of each selected step's
+  log instead of only step headers, so `logs read <id> --failed` shows the failure. JSON output with
+  sliced logs adds `log_total_lines`.
+
 ## 2026-08-23
 
 - `pipeline build-validate`'s `--branch` no longer defaults to `master` outright; it now resolves the

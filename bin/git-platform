@@ -4,18 +4,24 @@
 # Prints one of: github, ado, unknown
 # Always exits 0 — consuming scripts check for "unknown" and handle it.
 #
-# Usage: git-platform
+# Usage: git-platform [-C <path>]
 
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
-Usage: git-platform
+Usage: git-platform [-C <path>]
 
 Detect the git hosting platform from the origin remote URL.
 
 Prints one of: github, ado, unknown. Always exits 0.
+On "unknown", stderr says why: no origin remote (usually the wrong
+directory) or a host it doesn't recognize.
+
+Options:
+  -C <path>   Inspect the repo at <path> instead of the current directory.
 
 Examples:
   git-platform                       # prints "github" or "ado"
+  git-platform -C ~/src/my-repo      # same, for a repo elsewhere
   if [ "$(git-platform)" = "github" ]; then gh pr list; fi
 EOF
   exit 0
@@ -23,12 +29,24 @@ EOF
 
 set -euo pipefail
 
-url=$(git remote get-url origin 2> /dev/null || true)
+repo="$PWD"
+if [[ "${1:-}" == "-C" ]]; then
+  repo="${2:-}"
+fi
+
+url=$(git -C "$repo" remote get-url origin 2> /dev/null || true)
 
 if [[ "$url" == *github.com* ]]; then
   echo "github"
 elif [[ "$url" == *dev.azure.com* || "$url" == *visualstudio.com* ]]; then
   echo "ado"
+elif [[ -z "$url" ]]; then
+  echo "git-platform: no origin remote (or not a git repo) in '${repo}'" >&2
+  echo "git-platform: wrong directory? run from the repo or pass -C <repo>" >&2
+  echo "unknown"
 else
+  # Strip any user:token@ so credentials never reach a transcript.
+  safe_url=$(sed -E 's#://[^/]*@#://#' <<< "$url")
+  echo "git-platform: origin host not recognized: ${safe_url}" >&2
   echo "unknown"
 fi

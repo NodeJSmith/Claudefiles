@@ -68,7 +68,7 @@ git-branch-diff-stat               # → diff summary
 
 ## Step 3: Platform and Preconditions
 
-1. **Detect platform** by running `git-platform`. If output is `unknown`, stop and tell the user the platform is unsupported. If `github`, use `gh` CLI. If `ado`, use `az` CLI.
+1. **Detect platform** by running `git-platform`. If `github`, use `gh` CLI. If `ado`, use `az` CLI. If output is `unknown`, its stderr says why: when it points at the wrong directory, rerun from the repo root (or with `-C <repo>`); only stop and tell the user the platform is unsupported when the remote itself isn't recognized.
 2. Verify the branch is pushed to remote (check `git status` for "Your branch is ahead" or "not yet pushed" messages). If not pushed, stop and tell the user the branch isn't pushed to the remote.
 3. Check if a PR already exists for this branch:
    - **GitHub**: `gh pr list --head <branch-name>`
