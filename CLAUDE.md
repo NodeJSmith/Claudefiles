@@ -70,6 +70,8 @@ The naive approach — compare `git rev-parse --show-toplevel`'s output against 
 
 ## Making Changes
 
+- **This repo has no changelog.** Don't create a root `CHANGELOG.md` or add changelog entries for repo-level changes, including in `mine-create-pr`'s changelog step; git history and PR descriptions record what changed. `packages/ado-api/CHANGELOG.md` covers changes to that package only.
+
 - After adding directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
 - **Always update `REFERENCE.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts — it holds the full component tables
 - **Always update `ONBOARDING.md`** when adding a capability a new adopter should know about (significant new skill, workflow change)

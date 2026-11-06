@@ -91,6 +91,8 @@ EOF
       exit 1
     fi
     tmux rename-session "$1"
+    # Tell the tmux-autoname SessionStart hook this session is already named.
+    tmux set-option @claude_autonamed 1
     ;;
   current)
     tmux display-message -p '#S'

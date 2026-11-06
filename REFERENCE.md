@@ -135,7 +135,7 @@ Event-driven scripts that run before/after tool calls.
 | Hook | Event | Description |
 |------|-------|-------------|
 | `git-session-info.sh` | SessionStart | Display git context — worktree, branch, default branch, ahead/behind. Override default branch with `CLAUDE_GIT_DEFAULT_BRANCH` |
-| `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
+| `tmux-autoname.sh` | SessionStart | Renames the tmux session to `<project>-<branch>` once, freeing the name Windows Terminal tabs attach to |
 | `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md, then `peers` in public GitHub repos — escalating deferral with suppression option |
 | `ccrecall-nudge.sh` | PreToolUse (Bash) | Nudge toward `ccrecall search` when a command greps recursively across `~/.claude/projects/` transcripts — non-blocking, `CLAUDE_SKIP_CCRECALL_HINT=1` to suppress |
 | `gate-reasoning-check.py` | PostToolUse, PostToolUseFailure (AskUserQuestion) | When a sketch decision or challenge finding question reached the user with no reasoning in message text, tells the agent before its next question. Can't refuse the question, because a hook can't see the current response's text until after it's asked. Logs each check to `~/.local/share/claudefiles/gate-reasoning-check.log` |

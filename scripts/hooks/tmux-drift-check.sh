@@ -44,4 +44,4 @@ session_name="$(tmux display-message -p '#{session_name}' 2> /dev/null)" || exit
 [ -n "$session_name" ] || exit 0
 
 jq -cn --arg name "$session_name" \
-  '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":("Session name check: current name is \($name). If the topic has shifted significantly, update it with: claude-tmux rename \"new-name\"")}}'
+  '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":("Session name check: current name is \($name). If the topic has shifted significantly, update it with: claude-tmux rename \"<project>-<context>\" (kebab-case, max ~30 chars)")}}'
