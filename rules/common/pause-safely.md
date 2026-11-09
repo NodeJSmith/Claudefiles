@@ -13,10 +13,10 @@ When an unplanned stop is imminent:
 **2. Commit everything on disk** with a `wip:` prefix:
 
 ```bash
-git add -A && git commit -m "wip: <what this incomplete state represents>"
+git add -A && git commit --no-verify -m "wip: <what this incomplete state represents>"
 ```
 
-This ensures nothing is lost if context compacts or the process dies.
+This ensures nothing is lost if context compacts or the process dies. `--no-verify` skips the commit hooks: work in progress is expected to fail lint, and a hook that rejects this commit loses the very state it exists to save. The review gates still check anything before it ships.
 
 **3. Write a resume note to `/tmp/<slug>-resume.md`.** This file lives off-context — it survives even if the conversation is fully summarized. Write it before reporting back to the user.
 
