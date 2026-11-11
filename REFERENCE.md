@@ -170,6 +170,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |--------|-------------|
 | `skill-census` | Count skill invocations (Skill-tool calls and typed `/slash` commands) across main-session transcripts, including never-invoked skills. `--days`, `--skills-dir` (repeatable), `--zero-only` for dead-skill hunting; JSON on stdout (`total` counts each skill once per turn; `tool`/`slash` are per-method) |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
+| `claude-tmux-pane` | Print this Claude session's tmux pane ID, including for a session moved to the background (no `$TMUX`) |
 | `context-pct` | Output the current session's context window usage percentage from the sidecar; uses `$CLAUDE_CODE_SESSION_ID` automatically, accepts explicit session_id argument as override |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |

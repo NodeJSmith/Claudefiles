@@ -20,7 +20,11 @@ pytestmark = pytest.mark.skipif(
 
 
 def clean_env() -> dict[str, str]:
-    return {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "TMUX"))}
+    return {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("GIT_", "TMUX", "CLAUDE_JOB_DIR"))
+    }
 
 
 def git(cwd: Path, *args: str) -> None:

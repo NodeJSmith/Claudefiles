@@ -11,7 +11,9 @@
 #   capture <session> [N] Capture last N lines (default 20) of a session's active pane
 #   kill <session>...     Kill one or more sessions
 #
-# All commands print "Not in tmux" and exit 0 when $TMUX is unset.
+# All commands print "Not in tmux" and exit 0 when this session isn't shown in a
+# tmux pane. A session moved to the background runs without $TMUX, so the pane
+# comes from claude-tmux-pane, and rename/current target it explicitly.
 
 set -euo pipefail
 
@@ -40,13 +42,16 @@ Examples:
   claude-tmux capture my-session 50
   claude-tmux kill old-session stale-session
 
-All commands (except --help) require running inside tmux.
+All commands (except --help) require this session to be shown in a tmux pane,
+which includes a session moved to the background.
 EOF
   exit 0
 fi
 
-# Not in tmux — report and exit
-if [[ -z "${TMUX:-}" ]]; then
+# Not in tmux — report and exit. `pane` (this session's pane, from
+# claude-tmux-pane next to this script) is used by rename and current; the other
+# commands work on sessions by name.
+if ! pane="$("$(dirname "$(readlink -f "$0")")/claude-tmux-pane" 2> /dev/null)"; then
   echo "Not in tmux"
   exit 0
 fi
@@ -90,12 +95,12 @@ EOF
       echo "Usage: claude-tmux rename <name>" >&2
       exit 1
     fi
-    tmux rename-session "$1"
+    tmux rename-session -t "$pane" "$1"
     # Tell the tmux-autoname SessionStart hook this session is already named.
-    tmux set-option @claude_autonamed 1
+    tmux set-option -t "$pane" @claude_autonamed 1
     ;;
   current)
-    tmux display-message -p '#S'
+    tmux display-message -p -t "$pane" '#S'
     ;;
   new)
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then

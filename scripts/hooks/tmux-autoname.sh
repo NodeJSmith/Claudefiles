@@ -19,8 +19,11 @@
 MAX_NAME_LEN=30
 MAX_COLLISION_TRIES=5
 
-[ -n "${TMUX:-}" ] || exit 0
 command -v tmux > /dev/null 2>&1 || exit 0
+# The pane this session is shown in. A session started as a background job runs
+# without $TMUX/$TMUX_PANE; claude-tmux-pane finds its pane, if it has one.
+# Resolved through this hook's real path (it's installed as a symlink), not PATH.
+pane="$("$(dirname "$(readlink -f "$0")")/../../bin/claude-tmux-pane" 2> /dev/null)" || exit 0
 
 slug() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | tr -s '-' | sed 's/^-//; s/-$//'
@@ -30,12 +33,7 @@ hint() {
   echo "Tmux session is named \"$1\". If the task has a more specific name, rename it with: claude-tmux rename \"<project>-<context>\" (kebab-case, max ~30 chars)"
 }
 
-target=()
-if [ -n "${TMUX_PANE:-}" ]; then
-  target=(-t "$TMUX_PANE")
-fi
-
-info="$(tmux display-message -p "${target[@]}" '#{session_id} #{session_name}' 2> /dev/null)" || exit 0
+info="$(tmux display-message -p -t "$pane" '#{session_id} #{session_name}' 2> /dev/null)" || exit 0
 session_id="${info%% *}"
 current="${info#* }"
 [ -n "$session_id" ] && [ -n "$current" ] || exit 0
