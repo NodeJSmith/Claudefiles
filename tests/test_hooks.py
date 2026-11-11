@@ -93,6 +93,11 @@ def _run_drift_check(
 ) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["TMUX"] = "/tmp/tmux-stub,1,0"
+    # The hook resolves its pane through bin/claude-tmux-pane, which returns
+    # TMUX_PANE as-is (resolver paths are covered in test_claude_tmux_pane.py).
+    # Pinned so a run outside tmux behaves the same; the stub tmux ignores -t.
+    env["TMUX_PANE"] = "%1"
+    env.pop("CLAUDE_JOB_DIR", None)
     if tmux_stub_dir:
         env["PATH"] = str(tmux_stub_dir) + ":" + env.get("PATH", "")
         stub_ctx = None
@@ -200,7 +205,8 @@ class TestTmuxDriftCheckNoTmux:
     def test_no_tmux_env_silent(self):
         sid = _drift_session_id("no_tmux")
         env = os.environ.copy()
-        env.pop("TMUX", None)
+        for var in ("TMUX", "TMUX_PANE", "CLAUDE_JOB_DIR"):
+            env.pop(var, None)
         result = subprocess.run(
             [str(DRIFT_CHECK_HOOK)],
             input=json.dumps({"session_id": sid}),

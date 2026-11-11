@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# claude-tmux-pane — print the tmux pane ID (%NN) this Claude session is shown in.
+#
+# A plain session inherits $TMUX_PANE from the pane it was started in. A session
+# moved to the background (left arrow on an empty prompt, or the agents view)
+# keeps running as a job inside Claude's daemon, and the job's process starts
+# without TMUX or TMUX_PANE, even though the pane still shows the conversation.
+# Hooks and plugin commands run in the job, so they need this lookup.
+#
+# Claude's session registry links the two: the pane's own Claude (the front end
+# you type into) has a record with "tmux": "<session>:@<window>.%<pane>" and
+# "parkedJobId": "<job>", and the job runs with CLAUDE_JOB_DIR=.../jobs/<job>.
+# Only the %<pane> part is used: the session name in that field is the one the
+# front end started under and goes stale when the session is renamed.
+#
+# Limit: the record names a pane but not a tmux server, so the pane is checked
+# against the default server. Pane IDs restart at %0 per server, so a front end
+# on a second server (`tmux -L other`) could match an unrelated pane there.
+#
+# Exits 0 with the pane ID on stdout, or 1 with nothing printed when the session
+# isn't shown in any live tmux pane. Never prints errors, since hooks call it.
+# Callers in this repo find it next to themselves rather than on PATH, so a hook
+# works even when ~/.local/bin isn't on the hook's PATH.
+set -uo pipefail
+
+case "${1:-}" in
+  -h | --help)
+    echo "usage: claude-tmux-pane   print this Claude session's tmux pane ID, or exit 1"
+    exit 0
+    ;;
+  '') ;;
+  *)
+    echo "usage: claude-tmux-pane" >&2
+    exit 2
+    ;;
+esac
+
+# Both, as tmux sets them: a TMUX_PANE inherited without TMUX (env -u TMUX, an
+# ssh env pass-through) names a pane on some other server.
+if [[ -n "${TMUX:-}" && -n "${TMUX_PANE:-}" ]]; then
+  echo "$TMUX_PANE"
+  exit 0
+fi
+
+# Inside tmux without TMUX_PANE (tmux sets both, but a wrapper can drop one):
+# ask tmux for the current pane.
+if [[ -n "${TMUX:-}" ]]; then
+  pane="$(tmux display-message -p '#{pane_id}' 2> /dev/null)"
+  if [[ "$pane" =~ ^%[0-9]+$ ]]; then
+    echo "$pane"
+    exit 0
+  fi
+fi
+
+job="${CLAUDE_JOB_DIR:-}"
+job="${job%/}"
+job="${job##*/}"
+[[ "$job" =~ ^[A-Za-z0-9_-]+$ ]] || exit 1
+
+sessions_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions"
+# grep narrows ~hundreds of registry files to the few that mention this job
+# before jq parses any (jq over all of them takes far longer, and callers such
+# as the drift hook run on the per-tool-call path). The pattern allows optional whitespace so a pretty-printed
+# registry still matches. jq then checks the field itself; a file where it
+# doesn't match prints nothing, `read` fails, and the file is skipped.
+while IFS= read -r record_file; do
+  IFS=$'\t' read -r pid tmux_field < <(
+    jq -r --arg job "$job" 'select(.parkedJobId == $job) | [.pid, .tmux // ""] | @tsv' "$record_file" 2> /dev/null
+  ) || continue
+  [[ "$pid" =~ ^[0-9]+$ ]] || continue
+  kill -0 "$pid" 2> /dev/null || continue
+  pane="${tmux_field##*.}"
+  [[ "$pane" =~ ^%[0-9]+$ ]] || continue
+  # The pane must still exist and still be the one the record names.
+  [[ "$(tmux display-message -p -t "$pane" '#{pane_id}' 2> /dev/null)" == "$pane" ]] || continue
+  echo "$pane"
+  exit 0
+done < <(grep -lE "\"parkedJobId\"[[:space:]]*:[[:space:]]*\"$job\"" "$sessions_dir"/*.json 2> /dev/null)
+
+exit 1

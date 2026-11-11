@@ -14,7 +14,10 @@ if ! command -v jq > /dev/null 2>&1; then
   exit 0
 fi
 
-[ -n "${TMUX:-}" ] || exit 0
+# Cheap pre-check on every call: in tmux ($TMUX), or a background job
+# (CLAUDE_JOB_DIR), whose process has no $TMUX. A job may still not be shown in
+# any pane; the claude-tmux-pane lookup below exits then.
+[ -n "${TMUX:-}${CLAUDE_JOB_DIR:-}" ] || exit 0
 
 input="$(cat || true)"
 
@@ -40,7 +43,9 @@ printf '%d' "$count" > "${counter_file}.tmp" 2> /dev/null && mv -f "${counter_fi
 # Reset counter
 printf '0' > "${counter_file}.tmp" 2> /dev/null && mv -f "${counter_file}.tmp" "$counter_file" 2> /dev/null || true
 
-session_name="$(tmux display-message -p '#{session_name}' 2> /dev/null)" || exit 0
+# Resolved through this hook's real path (it's installed as a symlink), not PATH.
+pane="$("$(dirname "$(readlink -f "$0")")/../../bin/claude-tmux-pane" 2> /dev/null)" || exit 0
+session_name="$(tmux display-message -p -t "$pane" '#{session_name}' 2> /dev/null)" || exit 0
 [ -n "$session_name" ] || exit 0
 
 jq -cn --arg name "$session_name" \

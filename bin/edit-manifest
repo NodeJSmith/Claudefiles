@@ -4,8 +4,11 @@
 #
 # Usage: edit-manifest <manifest-path>
 #
-# Tmux is required for the primary path. When $TMUX is unset, prints the file
-# path with manual-edit instructions and exits 2 (tertiary fallback).
+# Tmux is required for the primary path. When this session isn't shown in a tmux
+# pane (claude-tmux-pane finds none), prints the file path with manual-edit
+# instructions and exits 2 (tertiary fallback). A session moved to the
+# background has no $TMUX but is still shown in a pane, and the window opens in
+# that pane's session.
 #
 # The shadow file is written to <manifest-path>.shadow on every buffer hold
 # event and at VimLeave, so the caller can detect whether any editing happened
@@ -35,7 +38,7 @@ Opens the manifest in nvim inside a new tmux window. A shadow file
 event (normal and insert mode) and at VimLeave, capturing in-memory
 buffer state even if the user discards with :q!
 
-When tmux is not available ($TMUX unset), prints the file path with
+When tmux is not available (no tmux pane shows this session), prints the file path with
 manual-edit instructions and exits 2 (tertiary fallback).
 
 Options:
@@ -101,7 +104,11 @@ log_event() {
 # TODO (secondary fallback): IDE integration via /ide primitive was scoped as TBD in
 # design 015 (design.md:446). If Claude Code exposes a file-open primitive, add
 # detection here before the tertiary path.
-if [[ -z "${TMUX:-}" ]]; then
+# claude-tmux-pane sits next to this script; found via the resolved path, not PATH.
+pane="$("$(dirname "$(readlink -f "$0")")/claude-tmux-pane" 2> /dev/null)" || pane=""
+session_id=""
+[[ -n "$pane" ]] && session_id="$(tmux display-message -p -t "$pane" '#{session_id}' 2> /dev/null)"
+if [[ -z "$session_id" ]]; then
   log_event "tmux_absent" "manifest=${MANIFEST_PATH}"
   echo "No tmux detected. The manifest is at ${MANIFEST_PATH}."
   echo "Open it in your editor, edit the **Verb:** lines, save, and return here to continue."
@@ -191,7 +198,9 @@ nvim \
   "$EDIT_MANIFEST_PATH"
 '
 
-tmux new-window -n manifest \
+# `<session>:` opens the window at the next free index in this session's own
+# tmux session, which a background job (no $TMUX) can't get by default.
+tmux new-window -t "${session_id}:" -n manifest \
   -e "EDIT_MANIFEST_PATH=$MANIFEST_PATH" \
   -e "EDIT_SHADOW_PATH=$SHADOW" \
   -e "LOCK_NAME=$LOCK_NAME" \
