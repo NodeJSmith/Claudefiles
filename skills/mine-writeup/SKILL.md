@@ -120,8 +120,8 @@ Alongside the outline, draft the brief that Phase 5's cold reader will get. Phas
 - **Persona:** the reader's role, what they **know** (their domain, the business context), and what they **do NOT know** (this work's internal vocabulary, methods, earlier drafts, anything only the source docs contain). Be specific: "doesn't know statistics vocabulary (precision, holdout, confidence interval)" beats "non-technical."
 - **Reading goal:** what this reader needs to do with the document, from Phase 1's outcome answer plus anything the user said.
 - **Intent:** `decide` for "Make decisions", `recommend` for "Approve an approach", `describe` for "Understand scope" or "Be informed".
-- **Deliberate positions:** statements the writeup will make on purpose that might look like they break the intent, such as firm requirements in a descriptive writeup. Often none.
-- **Intended takeaways:** the 3–5 things the reader should be able to repeat after one read, with the key number for each where there is one. The reader never sees these. Phase 5 compares them against what the reader reports.
+- **Deliberate positions:** statements the writeup will make on purpose that might look like they break the intent or invite a finding, such as firm requirements in a descriptive writeup, or qualitative wording ("most teams," "a small share") used where the exact number wouldn't change what the reader does. Often none.
+- **Intended takeaways:** the 3–5 things the reader should be able to repeat after one read, with a key number only where the reader's decision depends on it. The reader never sees these. Phase 5 compares them against what the reader reports.
 
 ### Outline Approval
 
@@ -164,6 +164,7 @@ If a section only works at the 30-minute layer, it needs rewriting.
 - **Concrete over abstract.** "The network path doesn't exist yet" beats "infrastructure prerequisites remain outstanding."
 - **Short paragraphs.** One idea each. A paragraph doing two jobs gets split.
 - **Tables for parallel structure.** If the same shape repeats 3+ times, use a table.
+- **Keep a number only when the decision depends on it.** Every number invites the reader to check it: what it's out of, which population, which period. A number the reader doesn't need costs that check and buys nothing. Test it: would the reader act differently if it were 40% instead of 60%? If not, say it in words ("most," "roughly double") or cut it, and add any wording you substitute to the brief's deliberate positions. Keep the numbers the reader would act on.
 
 Re-read the writeup file from disk before every write. Preserve user edits. If the user wants a section rewritten, edit that section in place.
 
@@ -185,9 +186,9 @@ If it returns `{"error": "incomplete brief", ...}`, fill in the named fields and
 
 ### Compare and verify
 
-**Teach-back against takeaways.** For each intended takeaway, mark it `landed`, `partly` (it's there, but late, vague, or missing its key number), `missed`, or `misread`. Also note any teach-back key point that isn't among the takeaways. A point the reader took away that the author didn't intend is often a misreading caused by emphasis.
+**Teach-back against takeaways.** For each intended takeaway, mark it `landed`, `partly` (it's there, but late, vague, or missing a number the decision depends on), `missed`, or `misread`. Also note any teach-back key point that isn't among the takeaways. A point the reader took away that the author didn't intend is often a misreading caused by emphasis.
 
-Every takeaway marked `partly`, `missed`, or `misread` is a fix in its own right, whether or not the reader raised a finding about it. The reader can only quote text that exists, so a takeaway the draft leaves out may produce no finding at all. Write each fix from the scope-locked sources: add the missing point, move it earlier, or give it its key number. For a `misread`, reword or re-emphasize the passage that misled the reader. If the sources can't support the fix (the key number isn't in them), don't invent it. List the takeaway for the user as a possible follow-up, like an out-of-scope finding.
+Every takeaway marked `partly`, `missed`, or `misread` is a fix in its own right, whether or not the reader raised a finding about it. The reader can only quote text that exists, so a takeaway the draft leaves out may produce no finding at all. Write each fix from the scope-locked sources: add the missing point, move it earlier, or give it the number the decision depends on. For a `misread`, reword or re-emphasize the passage that misled the reader. If the sources can't support the fix (the number isn't in them), don't invent it. List the takeaway for the user as a possible follow-up, like an out-of-scope finding.
 
 **Perceived asks against intent.** For `decide` and `recommend`, check that the reader's `perceived_asks` names the actual decision or recommendation. A reader who walks away with the wrong ask is the most expensive failure for those writeups. For `describe`, the reader should perceive no ask. If it does, something in the writeup reads like a request.
 
@@ -195,7 +196,10 @@ A wrong, missing, or unwanted perceived ask is a fix too, planned the same way a
 
 **Verify every finding before presenting it.** The reader only has the document, so its findings are hypotheses about the text:
 
-- `unsupported-number`: check it against the source material. Fix it if the number is wrong or doesn't reconcile. If it's right but the document doesn't show why, add the denominator, population, or period.
+- `unsupported-number`: first ask whether the reader needs this number at all, using the Phase 4 test.
+  - Not needed: remove it or reword it qualitatively, and add the wording to the brief's deliberate positions. Adding context to an unneeded number only adds more numbers to check.
+  - Needed: check it against the source material. Fix it if it's wrong or doesn't reconcile. If it's right but the document doesn't show why, add the denominator, population, or period.
+- A reader finding about qualitative wording the brief lists as a deliberate position ("'most' with nothing behind it"): set it aside. The reader is told to check deliberate positions for evidence, so it may still raise one.
 - A finding that conflicts with the stated intent or a deliberate position (the reader slipped anyway): set it aside.
 - A finding that asks for content outside the Phase 2 scope (a cost analysis the sources don't contain, a new section): don't add it. List it for the user as a possible follow-up. The scope lock still holds.
 - Everything else: decide whether it's real for this audience. Set it aside if not, and give a one-line reason.
