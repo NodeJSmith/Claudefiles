@@ -99,7 +99,7 @@ Each bullet answers *what* changed and *why*: the problem it solves, the tradeof
 
 Skip mechanical or self-explanatory changes (renames, formatting, obvious refactors) that are incidental to a larger change, unless they need explaining. That skip doesn't apply when one of those same changes — or a dependency bump or typo fix — is the whole PR rather than a side effect of something bigger; applied literally there, it would leave the body empty. A standalone change like that still gets a terse one-line mention under Housekeeping below, not full narration. Not every file touched needs a bullet — a reviewer needs the load-bearing decisions, not an inventory of the diff.
 
-Exception: if the PR includes changes to `./design/` (ADRs, design docs, decision records), don't re-explain that reasoning in the PR body — reference the document (e.g., "see `design/adr-012-auth-approach.md`").
+Exception: if the PR includes changes to `./design/` (design docs, research briefs, critiques), don't re-explain that reasoning in the PR body — reference the document (e.g., "see `design/specs/NNN-slug/design.md`").
 
 Collect small, standalone changes into one or two ungrouped sections:
 - **`### Notable Changes`** (top) — small but important changes worth seeing first
