@@ -19,7 +19,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
 | `mine-decompose` | Codebase decomposition analysis — finds split opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization |
 | `mine-comb` | One-off fine-toothed comb — open-ended holistic review of a brief, design, plan, or implementation-against-design; dispatches the fine-toothed-comb agent and runs the comb gate. Standalone form of the comb inside mine-sketch |
-| `mine-domain-model` | Active domain glossary — maintain CONTEXT.md and ADRs during design conversations, challenge fuzzy language, cross-reference code |
+| `mine-domain-model` | Active domain glossary — maintain CONTEXT.md during design conversations, challenge fuzzy language, cross-reference code |
 | `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-decompose |
 | `mine-eli5` | Explain a topic to someone who knows nothing about it via an HTML artifact — big pictures, few words, simplification never traded for accuracy |
 | `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |

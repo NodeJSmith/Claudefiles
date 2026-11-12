@@ -48,7 +48,7 @@ Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run a
 `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better.
 
 **"I want to keep terminology and decisions straight during design conversations"**
-`/mine-domain-model` maintains a `CONTEXT.md` glossary and ADRs as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes.
+`/mine-domain-model` maintains a `CONTEXT.md` glossary as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes.
 
 **"I need to write up technical research for my boss"**
 `/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope at outline approval, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Before showing you the draft, it has a `cold-reader` agent read it as your audience and checks whether the intended takeaways landed and whether the numbers hold up.
