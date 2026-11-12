@@ -424,8 +424,7 @@ class TestGenericPrefixDigitRequirement:
 
 
 class TestVendorPrefixCoverage:
-    """Regression tests: these vendor formats were already known to
-    scripts/hooks/secrets-check.sh but simply missing from _PREFIX, so a
+    """Regression tests: these vendor formats were missing from _PREFIX, so a
     bare, unlabeled token of these shapes reached the model unredacted."""
 
     def test_redacts_bare_github_server_token(self):

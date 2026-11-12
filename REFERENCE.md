@@ -146,7 +146,6 @@ Event-driven scripts that run before/after tool calls.
 | `claude-status-writer` | UserPromptSubmit, PreToolUse (*), PostToolUse (*), Stop, Notification, SessionEnd | Writes/removes a per-session busy/idle status sidecar (`/tmp/claude-status-<sid>.meta`) for the remote-control orchestrator's busy/idle signal |
 | `claude-context-writer` | statusLine | Writes a per-session context-usage sidecar (`/tmp/claude-context-<sid>.meta`: pct/cwd/model), read by `context-tier.sh`, then passes the statusLine JSON through to the downstream command (`starship-claude`) |
 | `bash-history-capture.py` | PostToolUse (Bash), PostToolUseFailure (Bash) | Capture every Bash command (success and failure) to `~/.local/share/claudefiles/bash-history.db` (SQLite) for pattern analysis — stores command, cwd, project, description, output preview, status. Override DB path with `CLAUDE_BASH_HISTORY_DB` |
-| `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
 
 The `ccrecall` plugin contributes its own SessionStart / SessionEnd / Stop memory hooks
 (`cm-memory-setup`, `cm-onboarding`, `cm-memory-context`, `cm-clear-handoff`,
