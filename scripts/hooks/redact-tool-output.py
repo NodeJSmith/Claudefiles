@@ -37,11 +37,11 @@ tool has already run and any side effects have already happened by the time this
 fires, and it does nothing for @-mention file expansion, which bypasses hooks
 entirely (see l-mb/claude-code-redaction-hooks for that gap in detail).
 
-This is a different interception point than scripts/hooks/secrets-check.sh (a
-git pre-commit hook scanning staged diff content before a commit), not a
-replacement for it — but the two independently hardcode overlapping vendor
-prefixes (GitHub, Stripe, Slack, AWS, etc.). Adding a vendor format to one is
-worth checking the other for the same gap.
+This is a different interception point than the gitleaks pre-commit hook
+(prek.toml, rules in .gitleaks.toml), which scans staged diffs before a commit,
+not a replacement for it. The two match overlapping vendor prefixes (GitHub,
+Stripe, Slack, AWS, etc.) independently, so a vendor format added here is worth
+checking against gitleaks' defaults and the custom rules in .gitleaks.toml.
 """
 
 import copy

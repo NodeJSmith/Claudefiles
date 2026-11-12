@@ -1,0 +1,87 @@
+# gitleaks config for the pre-commit hook in prek.toml. The default ruleset
+# covers most vendor formats (GitHub, Stripe, AWS, Slack bot/user, SendGrid,
+# npm, PyPI, JWT, private keys, ...); the rules below add only formats it
+# misses or matches too narrowly.
+#
+# scripts/hooks/redact-tool-output.py and agents/secrets-auditor.md keep their
+# own pattern lists. The redact hook redacts tool output before the model
+# sees it, at a different interception point, and hardcodes an overlapping set
+# of vendor prefixes. Adding a vendor format here is worth checking there too.
+
+title = "Claudefiles gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "anthropic-api-key-broad"
+description = "Anthropic API key (any length; the default rule matches one fixed shape)"
+regex = '''sk-ant-[a-zA-Z0-9_-]{20,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "openai-api-key-broad"
+description = "OpenAI-style API key (the default rule requires the T3BlbkFJ marker)"
+regex = '''\bsk-(?:proj-)?[a-zA-Z0-9]{20,}'''
+keywords = ["sk-"]
+
+[[rules]]
+id = "resend-api-key"
+description = "Resend API key"
+regex = '''(?:^|[^a-zA-Z0-9_])(re_[a-zA-Z0-9_]{20,})'''
+secretGroup = 1
+keywords = ["re_"]
+
+[[rules]]
+id = "slack-legacy-token"
+description = "Slack app or refresh token (xoxa-/xoxr-)"
+regex = '''xox[ar]-[0-9]{10,}-[a-zA-Z0-9-]+'''
+keywords = ["xoxa-", "xoxr-"]
+
+[[rules]]
+id = "service-account-json"
+description = "Cloud service-account credentials file content"
+regex = '''"type":\s*"service_account"'''
+keywords = ["service_account"]
+
+[[rules]]
+id = "mailgun-api-key-bare"
+description = "Mailgun API key without a nearby 'mailgun' (the default rule requires one)"
+regex = '''(?:^|[^a-zA-Z0-9_])(key-[0-9a-zA-Z]{32})\b'''
+secretGroup = 1
+keywords = ["key-"]
+
+[[rules]]
+id = "telegram-bot-token-bare"
+description = "Telegram bot token without a nearby 'telegram' (the default rule requires one)"
+regex = '''\b([0-9]{8,10}:[a-zA-Z0-9_-]{35})\b'''
+secretGroup = 1
+keywords = [":"]
+
+[[rules]]
+id = "discord-bot-token-bare"
+description = "Discord bot token without a nearby 'discord' (the default rule requires one)"
+regex = '''\b([MN][a-zA-Z0-9_-]{23,}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27,})\b'''
+secretGroup = 1
+keywords = ["."]
+
+[[rules]]
+id = "generic-secret-assignment"
+description = "Quoted secret assigned to a credential-named key, regardless of entropy"
+regex = '''(?i)(?:password|passwd|secret|token|api_key|apikey|api-key|auth_token|access_token|client_secret)\s*[=:]\s*['"]([^\s'"]{8,})['"]'''
+secretGroup = 1
+keywords = ["password", "passwd", "secret", "token", "api_key", "apikey", "api-key"]
+
+# The redact hook's self-check and its tests embed fake tokens of every shape
+# on purpose, to prove each one gets redacted.
+[[allowlists]]
+description = "Redaction fixtures"
+paths = ['''^scripts/hooks/redact-tool-output\.py$''', '''^tests/test_redact_tool_output\.py$''']
+
+# Tests pass placeholder credentials (bearer_token="aad-access-token") as
+# ordinary arguments. Only the entropy-free generic rule trips on those, so
+# only it is relaxed there; real token shapes in tests are still caught.
+[[allowlists]]
+description = "Placeholder credentials in tests"
+targetRules = ["generic-secret-assignment"]
+paths = ['''(^|/)tests/''']

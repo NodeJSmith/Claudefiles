@@ -35,6 +35,24 @@ hooks = [
 ]
 
 # =============================================================================
+# Secrets — gitleaks scans staged lines (rules in .gitleaks.toml); the
+# credential-files hook below blocks secret-bearing files by name. gitleaks
+# comes from mise.toml. Override a false positive with SKIP=gitleaks-system
+# (or SKIP=credential-files).
+#
+# pass_filenames = false is load-bearing: upstream's gitleaks-system hook
+# omits it, and with filenames appended `gitleaks git` treats the first one
+# as the repo path, errors, and still exits 0 — every commit passes.
+# =============================================================================
+
+[[repos]]
+repo = "https://github.com/gitleaks/gitleaks"
+rev = "v8.30.1"  # keep in step with gitleaks in mise.toml
+hooks = [
+  { id = "gitleaks-system", pass_filenames = false, stages = ["pre-commit"] },
+]
+
+# =============================================================================
 # Ruff — whole repo (packages/ and tests/).
 #
 # Order matters: check --fix can reorder imports and leave the file
@@ -106,12 +124,14 @@ always_run = true
 stages = ["pre-commit"]
 
 [[repos.hooks]]
-id = "secrets-check"
-name = "secrets-check"
-entry = "scripts/hooks/secrets-check.sh"
-language = "script"
-pass_filenames = false
-always_run = true
+# `fail` hooks run nothing: any staged file matching `files` fails the commit
+# with `entry` as the message. The list mirrors the filename denylist of the
+# secrets-check.sh hook gitleaks replaced; .env.example and *.pub pass.
+id = "credential-files"
+name = "Block credential files (.env, private keys, keystores)"
+entry = "Credential files must not be committed. If this is a false positive, re-run with SKIP=credential-files."
+language = "fail"
+files = '''(\.env|\.env\.local|\.env\.production|id_rsa|id_ed25519|id_ecdsa|id_dsa|\.pem|\.key|\.p12|\.pfx|\.jks|\.keystore|credentials\.json|service[_-]account.*\.json)$'''
 stages = ["pre-commit"]
 
 [[repos.hooks]]
