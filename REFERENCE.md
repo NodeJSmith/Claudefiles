@@ -8,7 +8,7 @@ Full component tables for Claudefiles. For context on what each component type d
 
 | Skill | Description |
 |-------|-------------|
-| `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI. Review feedback, including earlier rounds, is triaged into a ledger by an Opus subagent; findings that converge on one mechanism stop the run for discussion before anything is patched |
+| `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI. Review feedback, including earlier rounds, is triaged into a ledger by an Opus subagent; findings that converge on one mechanism pause the run for discussion before anything is patched, then the run continues with whatever was decided |
 | `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
 | `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas scored on all criteria and ranked by constraint-weighted average, with handoff to research or planning |
 | `mine-challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |

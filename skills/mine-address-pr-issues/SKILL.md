@@ -137,7 +137,7 @@ Read the ledger with `Read`; it is the source for everything below.
 
 ### Convergence gate
 
-If the ledger has any `convergences`, stop here, **before** planning or fixing anything else, merge conflicts and CI failures included. A structural problem can make other fixes moot or conflict with them, and a redesign can change what the conflicting or failing code even is, so it is discussed first.
+If the ledger has any `convergences`, pause here, **before** planning or fixing anything else, merge conflicts and CI failures included. A structural problem can make other fixes moot or conflict with them, and a redesign can change what the conflicting or failing code even is, so it is discussed first.
 
 For each convergence, print: its `mechanism`; its members, one line each with the finding, round, and `outcome` or open status; its `summary`; and its `open_questions` as a list. The open questions are for the user's re-evaluation; do not answer them or propose a redesign here.
 
@@ -150,16 +150,28 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Check prior art, then discuss (Recommended)"
-      description: "Make no fixes or replies; survey how comparable projects handle this, then talk it through"
+      description: "Survey how comparable projects handle this and talk it through; no fixes or replies until it's decided, then continue to the plan"
     - label: "Stop and discuss"
-      description: "Make no fixes or replies; talk through whether the mechanism should change first"
+      description: "Talk through whether the mechanism should change; no fixes or replies until it's decided, then continue to the plan"
     - label: "Patch individually"
       description: "Continue to the plan and address the converging findings one by one, like any other finding"
 ```
 
-If "Check prior art, then discuss": invoke `/mine-prior-art` with the topic that section describes. When the brief is done, end the skill exactly as for "Stop and discuss", and open that discussion with the brief's recommendation.
+If "Check prior art, then discuss": invoke `/mine-prior-art` with the topic that section describes. When the brief is done, continue as for "Stop and discuss", opening the discussion with the brief's recommendation.
 
-If "Stop and discuss": end the skill here with no code changes, commits, or thread replies. The ledger at `<tmpdir>/ledger.json` is the reference for that discussion; a later run of this skill builds a fresh one. Accepting the limitation is a valid outcome of that discussion: the next run then replies to the converging threads as `not-actionable`, citing where the limitation is documented. If "Patch individually": continue, and note in the Phase 4 summary that the convergence was patched individually by choice.
+If "Stop and discuss": discuss each convergence with the user, using the ledger as the reference. Make no code changes, commits, or thread replies until every convergence is decided. The discussion may take many turns or pull in `/mine-prior-art` or `/mine-challenge`; it is still part of this run. Settling one convergence can show it was never a real convergence, and that is a valid outcome.
+
+When the user has decided, including a plain "ok, go ahead", don't start implementing straight from the discussion. Rejoin this skill's steps instead: when a run skips them, the fixes miss the plan review, the ledger check, and the CI triage. The plan has to come from the updated ledger, because a redesign changes which fixes are needed. Re-read `<tmpdir>/ledger.json`. Then update the open member rows to match each decision, per `ledger-procedure.md`, and run `pr-ledger-check check`. Fix the rows until it passes. After that, continue to the merge-conflict and CI triage and to "Present the plan" below. This run posts the replies, so don't tell the user to re-run the skill. The gate doesn't run again for these convergences.
+- **Leave `mechanism` and `convergences` as they are.** `check` matches members by label.
+- **Rewrite the judgment fields of every open row whose fix changed:** `root_cause`, `proposed_fix`, `fix_adds`, `depth`, and `decision`. Set `decision` to `null` once the discussion has settled it, or the plan asks again. A row that becomes `not-actionable` needs `depth` and `decision` set to `null`.
+- **Redesign:** a member whose local fix the redesign replaces stays `actionable`, with the redesign as its fix, so its thread gets a reply when the redesign lands.
+- **Accept the limitation:** the members become `not-actionable`, with `disposition_reason` citing where the limitation is documented. If it isn't documented yet, keep one member `actionable` with documenting it as the fix.
+- **Not a real convergence:** leave the rows as they were. They go through the plan as ordinary findings.
+- **Every member already resolved:** the redesign has no thread to answer. Add it to the plan by hand as one extra item, and name it in the Phase 4 summary.
+
+Two outcomes end the run instead, with no replies: the user abandons or replaces the PR, or the redesign is large enough to settle in `/mine-sketch` first. Say which threads stay open and why.
+
+If "Patch individually": continue, and note in the Phase 4 summary that the convergence was patched individually by choice.
 
 ### Merge conflicts
 
@@ -328,7 +340,7 @@ Present a structured summary:
 - Already addressed: K items [answered with the evidence]
 - Not acting on: J items [answered with the reason from the ledger]
 - No reply: U items [each with its reason, from `unanswered` or your own triage]
-- Convergences: none, or each mechanism and whether it was patched individually by choice
+- Convergences: none, or each mechanism and what was decided (redesigned, accepted as a limitation, not a real convergence, or patched individually by choice)
 
 ### Merge Conflicts
 - Resolved: N files — [merge/rebase] origin/<base> into <head>
