@@ -221,7 +221,7 @@ chose between (an Auto-apply edit) sets `**Ratified:**` back to `pending`.
 
 **Show the finding before every question.** The findings file is never on the
 user's screen, and a finding's title rarely says enough on its own. Before each
-User-directed `AskUserQuestion` below, write this as message text
+User-directed `AskUserQuestion` below, send this with `SendUserMessage`
 (see `interaction.md`, item 5):
 
 - The situation, from `**Why-it-matters:**` and `**When-it-bites:**`, in plain
@@ -313,8 +313,8 @@ batch: a pile of individually reasonable guards for unlikely cases is how a
 design bloats, and walking each one invites accepting each one. HIGH rare
 findings stay out of the batch: their consequence is large enough that the user
 should weigh the likelihood call themselves. If a
-convergence already superseded one, it keeps that resolution. Write a message
-listing each remaining rare finding: its number, what goes wrong in a sentence of
+convergence already superseded one, it keeps that resolution. Send a
+`SendUserMessage` listing each remaining rare finding: its number, what goes wrong in a sentence of
 plain language, `When-it-bites`, and its recommended option. This list is all the
 user has to go on, and an unlisted batch is a blind accept. Mark any whose
 recommendation is a fix rather than Accept, so the code it would add doesn't pass

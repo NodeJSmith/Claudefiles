@@ -6,7 +6,7 @@ So before writing code for a change, ask whether it leaves a decision the user w
 
 When there are open decisions, the kind of decision picks the path:
 
-- **Decide inline, then build** when they're independent calls that fit in one `AskUserQuestion` call (four questions): no answer changes another's options, each stays local, and each is cheap to reverse. Lay each one out in the message with its options and your recommendation, ask them together, then build in the same session.
+- **Decide inline, then build** when they're independent calls that fit in one `AskUserQuestion` call (four questions): no answer changes another's options, each stays local, and each is cheap to reverse. Lay each one out in a `SendUserMessage` with its options and your recommendation, ask them together, then build in the same session.
 - **Propose `/mine-sketch`** when the decisions interact, when the change reshapes data or a module boundary, when something new has no natural home in the current structure, when a choice is hard to reverse, or when there are more questions than one call holds. Sketch puts each decision in a ledger, has the user ratify it, and challenges the result before any code exists.
 
 If asking inline turns up new decisions, or the questions start depending on each other's answers, stop and offer sketch instead. Don't keep going inline into what has become a sketch without its challenge.

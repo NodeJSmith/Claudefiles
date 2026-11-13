@@ -138,7 +138,7 @@ Event-driven scripts that run before/after tool calls.
 | `tmux-autoname.sh` | SessionStart | Renames the tmux session to `<project>-<branch>` once, freeing the name Windows Terminal tabs attach to |
 | `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md, then `peers` in public GitHub repos — escalating deferral with suppression option |
 | `ccrecall-nudge.sh` | PreToolUse (Bash) | Nudge toward `ccrecall search` when a command greps recursively across `~/.claude/projects/` transcripts — non-blocking, `CLAUDE_SKIP_CCRECALL_HINT=1` to suppress |
-| `gate-reasoning-check.py` | PostToolUse, PostToolUseFailure (AskUserQuestion) | When a sketch decision or challenge finding question reached the user with no reasoning in message text, tells the agent before its next question. Can't refuse the question, because a hook can't see the current response's text until after it's asked. Logs each check to `~/.local/share/claudefiles/gate-reasoning-check.log` |
+| `gate-reasoning-check.py` | PostToolUse, PostToolUseFailure (AskUserQuestion) | When a sketch decision or challenge finding question reached the user with no reasoning shown, tells the agent before its next question. Can't refuse the question, because a hook can't see the current response's text until after it's asked. Logs each check to `~/.local/share/claudefiles/gate-reasoning-check.log` |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `project-docs-check.sh` | PostToolUse (Edit\|Write) | On the first edit to each distinct project this session (walking up from the touched file to the nearest manifest, or repo root), checks for a non-empty `docs/` — escalating deferral with suppression option, offers to run `/mine-document` if missing |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
@@ -160,6 +160,15 @@ Third-party Claude Code plugins pre-configured via `extraKnownMarketplaces` and 
 | `ccrecall` | `claude-code-recall` (`NodeJSmith/claude-code-recall`) | Conversation memory — session DB + recall/resume skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`) and the SessionStart/SessionEnd/Stop memory hooks. Requires the `ccrecall` PyPI package (installed by `install.py`) for its hook binaries and CLI. |
 
 To add a plugin: add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it here and in ONBOARDING.md.
+
+## Environment
+
+Variables set in the `env` block of `settings.json` (JSON can't carry comments, so they're explained here).
+
+| Variable | Why |
+|----------|-----|
+| `CLAUDE_CODE_SUBAGENT_MODEL` | Default model for subagents that don't name one. |
+| `CLAUDE_CODE_PEWTER_OWL_TOOL` | Enables the `SendUserMessage` tool, which shows a message verbatim. Prose written between tool calls can reach the terminal only as a one-line summary, so `rules/common/interaction.md` item 5, the skills that show content before a question, and `gate-reasoning-check.py` all depend on it. Undocumented and internal to Claude Code, so an update could remove it; the rules fall back to plain prose when the tool is missing. |
 
 ## Helper Scripts
 

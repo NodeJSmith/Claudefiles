@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """PostToolUse/PostToolUseFailure hook (AskUserQuestion): when a sketch decision or
-challenge finding question reached the user with no reasoning in message text,
-tell the agent right away, so the next question has it.
+challenge finding question reached the user with no reasoning shown, tell the
+agent right away, so the next question has it.
 
-The user sees message text and the question's short labels. Ledger edits, file
-reads, and the findings file are not on their screen, so writing the reasoning
-to any of those doesn't show it. Instructions alone haven't held this: the first
+The user sees SendUserMessage messages and the question's short labels. Plain
+prose between tool calls can reach the terminal only as a one-line summary, so
+when SendUserMessage is enabled (CLAUDE_CODE_PEWTER_OWL_TOOL=1, which hooks
+inherit) only its messages count; without it, plain prose is all there is and
+counts. Ledger edits, file reads, and the findings file are not on their screen,
+so writing the reasoning to any of those doesn't show it. Instructions alone haven't held this: the first
 question in a run usually gets its context and later ones usually don't.
 
 This can't refuse the question. In an interactive session the current response
@@ -21,6 +24,7 @@ Anything this hook can't determine stays silent.
 import json
 import logging
 import logging.handlers
+import os
 import re
 import sys
 import time
@@ -36,14 +40,18 @@ FLUSH_TIMEOUT_SECONDS = 3.0
 FLUSH_POLL_SECONDS = 0.1
 LOG_PATH = Path.home() / ".local" / "share" / "claudefiles" / "gate-reasoning-check.log"
 LOG_MAX_BYTES = 1_000_000
+SEND_TOOL = "SendUserMessage"
+SEND_TOOL_ENV = "CLAUDE_CODE_PEWTER_OWL_TOOL"
 
 REMINDER = (
     "The question you just asked reached the user with no reasoning: tool calls, ledger edits, and the "
-    "findings file aren't on their screen. Before the next decision or finding question, write it as "
-    "message text: what exists today and what goes wrong in plain language, with no bare D<n> or finding "
-    "numbers, then the deciding factor, options table, recommendation, and when to pick otherwise. For a "
-    "rare-case batch, list each finding. If the user's answer was a question, or they couldn't choose, "
-    "answer in message text with new information before asking again; rewording the options doesn't answer it."
+    "findings file aren't on their screen, and plain prose between tool calls shows only as a summary. "
+    "Before the next decision or finding question, send it with SendUserMessage (plain prose if that "
+    "tool isn't available): what exists today and what goes wrong in plain language, with no bare D<n> "
+    "or finding numbers, then the deciding factor, options table, recommendation, and when to pick "
+    "otherwise. For a rare-case batch, list each finding. If the user's answer was a question, or they "
+    "couldn't choose, answer it with new information in a SendUserMessage before asking again; "
+    "rewording the options doesn't answer it."
 )
 
 log = logging.getLogger("gate-reasoning-check")
@@ -94,13 +102,18 @@ def events_before_call(path: str, tool_use_id: str) -> list[tuple[str, dict]] | 
         time.sleep(FLUSH_POLL_SECONDS)
 
 
-def longest_text_run(events: list[tuple[str, dict]]) -> int:
-    """Longest unbroken text since the previous question or the user's last message."""
+def longest_text_run(events: list[tuple[str, dict]], count_prose: bool) -> int:
+    """Longest unbroken shown text since the previous question or the user's last message."""
     best = run = 0
     for record_type, block in events:
         kind = block.get("type")
         if record_type == "assistant" and kind == "text":
-            run += len(block.get("text", "").strip())
+            if count_prose:
+                run += len(block.get("text", "").strip())
+        elif kind == "tool_use" and block.get("name") == SEND_TOOL:
+            # The tool's schema has one required string field, "message".
+            message = (block.get("input") or {}).get("message", "")
+            run += len(message.strip()) if isinstance(message, str) else 0
         elif (kind == "tool_use" and block.get("name") == "AskUserQuestion") or (
             record_type == "user" and kind == "text"
         ):
@@ -140,7 +153,7 @@ def main() -> None:
             session,
         )
         return
-    chars = longest_text_run(events)
+    chars = longest_text_run(events, count_prose=os.environ.get(SEND_TOOL_ENV) != "1")
     if chars >= MIN_REASONING_CHARS * gates:
         log.info("shown chars=%d session=%s", chars, session)
         return
