@@ -8,6 +8,8 @@ user-invocable: true
 
 Guided creation of a new skill for this repo. Gathers requirements, drafts the skill, validates against a quality checklist, and writes it to the correct location.
 
+A good skill states its goal, why it matters, and what done looks like, and leaves the how to the agent. Exact steps belong only where something outside the agent depends on them (see `references/common/instruction-quality.md`). Lists of steps and cases get followed literally and miss whatever the author didn't picture.
+
 ## Arguments
 
 $ARGUMENTS — optional skill name or description. If provided, use as starting context.
@@ -44,32 +46,13 @@ Derive from the purpose: `mine-<kebab-case-name>`. Max 30 chars total. Check tha
 
 ### Write SKILL.md
 
-Write to `skills/mine-<name>/SKILL.md` using the template in REFERENCE.md. See REFERENCE.md for conventions, AskUserQuestion constraints (`header` ≤12 chars, max 4 options), and size guidance.
+Write to `skills/mine-<name>/SKILL.md` using the template in REFERENCE.md. Draft the goal, the why, and what done looks like first; then add only the contract steps. See REFERENCE.md for conventions, AskUserQuestion constraints (`header` ≤12 chars, max 4 options), and size guidance.
 
 ---
 
 ## Phase 3: Quality Checklist
 
-Validate the drafted skill against both checklists in REFERENCE.md. Quick list:
-
-**Structural checks** — see REFERENCE.md ("Quality Checklist — Structural Criteria") for what each one means:
-1. Description includes "Use when..." trigger phrases
-2. SKILL.md under ~100 lines (or split with REFERENCE.md)
-3. No time-sensitive info (dates, versions)
-4. Consistent terminology throughout
-5. At least one concrete example of output
-6. References at most one level deep
-7. No significant duplication with existing skills
-8. All user interaction points use AskUserQuestion
-
-**Instruction quality checks** (see `references/common/instruction-quality.md` for full criteria):
-9. Diagnostic questions over bare thresholds where applicable
-10. Named failure modes — each behavioral rule names the trap it guards against
-11. AI-specific bias acknowledgment where the skill addresses a known agent tendency
-12. A generative value — one sentence that produces correct behavior even if the rest were deleted
-13. "Why" before "what" on major rules
-
-Apply 9-13 proportionally: simple factual rules need only the rule itself; behavioral and principle-level guidance should hit most of these.
+Check the draft against the checklists in REFERENCE.md. The one that matters most: the draft states its goal, why, and what done looks like, with exact steps only where something outside the agent depends on them.
 
 Report results. Fix any failures before presenting to the user.
 

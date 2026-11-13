@@ -2,52 +2,50 @@
 
 Quality criteria for writing rules and skills that shape agent behavior. These apply to any file loaded into context as instructions — rule files in `rules/common/`, SKILL.md files, agent definitions, and REFERENCE.md files.
 
-The difference between instructions that get followed and instructions that get skimmed is not length or formatting. It is whether the instructions teach the agent to recognize the problem in the moment, or merely describe the desired end state.
+## The Standard: Goal First, Steps Only for Contracts
 
-## The Checks
+**Exact where something outside the agent depends on it; a goal everywhere else.**
 
-Apply these when writing or editing any instruction file.
+An instruction states what the work is for, why it matters, and what done looks like. The agent decides how.
 
-### 1. Diagnostic Questions Over Thresholds
+Current models apply a stated goal well. A list of steps, an enumeration of cases to check, or a fixed template gets followed literally. The agent checks exactly the listed things and misses what the author didn't picture, or fills a section that has nothing to say. "Close candidates are tasks where X, Y, or Z" misses a task that's done by evidence the list didn't name. "Find tasks whose work is actually finished, and cite the evidence" doesn't.
 
-Does the instruction give the agent a question to ask itself, or only a metric to check against?
+Something outside the agent depends on a step when it is one of these:
 
-A threshold ("max 800 lines") covers the cases you anticipated. A diagnostic question ("can a new reader answer 'where does X come from?' in under 30 seconds?") generalizes to situations the threshold does not cover. Prefer the question. Include the threshold too if it helps, but the question is the load-bearing part.
+- State another skill, a later run, or a service reads (file names, formats, carry-over blocks)
+- Output a script parses
+- The order of side effects (write the success marker only after publishing)
+- Irreversible or outward-facing actions, and the gates in front of them
+- Facts the agent can't find out itself (API recipes, URL formats, where things live)
 
-### 2. Named Failure Modes
+Those stay exact. Anything else becomes the goal and the reason.
 
-Does each rule name the specific trap it guards against?
+A goal still needs a clear definition of done. Loose wording fails too: an instruction to show the user something "as text" was satisfied by a `cat` whose output the user never saw. The fix was the reason (the user decides from what's on screen) plus what doesn't count, not a procedure.
 
-"Don't do X" is weaker than "X goes wrong because Y — counter it by Z." Naming the trap helps the agent recognize when it is falling into it. "Verify your work" is a rule. "Agents report what they intended, not always what happened — inspect the diff, not the summary" is a named failure mode that fires at the right moment.
+## Fixing a Miss
 
-### 3. AI-Specific Bias Acknowledgment
+When an instruction produced a miss, the instinct is to add the missed case. That makes the list longer, and the next case nobody listed gets missed the same way. Ask instead why the agent didn't see the case from the goal. Usually the goal was missing, buried under steps, or the definition of done was vague. Sharpen that, and delete steps the goal now covers. Add an exact step only when the miss broke a contract.
 
-Does the instruction call out what AI agents specifically get wrong in this domain?
+The same holds for review findings on instruction files: a finding that asks for another condition, branch, or exemption is usually a sign the goal isn't clear.
 
-Generic engineering advice reads as background knowledge and gets skimmed. Naming the concrete failure and its cause ("generation is free, so an extra layer costs the writer nothing — counter it by Y") gets attention. State the mechanism and the desired behavior rather than asserting the reader's tendencies ("you tend to…"); current models over-apply trait claims.
+## Supporting Checks
 
-### 4. A Generative Value
+These make a goal-first instruction work. Apply them proportionally; none of them is a reason to add a list.
 
-Is there a one-sentence stance that would produce correct behavior even if the rest of the instruction were deleted?
+1. **Diagnostic questions over thresholds.** A question the agent asks itself ("can a new reader answer 'where does X come from?' in 30 seconds?") generalizes to cases a threshold ("max 800 lines") doesn't.
+2. **Name the trap.** "X goes wrong because Y" helps the agent recognize the situation in the moment. Name the trap, not the steps around it.
+3. **State the mechanism, not the reader's tendencies.** "Generation is free, so an extra layer costs the writer nothing" lands; "you tend to over-engineer" gets over-applied.
+4. **A generative value.** One sentence that would produce the right behavior if the rest were deleted. "If a human developer would find the code exhausting to maintain, it is a bad solution."
+5. **Why before what.** The reason lets the agent apply the spirit where the letter doesn't fit.
 
-"If a human developer would find the code exhausting to maintain, it is a bad solution." "Code is cheap, attention is scarce." A generative value helps agents make judgment calls in situations no specific rule covers. If the instruction is only a checklist with no underlying principle, it will be applied literally and miss edge cases.
+## User Prompts
 
-### 5. "Why" Before "What"
+A prompt fired straight from a script or lookup result, with no point where the agent judges whether the result matters, is the most common prescriptive failure. So is a fixed option menu whose right options depend on what the agent just found: it omits the obvious next step, offers a meaningless one, or pins a "(Recommended)" the situation contradicts. Describe when to ask and which outcomes to offer, and let the agent build the menu (see `rules/common/interaction.md`). A fixed set is fine when every plausible outcome of the skill would call for the same options (approve or abandon a plan).
 
-Does each major rule explain the trap it guards against before stating the rule?
+## Proportion
 
-Understanding why the rule exists lets agents apply the spirit in edge cases rather than following the letter and missing the point. "Never claim work is done without evidence" is a rule. "Indirect verification feels cheaper than direct observation, but acting on a wrong inference costs far more than checking the source" is the reasoning that makes the rule stick.
+- **Simple factual rules** (syntax, naming, tool usage): state the rule, maybe a brief why.
+- **Behavioral rules and skills:** the goal, the why, and what done looks like; contract steps where they apply.
+- **Principles** (laziness protocol, reader load): all of the above, plus a generative value.
 
-### 6. Room for Judgment
-
-Does the instruction state the goal and why, and leave the agent to decide how?
-
-Current models apply a stated goal well; a script of steps or a hard rule gets followed literally into cases where it is wrong. The usual offenders are user prompts. One is a prompt fired straight from a script or lookup result, with no step where the agent judges whether the result matters. The other is a fixed option menu whose right options depend on what the agent just found: it omits the obvious next step, offers a meaningless one, or pins a "(Recommended)" the situation contradicts. A close cousin is prose around the menu that recommends an outcome none of its options express ("recommend stopping" with no stop option); point at the outcome and let the agent add the option, per `rules/common/interaction.md`. To tell a menu from a legitimately fixed set, ask whether two plausible outcomes of the skill would call for different options or a different recommendation. If not (approve or abandon a plan), a fixed block is fine. Keep hard rules for real invariants. This doesn't conflict with check 2: name the trap, not the steps.
-
-## Applying the Checks
-
-These are not hard requirements for every line. A simple factual rule ("use `X | None`, not `Optional[X]`") does not need a generative value or an AI bias acknowledgment. Apply the checks proportionally:
-
-- **Simple factual rules** (syntax, naming, tool usage): state the rule, maybe a brief "why." The checks are optional.
-- **Behavioral rules** (how to approach debugging, when to refactor, how to verify): checks 2 and 5 are the minimum. The agent needs to understand the trap to follow the spirit.
-- **Principles** (laziness protocol, reader load, experience first): all the checks matter. These are the rules that shape judgment, and judgment requires understanding.
+Less is usually better. Before adding a sentence, ask what the agent would do wrong without it. If you can't name it, leave it out.
