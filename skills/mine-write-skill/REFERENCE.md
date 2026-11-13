@@ -1,6 +1,6 @@
 # Write Skill — Reference
 
-Extended guidance for SKILL.md authoring. Referenced by SKILL.md — do not reference further files from here.
+Template, conventions, and the quality checklist for SKILL.md authoring.
 
 ---
 
@@ -45,25 +45,23 @@ Add sections when the skill needs them (what makes this hard, known traps, a REF
 - Put temp files in a per-run `mktemp -d <scratchpad>/<skill-name>-XXXXXX` directory, and use `bin/` helpers where appropriate — don't reinvent
 - If the skill needs scripts, add them to `bin/` (shared), not inside the skill directory
 
-## Size Target
+## Size
 
-Keep SKILL.md under ~100 lines. If the skill needs detailed reference material (examples, templates, extended guidance), split into:
-- `SKILL.md` — the goal, what done looks like, and any contract
-- `REFERENCE.md` — recipes, formats, and examples the agent can look up when it needs them
+SKILL.md holds the goal, what done looks like, and any contract. Material the agent looks up only when it needs it (recipes, formats, extended examples) goes in a `REFERENCE.md` beside it.
 
 ---
 
 ## Quality Checklist — Structural Criteria
 
 1. **Description includes trigger phrases** — frontmatter `description` must start with `"Use when the user says: '...'"`; include at least 2–3 specific user phrases
-2. **SKILL.md under ~100 lines** — if longer, split reference material (templates, extended examples) into REFERENCE.md; the goal and contract stay in SKILL.md
+2. **Every line earns its place** — for each sentence, you can name what the agent would get wrong without it; lookup material lives in REFERENCE.md, not SKILL.md
 3. **No time-sensitive info** — no hardcoded dates, library versions, or ephemeral references; use `$ARGUMENTS` or instruct the agent to look up current state
 4. **Consistent terminology** — pick one term for each concept and use it everywhere; don't alternate between "task" and "item", "skill" and "command", etc.
-5. **Concrete examples** — at least one example of expected behavior, output format, or invocation; abstract guidance without examples is harder to follow
-6. **References at most one level deep** — SKILL.md may reference REFERENCE.md; REFERENCE.md should not reference further files (prevents infinite chains)
-7. **No duplication with existing skills** — grep `skills/` for similar functionality; if overlap exists, consider extending an existing skill rather than creating a new one
+5. **Examples where the goal is easy to misread** — where a reader could plausibly take the goal the wrong way, show it, preferably with an example of the failure it prevents; don't add examples to a goal that's already clear
+6. **No reference chains** — SKILL.md links directly to every file the agent needs; a supporting file doesn't send the agent on to further supporting files, which get skimmed or missed. Pointing to a shared standard (like `references/common/instruction-quality.md`) is fine
+7. **No unresolved overlap with an existing skill** — if the purpose overlaps one, the user chose a new skill over extending it
 8. **User interaction points are explicit** — wherever the user's answer is actually needed, they see an interactive `AskUserQuestion` prompt, not an implicit wait for free text
 
 ## Quality Checklist — Instruction Quality Criteria
 
-9. **Goal first, steps only for contracts** — passes the standard in `references/common/instruction-quality.md`, and every instruction left in prevents a failure you can name.
+9. **Goal first, steps only for contracts** — passes the standard in `references/common/instruction-quality.md`.
