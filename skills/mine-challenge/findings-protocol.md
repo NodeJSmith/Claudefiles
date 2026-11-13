@@ -241,7 +241,9 @@ trade-offs in view to push back on it.
 **A recommendation can change here.** The findings file is a starting point, and
 this session may know more than synthesis did: an earlier answer, or a code check
 made while presenting the finding. When that changes the answer, update the
-affected table rows, then the recommendation, and say what changed.
+affected table rows, then the recommendation, and say what changed. Synthesis
+writes `unknown` for peers it had no source for. Before putting a finding to
+the user, look up the `unknown` peer cells that could change its recommendation.
 
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
