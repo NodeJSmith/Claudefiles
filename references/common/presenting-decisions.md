@@ -19,7 +19,7 @@ The bias to watch for is writing the pros and cons after choosing. They then rea
 
 ## Shape
 
-Write this as message text before the `AskUserQuestion` call, per `rules/common/interaction.md` item 5 (message text, not the question or options; read the source, then write it out). Writing it to a ledger or findings file doesn't show it: once it's on disk it feels said, and the user still has nothing on screen. So every question gets this, not just the first one in a run. If the reasoning lives in a file, reformat it into the markdown below.
+Send this with `SendUserMessage` before the `AskUserQuestion` call, per `rules/common/interaction.md` item 5 (not in the question or options, and not as plain prose between tool calls, which can be collapsed to a summary; read the source, then write it out). Writing it to a ledger or findings file doesn't show it: once it's on disk it feels said, and the user still has nothing on screen. So every question gets this, not just the first one in a run. If the reasoning lives in a file, reformat it into the markdown below.
 
 ```markdown
 **Situation:** <what exists today and what goes wrong>

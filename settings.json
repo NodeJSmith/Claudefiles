@@ -232,6 +232,7 @@
     ]
   },
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
+    "CLAUDE_CODE_PEWTER_OWL_TOOL": "1"
   }
 }

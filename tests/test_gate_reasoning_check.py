@@ -24,12 +24,21 @@ def text(body: str) -> dict:
     }
 
 
-def tool(name: str, call_id: str = "toolu_other") -> dict:
+def tool(
+    name: str, call_id: str = "toolu_other", tool_input: dict | None = None
+) -> dict:
     return {
         "type": "assistant",
         "message": {
             "role": "assistant",
-            "content": [{"type": "tool_use", "id": call_id, "name": name, "input": {}}],
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": call_id,
+                    "name": name,
+                    "input": tool_input or {},
+                }
+            ],
         },
     }
 
@@ -59,14 +68,19 @@ def run_hook(
     records: list[dict],
     question: str = "Decision 2 of 4: Which one?",
     header: str = "D2",
+    send_tool: bool = False,
 ) -> dict:
     transcript = tmp_path / "t.jsonl"
     write_transcript(transcript, [*records, tool("AskUserQuestion", CALL_ID)])
-    return invoke(tmp_path, transcript, question, header)
+    return invoke(tmp_path, transcript, question, header, send_tool)
 
 
 def invoke(
-    tmp_path: Path, transcript: Path, question: str | list[dict], header: str = "D2"
+    tmp_path: Path,
+    transcript: Path,
+    question: str | list[dict],
+    header: str = "D2",
+    send_tool: bool = False,
 ) -> dict:
     questions = (
         question
@@ -86,11 +100,18 @@ def invoke(
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(tmp_path)},
+        env={**hook_env(send_tool), "HOME": str(tmp_path)},
         timeout=10,
         check=True,
     )
     return json.loads(proc.stdout) if proc.stdout.strip() else {}
+
+
+def hook_env(send_tool: bool) -> dict:
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_PEWTER_OWL_TOOL"}
+    if send_tool:
+        env["CLAUDE_CODE_PEWTER_OWL_TOOL"] = "1"
+    return env
 
 
 def reminded(output: dict) -> bool:
@@ -167,6 +188,29 @@ def test_status_lines_split_by_tools_do_not_add_up(tmp_path):
 
 def test_rubric_followed_by_a_tool_still_counts(tmp_path):
     assert not reminded(run_hook(tmp_path, [text(RUBRIC), tool("Bash"), result()]))
+
+
+def send(message) -> dict:
+    return tool("SendUserMessage", tool_input={"message": message})
+
+
+def test_rubric_sent_with_send_user_message_counts(tmp_path):
+    records = [send(RUBRIC), result()]
+    assert not reminded(run_hook(tmp_path, records, send_tool=True))
+
+
+def test_short_send_user_message_is_reminded(tmp_path):
+    records = [send("Next decision."), result()]
+    assert reminded(run_hook(tmp_path, records, send_tool=True))
+
+
+def test_plain_prose_does_not_count_when_the_tool_is_enabled(tmp_path):
+    assert reminded(run_hook(tmp_path, [text(RUBRIC)], send_tool=True))
+
+
+def test_malformed_send_user_message_is_reminded(tmp_path):
+    records = [send(["not", "a", "string"]), result()]
+    assert reminded(run_hook(tmp_path, records, send_tool=True))
 
 
 def test_subagent_text_does_not_count(tmp_path):

@@ -101,7 +101,7 @@ Likely-invalid findings are excluded from the narrative summary and placed in th
 
 ### Step 1: Narrative summary
 
-Before entering the findings flow, present the findings as a narrative organized by severity so the user can orient:
+Before entering the findings flow, send the findings with `SendUserMessage` as a narrative organized by severity so the user can orient:
 
 ```
 ## Codebase Audit: [project name]
@@ -169,7 +169,7 @@ The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel 
 
 Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and field definitions.
 
-Audit findings use the User-directed model with explicit option letters (A/B/C). Present CRITICAL and HIGH findings one at a time via AskUserQuestion. List the MEDIUM and lower findings together as numbered message text, then ask once which to file as issues ("Which of these should I file? Unselected ones are noted in the summary only"), taking the numbers as free text, since they are rarely worth a separate stop each and a multiSelect holds at most four. The options for an individual finding are:
+Audit findings use the User-directed model with explicit option letters (A/B/C). Present CRITICAL and HIGH findings one at a time via AskUserQuestion. List the MEDIUM and lower findings together as a numbered list sent with `SendUserMessage`, then ask once which to file as issues ("Which of these should I file? Unselected ones are noted in the summary only"), taking the numbers as free text, since they are rarely worth a separate stop each and a multiSelect holds at most four. The options for an individual finding are:
 - **`A`** (or `fix`) — implement the fix now, using the finding's description.
 - **`B`** — create an issue in the project's issue tracker for this finding
 - **`C`** (or `skip`) — noted in session summary, no action

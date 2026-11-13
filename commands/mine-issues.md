@@ -72,7 +72,7 @@ If an issue is already fixed, superseded, or no longer valid, offer to close it,
 
 **If the user picks "Sketch it":** when the issue is a Breakdown issue of a milestone ledger, invoke `/mine-sketch <milestone_dir> <key>` with the structured summary, so the sketch runs as that issue's pickup. Otherwise invoke `/mine-sketch` once, passing every remaining issue's key and structured summary (title, description, design docs, affected areas, suggested approach) as the change description, and ask it to list the keys on the ledger's `**Issues:**` line so the eventual PR closes all of them.
 
-**If the user picks "Decide inline, then build":** write each open decision in the message with its options and your recommendation, then ask them in one `AskUserQuestion` call. Once they're answered, continue as in "Build it directly", including its `Closes #N` lines. If an answer opens new decisions, or the questions turn out to depend on each other, stop and offer `/mine-sketch` instead: carrying on inline would produce a sketch that never got challenged.
+**If the user picks "Decide inline, then build":** send each open decision with `SendUserMessage`, with its options and your recommendation, then ask them in one `AskUserQuestion` call. Once they're answered, continue as in "Build it directly", including its `Closes #N` lines. If an answer opens new decisions, or the questions turn out to depend on each other, stop and offer `/mine-sketch` instead: carrying on inline would produce a sketch that never got challenged.
 
 **If the user picks "Build it directly":** use the remaining issues' structured summaries as the change description and implement them together. Put a `Closes #N` line for each key in a commit message (GitHub) so the PR closes all of them.
 

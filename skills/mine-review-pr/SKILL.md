@@ -198,7 +198,7 @@ On "Change the set first", take the changes as free text: drop or add findings, 
 
 One draft per thread in the shaped set: each Medium-and-above code issue, the tests bucket, and the docs bucket, with folded findings inside their host thread. Use the template, labels, and footer in `REFERENCE.md`. Write each draft body to a temp file under the tmpdir (one file per thread).
 
-Show every draft's full body inline as message text, in one message, before the post gate. Never show only titles or paths, and don't rely on a `Read` of the files, which the terminal collapses: the user approves what they have read.
+Show every draft's full body with `SendUserMessage`, in one message, before the post gate. Never show only titles or paths, and don't rely on a `Read` of the files, which the terminal collapses: the user approves what they have read.
 
 ## Phase 7: Confirm, then post
 

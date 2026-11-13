@@ -52,7 +52,7 @@ If the request names a brief or research file (from `/mine-research`, `/mine-gri
 
 ### Picking up a milestone issue
 
-When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Run the [peer check](#peer-check) before the posture, unless the parent ledger's `**Prior art:**` brief covers this issue's core problem, and say which in one line. Then propose the posture from the parent's stances with Altitude set to `build`, write it as message text in the same turn, directly before the question, and confirm it as usual.
+When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Run the [peer check](#peer-check) before the posture, unless the parent ledger's `**Prior art:**` brief covers this issue's core problem, and say which in one line. Then propose the posture from the parent's stances with Altitude set to `build`, send it with `SendUserMessage` in the same turn, directly before the question, and confirm it as usual.
 
 The scan is what's different. The parent was written before the code it describes was built, and earlier issues in the milestone have since landed. So expect it to be wrong or silent in places, and check it before relying on it:
 
@@ -97,7 +97,7 @@ Altitude decides what the ledger is for, not how cautious the change is, so infe
 
 Infer a stance for each axis from the request, the scan, the peer check, the CLAUDE.md frontmatter (`audience`, `developers`, `data-sensitivity`; see `project-context.md`), and the repo itself. A public repo with releases or a changelog has consumers, and a private one with no installs usually doesn't. Your defaults skew toward more failure handling, more compatibility, and more scope than a project warrants, and a cautious posture invites a rubber stamp. So infer the minimal stance on each axis unless something you found argues for more, and name that evidence.
 
-Write the proposed posture as message text, one line per axis with what drove it, then ask:
+Send the proposed posture with `SendUserMessage`, one line per axis with what drove it, then ask:
 
 ```
 AskUserQuestion:
@@ -148,7 +148,7 @@ Every decision starts as `**Ratified:** pending`.
 
 Take each `**Ratified:** pending` decision in order, one at a time. Never batch.
 
-1. Write the decision's rubric as message text before the `AskUserQuestion` call: the situation, the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. Do this for every decision. The ledger isn't on the user's screen, and this is their chance to push back on the reasoning, so write it in full, not summarized.
+1. Send the decision's rubric with `SendUserMessage` before the `AskUserQuestion` call: the situation, the deciding factor, the criteria × options table, the recommendation, and each "Pick X instead if", formatted per `presenting-decisions.md`. Do this for every decision. The ledger isn't on the user's screen, and this is their chance to push back on the reasoning, so write it in full, not summarized.
 2. Ask:
 
    ```
@@ -237,7 +237,7 @@ Check what the challenge and comb changed by diffing `design.md` against `<tmpdi
 
 Otherwise show the gate, because ratification was per-decision and this read is the only place a cross-decision inconsistency an automatic edit introduced would show up.
 
-Present the full ledger as text, with its path, and show what changed since the last ratified decision. At `milestone` altitude, the question ends "Ratify it as the milestone plan?" and Ratify's description is "Lock the ledger; offer to file its issues". This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
+Send the full ledger with `SendUserMessage`, with its path, and show what changed since the last ratified decision. At `milestone` altitude, the question ends "Ratify it as the milestone plan?" and Ratify's description is "Lock the ledger; offer to file its issues". This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
 
 ```
 AskUserQuestion:

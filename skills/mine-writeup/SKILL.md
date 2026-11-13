@@ -208,7 +208,7 @@ Keep the reader's `works_well` passages intact when planning fixes: a revision t
 
 ### Present
 
-Show the user, before the draft:
+Send the user, with `SendUserMessage`, before the draft:
 
 1. The takeaway table (takeaway → landed / partly / missed / misread), plus the perceived ask if it's wrong.
 2. The fixes you plan to make, grouped by section: verified findings, each with the quote and the fix, takeaway fixes, each with the takeaway and the fix, and the ask fix, if any, with the perceived and intended ask.
