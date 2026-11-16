@@ -34,7 +34,7 @@ ISSUE_COMMENT_FIELDS = "databaseId author { login __typename } url body createdA
 THREAD_COMMENT_FIELDS = (
     "id databaseId body author { login __typename } createdAt updatedAt"
 )
-REACTION_FIELDS = "content user { login } createdAt"
+REACTION_FIELDS = "content user { login __typename } createdAt"
 
 FIRST_PAGE_QUERY = f"""
 query($owner: String!, $repo: String!, $pr: Int!, $after: String) {{
@@ -144,8 +144,12 @@ NOISE_RULES: list[tuple[str, Callable[[str, str], bool]]] = [
 ]
 
 
+def login_of(author: dict | None) -> str | None:
+    return (author or {}).get("login")
+
+
 def noise_reason(node: dict) -> str | None:
-    login = (node.get("author") or {}).get("login") or ""
+    login = login_of(node.get("author")) or ""
     body = node.get("body") or ""
     for reason, matches in NOISE_RULES:
         if matches(login, body):
@@ -163,11 +167,10 @@ def split_noise(nodes: list[dict], surface: str) -> tuple[list[dict], list[dict]
         if reason is None:
             kept.append(node)
         else:
-            author = (node.get("author") or {}).get("login")
             excluded.append(
                 {
                     "surface": surface,
-                    "author": author,
+                    "author": node.get("author"),
                     "url": node.get("url"),
                     "reason": reason,
                 }
@@ -267,10 +270,12 @@ def build_report(pr: dict, show_all: bool) -> dict:
     # Each reviewer's latest verdict, so "reviewed, no findings" differs from "not reviewed yet".
     # Built from the UNFILTERED reviews on purpose: a denylisted body (Codex
     # boilerplate) is still proof that the reviewer ran.
-    latest: dict[str, dict] = {}
+    # Authors stay GraphQL objects ({login, __typename}, or null for a deleted
+    # account) to match every other surface, so one `.author.login` filter reads them all.
+    latest: dict[str | None, dict] = {}
     for review in sorted(pr["reviews"], key=lambda r: r["createdAt"]):
-        author = (review.get("author") or {}).get("login")
-        latest[author] = {
+        author = review.get("author")
+        latest[login_of(author)] = {
             "author": author,
             "state": review["state"],
             "createdAt": review["createdAt"],
@@ -293,13 +298,13 @@ def build_report(pr: dict, show_all: bool) -> dict:
         },
         "reactions": [
             {
-                "user": (r.get("user") or {}).get("login"),
+                "user": r.get("user"),
                 "reaction": r["content"],
                 "createdAt": r["createdAt"],
             }
             for r in pr["reactions"]
         ],
-        "reviews": sorted(latest.values(), key=lambda r: r["author"] or ""),
+        "reviews": sorted(latest.values(), key=lambda r: login_of(r["author"]) or ""),
         REVIEW_COMMENTS_KEY: review_comments,
         ISSUE_COMMENTS_KEY: issue_comments,
         "excluded": excluded_review_comments + excluded_issue_comments,
@@ -337,7 +342,7 @@ def render_text(report: dict, show_all: bool) -> str:
         )
         lines += [
             f"{thread['path']}:{thread['line'] or '?'} [{thread['id']}]{flags} (comment: {first.get('databaseId')})",
-            f"  @{(first.get('author') or {}).get('login')}: {one_line(first.get('body'), THREAD_PREVIEW_CHARS)}",
+            f"  @{login_of(first.get('author'))}: {one_line(first.get('body'), THREAD_PREVIEW_CHARS)}",
             "",
         ]
 
@@ -348,13 +353,16 @@ def render_text(report: dict, show_all: bool) -> str:
     section(
         "Reactions",
         [
-            f"  @{r['user']}: {EMOJI.get(r['reaction'], r['reaction'])}"
+            f"  @{login_of(r['user'])}: {EMOJI.get(r['reaction'], r['reaction'])}"
             for r in report["reactions"]
         ],
     )
     section(
         "Review status",
-        [f"  @{review['author']}: {review['state']}" for review in report["reviews"]],
+        [
+            f"  @{login_of(review['author'])}: {review['state']}"
+            for review in report["reviews"]
+        ],
     )
 
     def entry(header: str, body: str) -> list[str]:
@@ -368,7 +376,7 @@ def render_text(report: dict, show_all: bool) -> str:
         entries(
             report["reviewComments"],
             lambda review: (
-                f"@{(review.get('author') or {}).get('login')} [{review['state']}] {review['url']}"
+                f"@{login_of(review.get('author'))} [{review['state']}] {review['url']}"
             ),
         ),
     )
@@ -376,7 +384,7 @@ def render_text(report: dict, show_all: bool) -> str:
         "Conversation comments (not threads)",
         entries(
             report["issueComments"],
-            lambda c: f"@{(c.get('author') or {}).get('login')} {c['url']}",
+            lambda c: f"@{login_of(c.get('author'))} {c['url']}",
         ),
     )
     reasons = Counter(e["reason"] for e in report["excluded"])
