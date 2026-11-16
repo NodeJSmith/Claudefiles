@@ -1,4 +1,4 @@
-"""Tests for bin/gh-pr-threads: the known-noise denylist and cursor draining."""
+"""Tests for bin/gh-pr-threads: the known-noise denylist, cursor draining, and report shape."""
 
 import runpy
 from pathlib import Path
@@ -11,6 +11,7 @@ MODULE = runpy.run_path(str(SCRIPT))
 noise_reason = MODULE["noise_reason"]
 split_noise = MODULE["split_noise"]
 drain = MODULE["drain"]
+build_report = MODULE["build_report"]
 
 CODEX = "chatgpt-codex-connector"
 CODEX_BOILERPLATE = """
@@ -133,7 +134,7 @@ def test_split_noise_skips_empty_bodies_and_records_exclusions() -> None:
     assert excluded == [
         {
             "surface": "issueComments",
-            "author": "codecov",
+            "author": {"login": "codecov"},
             "url": "b",
             "reason": "Codecov coverage report",
         }
@@ -156,3 +157,42 @@ def test_drain_single_page_makes_no_fetch() -> None:
     assert drain(first, lambda _cursor: pytest.fail("fetched past the last page")) == [
         1
     ]
+
+
+def test_every_person_in_the_report_is_an_object_with_a_login() -> None:
+    codex = {"login": CODEX, "__typename": "Bot"}
+    me = {"login": "NodeJSmith", "__typename": "User"}
+    review = {
+        "author": codex,
+        "state": "COMMENTED",
+        "url": "r",
+        "createdAt": "2026-01-01",
+    }
+    pr = {
+        "title": "t",
+        "url": "u",
+        "reactions": [{"user": codex, "content": "EYES", "createdAt": "2026-01-01"}],
+        "threads": [
+            {
+                "id": "PRRT_1",
+                "isResolved": False,
+                "comments": {"nodes": [{"author": codex, "body": "finding"}]},
+            }
+        ],
+        "reviews": [
+            {**review, "body": CODEX_BOILERPLATE},
+            {**review, "author": me, "body": "looks good", "url": "r2"},
+        ],
+        "comments": [{"author": me, "body": "thanks", "url": "c"}],
+    }
+
+    report = build_report(pr, show_all=True)
+
+    authors = [r["author"] for r in report["reviews"]]
+    authors += [r["author"] for r in report["reviewComments"]]
+    authors += [r["author"] for r in report["issueComments"]]
+    authors += [e["author"] for e in report["excluded"]]
+    authors += [c["author"] for t in report["threads"] for c in t["comments"]["nodes"]]
+    authors += [r["user"] for r in report["reactions"]]
+    assert {a["login"] for a in authors} == {CODEX, "NodeJSmith"}
+    assert [r["author"] for r in report["reviews"]] == [me, codex]  # sorted by login
