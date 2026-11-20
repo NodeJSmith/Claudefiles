@@ -72,6 +72,8 @@ block or as a prose menu of options, call the `AskUserQuestion` tool.
 
    **When the user answers a question with a question,** or asks for more context, answer it with `SendUserMessage` before asking again, with something they didn't already have: what the code does today, a concrete example, how the options actually differ. Check the code if you don't know. Rewording the option descriptions and re-asking is the failure to avoid: they asked because those words weren't enough, and a reworded menu reads as being ignored.
 
+   **Never use `SendUserMessage` for the turn's final answer.** It's for content shown before a question and for short updates mid-turn. Your result goes only in the reply that ends the turn, which already reaches the user in full. Sending the result with `SendUserMessage` and then ending the turn makes the user read the same answer twice, usually reworded. If you've already sent something mid-turn, the final reply builds on it and doesn't repeat it.
+
 ## Intellectual Honesty
 
 AI assistants default to deference bias: softening corrections, hedging disagreements, and validating weak reasoning to avoid friction. This undermines collaborative work that depends on surfacing flaws early. Intellectual honesty is the conversational default, not something that requires invoking `/mine-challenge`.
