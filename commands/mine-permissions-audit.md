@@ -36,10 +36,10 @@ Assess safety by what the pattern can do. Build, test, lint, and read-only tools
 
 ## Report
 
-Present a compact report with the count and pattern per entry, sorted by count: high-confidence recommendations (at most 15), moderate-confidence ones with a note on the risk (at most 10), local settings drift with the project each came from (at most 10), and a short skipped summary so the user can see what was deliberately left out. Summarize long patterns instead of printing them raw.
+Present a compact report with the count and pattern per entry, sorted by count: high-confidence recommendations (keep it scannable), moderate-confidence ones with a note on the risk, local settings drift with the project each came from, and a short skipped summary so the user can see what was deliberately left out. Summarize long patterns instead of printing them raw, and when a section is long, show the top entries and summarize the tail in a line rather than dropping it silently.
 
 ## Applying
 
-Ask which entries to add. Cover the high-confidence section when it has entries; when it's empty, say so and ask about the moderate and drift entries instead; when all are empty, say so and stop. Offer to add everything in the section (put the entry count in the description), let the user pick entries (`multiSelect: true`, four per question, as many questions as needed), or make no changes.
+Ask which entries to add. The user can add any entry the report shows, grouped by section (high-confidence, moderate, drift); start with the high-confidence section when it has entries, and make the others reachable in the same run. When all are empty, say so and stop. Offer to add everything in a section (put the entry count in the description), let the user pick entries (`multiSelect: true`, four per question, as many questions as needed), or make no changes.
 
 To apply: create `~/Claudefiles/settings.json` as `{"permissions": {"allow": []}}` if it doesn't exist, add the selected patterns to `permissions.allow` without duplicating existing ones, run `claude-merge-settings` to propagate to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json`, and confirm what was added.

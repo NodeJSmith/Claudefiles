@@ -49,4 +49,4 @@ When the evaluation is done, remove the clone: `rm -rf "<dir>"`. This is intenti
 
 ## Not this skill
 
-No code is written before the next-step gate. Not an audit of the user's own codebase (`/mine-audit`), not integration feasibility (`/mine-research`), and not a thorough security audit, benchmark, or license-compatibility analysis; it flags the license and basic security hygiene only.
+Not an audit of the user's own codebase (`/mine-audit`), not integration feasibility (`/mine-research`), and not a thorough security audit, benchmark, or license-compatibility analysis; it flags the license and basic security hygiene only.

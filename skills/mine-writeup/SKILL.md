@@ -90,16 +90,11 @@ The user decides from what's on screen, so send with `SendUserMessage` before th
 
 If everything landed and nothing needs fixing, say so and present the draft. If the verdict is `lost`, or several takeaways were missed or misread, line edits won't help: recommend restructuring the sections that lost the reader. Otherwise ask how to handle the fixes (apply all, apply a picked subset, or skip and present as-is), building the options from what the reader found per `rules/common/interaction.md`.
 
-After applying fixes, offer a second cold read on a freshly copied document with a fresh dispatch when the fixes changed numbers, rewrote whole sections, added or moved a takeaway, or changed the ask; a second read finds what the first missed, especially in numbers the fixes introduced. Don't loop beyond that unless asked. Then present the (revised) draft.
+After applying fixes, offer a second cold read on a freshly copied document with a fresh dispatch when the fixes changed enough that the first read no longer describes the draft; a second read finds what the first missed. Don't loop beyond that unless asked. Then present the (revised) draft.
 
 ## Editorial Discipline
 
-The user knows their audience, and these override the instinct to be thorough:
-
-- Don't add findings, analysis, or context outside the scope lock. The sources may hold more than the writeup needs, by design.
-- When the user says cut, cut: don't argue, move it to an appendix, or summarize it into a smaller section.
-- When the user says shorter, remove content rather than compressing it. They're saying what they don't need, not asking you to say it faster.
-- Don't re-expand: cut content doesn't return in another section under a different framing.
+Don't re-expand: content the user cut doesn't return in another section under a different framing.
 
 ## Handoff
 

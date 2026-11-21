@@ -24,7 +24,7 @@ Rationale hides in different places, so search these sources in parallel with `l
 
 - **Git history:** the introducing commit, reshaping refactors, reverts, whether the commit message explains why, whether the code is stable or volatile. Say so if history is shallow or the file moved.
 - **Issues and PRs:** the issue tracker and the PR host are independent, so search both. `$ISSUE_TRACKER` (unset or empty means GitHub) says which tracker's tools to use for issues; `git-platform` says which host's tools to use for PRs. The tracker says nothing about where PRs live, so don't skip one search because the other couldn't run.
-- **Design docs and research:** `design/specs/*/design.md`, `design/research/*/research.md`, CLAUDE.md, README, ARCHITECTURE.md, `docs/`.
+- **Design docs and research:** wherever this repo keeps them, for example `design/specs/*/design.md`, `design/research/*/research.md`, CLAUDE.md, README, ARCHITECTURE.md, `docs/`.
 - **Rules, comments, inline rationale:** comments near the target (does it explain why, or only what?), TODO/HACK/WORKAROUND/NOTE markers, `rules/`.
 - **Tests as constraints:** assertions, regression test names, and comments that imply why the code must be shaped this way.
 - **Past conversations:** `ccrecall --json search-messages -q "<question or key terms>" -n 8`, then `ccrecall tail <session_uuid>` for promising matches too short to judge. Note whether a conversation settled the decision or only touched it. This history is often thin.

@@ -10,7 +10,7 @@ Find the code the issue touches: what would change, the related tests, existing 
 
 Title: short, specific, imperative, naming the component when that helps ("Fix 500 error on empty form submission in /api/events").
 
-Body, in this shape (downstream triage reads these headings):
+Body, in this default shape:
 
 ```markdown
 ## Description
@@ -32,7 +32,7 @@ Body, in this shape (downstream triage reads these headings):
 [Constraints, patterns, or related issues found while investigating. Omit only if there are none and the description is self-explanatory.]
 ```
 
-Every acceptance criterion must be testable; "it works" is not one. Aim for 3-6, always including a tests-pass criterion. A bug's criteria include that the original error no longer occurs; a feature's cover the happy path and at least one edge case. Affected Areas uses actual paths from the investigation, including tests; if none could be identified, write "TBD — investigation needed".
+Every acceptance criterion must be testable; "it works" is not one. Aim for 3-6, including a tests criterion when the change touches code. A bug's criteria include that the original error no longer occurs; a feature's cover the happy path and at least one edge case. Affected Areas uses actual paths from the investigation, including tests; if none could be identified, write "TBD — investigation needed".
 
 ## Create
 

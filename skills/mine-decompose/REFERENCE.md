@@ -8,7 +8,7 @@ Extended guidance for the decomposition analysis skill. Referenced by SKILL.md.
 
 ### Subagent A: Git Behavioral Analysis
 
-Replace `<scope>` with the resolved scope before dispatching. If `<concern_filter>` is set, append the concern focus line below.
+Replace `<scope>` with the resolved scope before dispatching.
 
 ```
 Analyze the Git history of the following target for decomposition-relevant signals.
@@ -52,7 +52,7 @@ Follow with detailed per-file analysis sections.
 
 ### Subagent B: Structural & Cohesion Analysis
 
-Replace `<scope>` and `<file list>` with the resolved scope before dispatching. If `<concern_filter>` is set, append the concern focus line below.
+Replace `<scope>` and `<file list>` with the resolved scope before dispatching.
 
 ```
 Analyze the following files for structural decomposition signals. Read the code directly — do not write analysis scripts.
