@@ -14,7 +14,7 @@ user-invocable: true
 
 Land the current changes as clean commits on the remote, after the review and verification that make a push safe to trust. Standalone, and also the first stage of `mine-ship`.
 
-Commit and push are outward-facing and hard to take back, so the gates below run before them, not after.
+The push is the step that can't be taken back, so the gates below run before the commit and push, not after.
 
 ## Where commits go
 
@@ -29,4 +29,4 @@ By default, never commit to the default branch (`git-default-branch`): create a 
 
 ## Committing and pushing
 
-Stage the relevant files, commit only what passed the gates, and push only after the commit succeeded: chain them (`git add ... && git commit ... && git push`) so a rejected commit never pushes the old HEAD and gets reported as shipped. When splitting, chain each commit in turn. If a hook rejects or reformats, fix it, re-stage, and retry; if the push is rejected, handle it per the user's rules, and don't report success until the push lands. For a multi-line message, make a directory with `mktemp -d <scratchpad>/mine-commit-XXXXXX`, write `<dir>/message.md`, and use `git commit -F <dir>/message.md`; a one-line message can use `-m`.
+Stage the relevant files, commit only what passed the gates, and push only after the commit succeeded: chain them (`git add ... && git commit ... && git push`) so a rejected commit never pushes the old HEAD and gets reported as shipped. When splitting, chain all the add/commit pairs and push once at the end of the same chain, so a failed commit never pushes. If a hook rejects or reformats, fix it, re-stage, and retry; if the push is rejected and no rule in the user's or repo's instructions covers that rejection, stop and report it; never force-push. Don't report success until the push lands. For a multi-line message, make a directory with `mktemp -d <scratchpad>/mine-commit-XXXXXX`, write `<dir>/message.md`, and use `git commit -F <dir>/message.md`; a one-line message can use `-m`.
