@@ -1,8 +1,6 @@
 # Challenge Gate
 
-The shared gate applied after the challenge runs at a mandatory call site. Its caller, `mine-sketch` (sketch time and build time), reads this file and instantiates the parameters below. One source of truth for the gate's central invariant:
-
-> **Challenge runs automatically. There is no option to decline it.**
+The shared gate applied after the challenge runs on a `mine-sketch` ledger (see `git-workflow.md`, Code Review vs Challenge, for why a ledger gets one). Its caller, `mine-sketch` (sketch time and build time), reads this file and instantiates the parameters below. The gate starts once the caller runs it, so it doesn't ask the user whether to run it.
 
 ## Parameters the caller supplies
 
