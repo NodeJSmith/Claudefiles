@@ -14,7 +14,7 @@ A user or repo rule that changes the flow wins over this skill. If one says the 
 
 ## Before opening
 
-First, check no PR already exists for the branch (`gh pr list --head <branch>` / `ado-api pr list`). If one does, report its URL and stop, before anything below pushes to it.
+First, run `git-platform` (`github` → `gh`, `ado` → `ado-api pr`; on `unknown`, read stderr: if it says the directory is wrong, rerun from the repo root or with `-C <repo>`; if the remote isn't recognized, stop). Then check no PR already exists for the branch: `gh pr list --head <branch>` on GitHub, or `ado-api pr show --json` with no id on Azure DevOps, which looks up the active PR for the current branch (`ado-api pr list` has no branch filter and caps at 50, so it can miss it). A PR is returned as JSON; when none exists it exits 1 with `No active PR found for branch ...` on stderr, which is the clear-to-open outcome, while any other error means the check didn't happen. If a PR exists, report its URL and stop, before anything below pushes to it.
 
 Run the pre-flight scripts, but treat their output as leads, not verdicts. Decide whether each finding matters for this branch; say in one line when you set one aside, and only stop or ask when a real decision is left.
 
@@ -24,7 +24,7 @@ Run the pre-flight scripts, but treat their output as leads, not verdicts. Decid
   - **Defer:** per directory, write `{"status": "deferred", "tier": <new_tier>, "prompt_after": "<YYYY-MM-DD>"}` to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/<hashed-key>/review-coverage.json`. The key is `printf '%s' "$state_key" | sha256sum | cut -c1-16`, where `state_key` is `${main_repo_root}/${dir}` and `main_repo_root` comes from `git rev-parse --git-common-dir` → `dirname` → `cd` + `pwd -P`. Read the current tier from that file (default 0), set `prompt_after` (zero-padded `YYYY-MM-DD`, compared as a string) to today + `[3,7,14,30][tier]` days, then bump the tier by 1 (cap 3).
   - **Suppress:** write `{"status": "suppressed"}` to the same path.
 
-Then gather what you need: current branch, `git-default-branch`, the remote URL, `git-branch-log`, `git-branch-diff-stat`, and `git-platform` (`github` → `gh`, `ado` → `ado-api pr`; on `unknown`, read stderr: if it says the directory is wrong, rerun from the repo root or with `-C <repo>`; if the remote isn't recognized, stop).
+Then gather what you need: current branch, `git-default-branch`, the remote URL, `git-branch-log`, and `git-branch-diff-stat`.
 
 The branch must be fully pushed, including anything committed above. If not, stop and say so.
 
@@ -40,7 +40,7 @@ Follow `git-workflow.md` (PR Description Content): the body answers what changed
 
 ## Changelog
 
-Rules say changelog entries are written here, when the full branch diff is known. Find the changelog that covers the code this branch changed (one per package if the diff spans several; `git ls-files '*CHANGELOG.md'` lists candidates). A changelog for an unrelated package doesn't count. None covers it, or the repo says it has no changelog: skip.
+Changelog entries are written at PR time, from the full branch diff. Find the changelog that covers the code this branch changed (one per package if the diff spans several; `git ls-files '*CHANGELOG.md'` lists candidates). A changelog for an unrelated package doesn't count. None covers it, or the repo says it has no changelog: skip.
 
 Judge the full branch diff (`git diff origin/<base>...HEAD`), not individual commits. User-facing features, fixes, behavior changes, integrations, and breaking changes get an entry; test fixes, lint cleanup, internal refactors, and comment/typo changes don't. If the branch already carries changelog entries, keep them. Match the file's structure (`## [Unreleased]` or date sections, creating today's if needed), one terse user-facing bullet per logical change. The PR doesn't exist yet, so entries carry no PR number. Stage only the changelog path (the tree may hold unrelated edits), commit as `docs: update changelog`, and push.
 
@@ -49,6 +49,6 @@ Judge the full branch diff (`git diff origin/<base>...HEAD`), not individual com
 Make a directory with `mktemp -d <scratchpad>/mine-create-pr-XXXXXX` and write the body to `<dir>/body.md`.
 
 - **GitHub:** `gh pr create --title "..." --body-file <dir>/body.md`
-- **Azure DevOps:** `ado-api pr create --title "..." --description-file <dir>/body.md --source-branch <branch> --target-branch <default-branch>` (never put the body in a shell argument; backticks in it would execute). Don't set auto-complete or delete-source-branch. Take the PR URL from the output (`--json` if needed).
+- **Azure DevOps:** `ado-api pr create --title "..." --description-file <dir>/body.md --source-branch <branch> --target-branch <default-branch>` (never put the body in a shell argument; backticks in it would execute). Take the PR URL from the output (`--json` if needed).
 
 Finish by giving the PR URL on its own line, preceded by any notes (e.g. no changelog found). If something failed, say which step and why instead of a URL.
