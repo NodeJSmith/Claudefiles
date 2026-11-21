@@ -16,7 +16,7 @@ Check `$ISSUE_TRACKER` (`printenv ISSUE_TRACKER`). Unset or empty means GitHub (
 
 ## What to add
 
-An earlier enrichment is the block after the last `---` divider that starts with one of the sections below; revise only that block, never the original description above it, rather than appending a second. Otherwise append a `---` divider and only the sections that genuinely improve the issue; omit any that would be empty boilerplate. Sections to draw from: `## Acceptance Criteria` (checkboxes, given/when/then where it helps), `## Technical Considerations` (relevant files and APIs, prerequisites, patterns to follow, breaking changes), `## Edge Cases & Risks`, `## Non-Functional Requirements` (performance, security, accessibility if UI), and `## Effort Hint` (S / M / L / XL with a one-line rationale). Ground them in what the issue's comments clarify and what the codebase shows.
+Your enrichment starts with the marker line `<!-- issue-refiner -->` right after its `---` divider. If that marker exists, revise the block in place and never touch anything above it; don't append a second. Otherwise append a `---` divider, the marker, and only the sections that genuinely improve the issue; omit any that would be empty boilerplate. Sections to draw from: `## Acceptance Criteria` (checkboxes, given/when/then where it helps), `## Technical Considerations` (relevant files and APIs, prerequisites, patterns to follow, breaking changes), `## Edge Cases & Risks`, `## Non-Functional Requirements` (performance, security, accessibility if UI), and `## Effort Hint` (S / M / L / XL with a one-line rationale). Ground them in what the issue's comments clarify and what the codebase shows.
 
 ## Writing it back
 

@@ -33,4 +33,4 @@ graph LR
 ```
 ````
 
-Callers may ask for a doc (narrative overview), standalone diagram, testcases (test case documentation and analysis), entity model (relational entities), gapscan (SWOT-style gaps), usecases (primary user journeys), systems (system interaction overview), or history of a component (gitGraph). Pick the diagram type that fits the content.
+Callers may ask for a doc, standalone diagram, testcases, entity model (relational entities), gapscan (SWOT-style gaps), usecases (primary user journeys), systems overview, or history of a component (gitGraph). Pick the diagram type that fits the content.

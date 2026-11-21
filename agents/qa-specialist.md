@@ -39,4 +39,4 @@ Severity: **Critical** is data loss, a security hole, a crash, or complete featu
 
 Every applicable kind of test has been exercised, every Critical and High finding has a reproduction, coverage on changed code is at least 80% (or the project's threshold if higher), and the suite is free of flaky or nondeterministic failures. The only failing tests are reproductions of the bugs you reported; leave product code alone and don't weaken a test to make it pass.
 
-Flakiness is a bug to fix at its root: don't skip or mark flaky tests pending, and don't use `time.sleep()` to synchronize. Don't write tautological tests that pass whatever the implementation does, couple tests to private names or internal state shapes, or skip error paths because they "probably work".
+Flakiness is a bug to fix at its root (when the root is in product code, report it as a bug with a reproduction instead): don't skip or mark flaky tests pending, and don't use `time.sleep()` to synchronize. Don't write tautological tests that pass whatever the implementation does, couple tests to private names or internal state shapes, or skip error paths because they "probably work".
