@@ -56,7 +56,7 @@ History matters as much as threads: if the PR builds a sketch ledger, that featu
 
 A convergence doesn't need multiple rounds: one round whose findings share a mechanism counts. Build the ledger unless convergence is plainly impossible (a couple of unrelated findings, or a round of only typo and docs fixes); with history files present, a thin PR doesn't rule it out.
 
-Skip the ledger when convergence is plainly impossible or there is no open feedback (then the plan covers only conflicts and CI). Either way the plan is still shown and approved; only how it is built changes. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Hand-built replies carry the same markers (see Responses). Leave out every `ledger.json`/`plan.json` step below.
+Skip the ledger when convergence is plainly impossible or there is no feedback at all, open or resolved (then the plan covers only conflicts and CI). Resolved-only feedback still gets the ledger: an all-resolved convergence is the pattern it exists to catch. Either way the plan is still shown and approved; only how it is built changes. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Hand-built replies carry the same markers (see Responses). Leave out every `ledger.json`/`plan.json` step below.
 
 Steps, in this order:
 
