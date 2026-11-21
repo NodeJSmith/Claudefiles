@@ -4,49 +4,26 @@ description: "Use when the user says: \"good morning\", \"pick up where I left o
 
 # Good Morning
 
-Read the previous session's handoff and orient the user for today's work.
+Read the previous session's handoff, orient the user quickly, and start the work if it's safe to.
 
-## Step 1: Find the Handoff
+## Finding the handoff
 
-The handoff lives at `<git-toplevel>/.claude/handoff.md` — the same path `mine-end-of-day` writes to.
+It is at `<git-toplevel>/.claude/handoff.md` (`git rev-parse --show-toplevel`), the path `mine-end-of-day` writes. If not in a git repo, say "Not in a git repo — no handoff to find." If the file doesn't exist, say "No handoff found for this project. Run `/mine-status` for a quick orientation, or tell me what you'd like to work on."
 
-First, get the git toplevel:
+## Summary
 
-```bash
-git rev-parse --show-toplevel
-```
+Read the handoff, then delete it: it's consumed, and the full text stays in this conversation (print it if the user asks). The user wants quick orientation, not a wall of text:
 
-If this fails: "Not in a git repo — no handoff to find."
-
-Then check if the handoff exists:
-
-```bash
-test -f <toplevel>/.claude/handoff.md && echo "FOUND" || echo "NO_HANDOFF"
-```
-
-If no handoff: "No handoff found for this project. Run `/mine-status` for a quick orientation, or tell me what you'd like to work on."
-
-## Step 2: Read, Summarize, and Clean Up
-
-Read the handoff file, then delete it — the information has been consumed. Present a **concise summary** — the user wants quick orientation, not a wall of text.
-
-Format:
-
-> **Yesterday:** <1-2 sentences — what was being worked on and how far it got>
+> **Last session (<date from the handoff>):** <1-2 sentences: what was being worked on and how far it got>
 >
-> **Left off at:** <specific state — what's done, what's in flight>
+> **Left off at:** <specific state: what's done, what's in flight>
 >
 > **Next up:** <first 2-3 concrete next steps>
 
-Add these only if relevant:
-- Uncommitted changes noted in the handoff: run `git status --short` and report the current state: "Heads up: there were uncommitted changes yesterday on `<branch>` — 2 files still modified" or "— tree is clean now"
-- Open questions from the handoff: "Open from yesterday: <question>"
+Add only if relevant: if the handoff noted uncommitted changes, run `git status --short` and report whether they're still there ("Heads up: there were uncommitted changes last session on `<branch>` — 2 files still modified" or "— tree is clean now"); and any open questions ("Open from last session: <question>").
 
-## Step 3: Pick Up
+## Pick up
 
-The handoff was written to be picked up, so the user running this command is the request to resume.
+Running this command is the request to resume. If the handoff names a next step that is local and reversible (reading, editing, running tests), flagged nothing to resolve first, and the branch and PR state still match the handoff, start on it after the summary; the user can redirect in their next message.
 
-- **The handoff names a next step, flagged nothing to resolve first, and the step is local and reversible** (reading, editing, running tests; the branch and PR state still match the handoff): after the summary, begin executing it. The user can redirect in their next message.
-- **The step is outward-facing or irreversible** (push, merge, post, delete), **or the handoff flagged something to resolve first, or names no next step:** state the step and end the summary by asking what to do first. Plain text, no menu. The handoff is a day old, so its notes about outward-facing actions may be stale.
-
-The handoff file was deleted in Step 2. The full text is in this conversation; print it if the user asks for it.
+If the step is outward-facing or irreversible (push, merge, post, delete), the handoff flagged something to resolve first, or it names no next step, state the step and end by asking what to do first, in plain text with no menu. The handoff may be days old, so its notes about outward-facing actions may be stale.
