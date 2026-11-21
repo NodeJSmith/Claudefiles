@@ -4,140 +4,42 @@ description: "Use when the user says: \"audit permissions\", \"reduce permission
 
 # Permissions Audit
 
-Analyze recent session permission data to surface patterns worth auto-allowing. Goal: fewer prompts for routine, safe operations — without opening up risky ones.
+Find the permission prompts that recur for routine, safe operations and offer to auto-allow them, so there are fewer prompts without opening up anything risky. Nothing changes until the user picks entries.
 
 ## Arguments
 
-$ARGUMENTS — optional; currently unused (reserved for future filtering). Ignored if provided.
+$ARGUMENTS — unused; ignore if provided.
 
-## Step 1: Gather Data
+## Sources
 
-Run all three sources in parallel:
+Gather these in parallel:
 
-### Current settings
+- **Current settings:** `~/Claudefiles/settings.json` (may not exist yet). This is the baseline; don't recommend what is already allowed.
+- **Debug logs:** the prompts Claude Code actually raised are the ground truth. This yields ranked `(count, ruleContent)` pairs, the exact strings Claude Code suggested allowing:
 
-Read `~/Claudefiles/settings.json` if it exists (it may not yet — that's fine). This is the baseline for filtering out already-allowed patterns.
+  ```bash
+  ls -t ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
+  ```
 
-### Debug log scan (Bash)
+- **Local settings drift:** `settings.local.json` files under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects` hold per-session approvals the user already granted. Entries in their `permissions.allow` that are missing from the merged `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json` are candidates for promotion to the portable list.
 
-Scan recent Claude Code debug logs for actual permission prompts. These capture what Claude Code itself prompted for — ground truth.
+## Judging what to recommend
 
-```bash
-ls -t ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
-```
+A good recommendation is a reusable pattern for something routine and low-risk, seen often or across projects. Repeated counts and presence in several projects are strong signal; a single appearance is weak.
 
-This gives a ranked list of `(count, ruleContent)` — the exact strings Claude Code suggested adding to the allow list. Filter out noise:
-- `for sid in ...`, `do echo ...`, `done` — for loop artifacts; note that for loops cause extra prompts and I should use sequential calls instead
-- `bash:*`, `bash -c:*` — shell-in-shell invocations
-- Single-character or obviously one-off commands
+Skip what shouldn't be auto-allowed or can't generalize:
+- `AskUserQuestion`, `EnterPlanMode`, `ExitPlanMode`: user interaction and mode switches must always prompt.
+- One-off invocations with serialized arguments (over about 200 characters or multi-line, such as an `ExitPlanMode` carrying a whole plan), `TaskCreate`/`TaskUpdate` with specific subjects or IDs, and single-character or obviously one-off commands.
+- Shell-in-shell (`bash:*`, `bash -c:*`) and for-loop fragments (`for sid in ...`, `do echo ...`, `done`). The loop fragments mean a multi-line loop caused extra prompts; the fix is sequential Bash calls, not allowing `for:*`.
 
-### Local settings drift (Bash + Read)
+Assess safety by what the pattern can do. Build, test, lint, and read-only tools (`git:*`, `ls:*`, `pytest:*`, `ruff:*`) are safe; broad interpreters and installers (`python3:*`, `pip:*`, `npm:*`) can run arbitrary code, so recommend them with that note; destructive ones (`rm:*`, `sudo:*`) get mentioned as risky, not recommended. File-access patterns that share a project root should be generalized to per-tool patterns (`Read(/path/to/project/*)`). Task-dispatch entries such as `Task(standard-worker)` are generally safe. Use the `//path/**` form from the debug logs as-is; that is what Claude Code matches.
 
-`settings.local.json` accumulates per-session approvals that Claude Code writes automatically when the user approves a permission prompt. Entries that survive multiple sessions here are strong candidates for promotion to the portable allow list.
+## Report
 
-```bash
-find ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects -name "settings.local.json" 2>/dev/null | head -5
-```
+Present a compact report with the count and pattern per entry, sorted by count: high-confidence recommendations (at most 15), moderate-confidence ones with a note on the risk (at most 10), local settings drift with the project each came from (at most 10), and a short skipped summary so the user can see what was deliberately left out. Summarize long patterns instead of printing them raw.
 
-Then read each found file. Cross-reference its `permissions.allow` entries against the merged `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json` allow list to find entries present in local but not in the portable settings.
+## Applying
 
-## Step 2: Filter and Categorize
+Ask which entries to add. Cover the high-confidence section when it has entries; when it's empty, say so and ask about the moderate and drift entries instead; when all are empty, say so and stop. Offer to add everything in the section (put the entry count in the description), let the user pick entries (`multiSelect: true`, four per question, as many questions as needed), or make no changes.
 
-Analyze all patterns found from debug logs and local settings drift. Apply these filters:
-
-### Always skip (should never be auto-allowed)
-
-- `AskUserQuestion(*)` — user interaction must always prompt
-- `EnterPlanMode(*)` — deliberate mode switch
-- `ExitPlanMode(*)` — plan approval is the whole point
-- Patterns over ~200 characters or containing multi-line content — these are one-off invocations with serialized arguments (e.g., ExitPlanMode with an entire plan body), not reusable patterns
-- For loop artifacts: `for sid in ...`, `do echo ...`, `done` — these come from multi-line shell loops; the fix is to use sequential Bash calls, not to allow `for:*`
-
-### Skip: too specific to generalize
-
-- `TaskCreate(*)` with specific task subjects — these change every session
-- `TaskUpdate(N)` with specific IDs — IDs are ephemeral
-
-### Recommend: high-signal patterns
-
-Categorize remaining patterns into:
-
-**File access** — Read, Edit, Write, Glob, Grep with project paths. Look for patterns that generalize:
-- Multiple paths under the same project root → suggest per-tool patterns: `Read(/path/to/project/*)`, `Edit(/path/to/project/*)`, `Write(/path/to/project/*)`, `Grep(/path/to/project/*)`, `Glob(/path/to/project/*)`
-- If the project is the current working directory, note it can use a relative-style pattern
-
-**Bash commands** — `Bash(command:*)` patterns. Assess safety:
-- **Safe to recommend**: `git:*`, `ls:*`, `mkdir:*`, `pytest:*`, `ruff:*`, `pyright:*`, build/test/lint tools
-- **Recommend with note**: `python3:*`, `pip:*`, `npm:*` — broadly useful but can run arbitrary code
-- **Flag as risky**: `rm:*`, `sudo:*`, anything destructive — mention but don't recommend
-
-**Task tools** — `Task(light-worker)`, `Task(standard-worker)`, etc. These are generally safe to allow.
-
-### Prioritize by signal strength
-
-- **High count in debug logs** = strong signal (routine pattern)
-- **Present in local settings across multiple projects** = strong signal
-- **Low count, single appearance** = weak signal (probably skip)
-
-## Step 3: Present Recommendations
-
-Output a compact report:
-
-```
-## Permissions Audit
-
-### Recommend adding (high confidence)
-
-COUNT  PATTERN
-─────  ───────
-    7  Read(${CLAUDE_CONFIG_DIR:-$HOME/.claude}/**)
-    5  Bash(git:*)
-   ...
-
-### Consider adding (moderate confidence)
-
-COUNT  PATTERN                         NOTE
-─────  ───────                         ────
-    3  Bash(python3:*)                 Can execute arbitrary code
-   ...
-
-### Local settings drift
-
-Entries in settings.local.json not yet in portable settings — these survived at least one session approval and may be worth promoting:
-
-  Read(${CLAUDE_CONFIG_DIR:-$HOME/.claude}/**)                  [project: Claudefiles]
-  ...
-
-### Skipped
-
-- AskUserQuestion, EnterPlanMode, ExitPlanMode (always prompt)
-- TaskCreate/TaskUpdate with specific content (not generalizable)
-- For loop artifacts (for/do/done lines) — fix call sites, not permissions
-- N one-off patterns (1 occurrence)
-```
-
-### Rules
-
-- Sort each group by count (descending)
-- Show at most 15 entries in "Recommend", 10 in "Consider", 10 in "Local settings drift"
-- Don't show the full raw pattern for truncated entries — summarize
-- For debug log findings: use the `//path/**` format as-is (that's what Claude Code 2.x generates and matches)
-
-## Step 4: Offer to Apply
-
-After presenting the report, ask which entries to add. The question covers the "Recommend" section when it has entries. When it's empty, say so and ask about the "Consider" and "Local settings drift" entries instead. When all three are empty, say so and stop.
-
-Use AskUserQuestion and put the entry count in the "All" description:
-
-- "Which of these should I add to your settings?" with options:
-  - **All recommended** (or **All listed** for Consider/drift entries) — add every entry in the section being asked about
-  - **Let me pick** — follow-up AskUserQuestion with `multiSelect: true`, listing the entries as options, 4 per question, in as many questions as needed
-  - **None for now** — just the report, no changes
-
-If the user chooses to apply:
-
-1. If `~/Claudefiles/settings.json` doesn't exist, create it with `{"permissions": {"allow": []}}`
-2. Edit `~/Claudefiles/settings.json` to add the selected patterns to `permissions.allow`
-3. Deduplicate against existing entries
-4. Run `claude-merge-settings` to propagate to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json`
-5. Confirm what was added
+To apply: create `~/Claudefiles/settings.json` as `{"permissions": {"allow": []}}` if it doesn't exist, add the selected patterns to `permissions.allow` without duplicating existing ones, run `claude-merge-settings` to propagate to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json`, and confirm what was added.
