@@ -113,7 +113,7 @@ Fixes and their tests have to run on the code that will be pushed, so the order 
 
 ### Merge or rebase, then CI fixes
 
-Conclude the approved merge or rebase first, on a clean tree, committing it as git does (a rebase makes its commits as it runs; an unfinished merge would swallow every later fix into its commit). Then apply the CI fixes, running tests after each; those fixes stay uncommitted until review, which should cover the conflict resolution too.
+Conclude the approved merge or rebase first, on a clean tree, committing it as git does (a rebase makes its commits as it runs; an unfinished merge would swallow every later fix into its commit). Then apply the CI fixes, running tests after each; those fixes stay uncommitted until review.
 
 ### Fix each group, serially
 
@@ -128,8 +128,7 @@ Read only the first line of each result file, which keeps worker output out of y
 
 ### Review, then commit and push
 
-
-Run **code-reviewer** on the modified files and auto-fix unambiguous CRITICAL/HIGH findings, deferring judgment calls to the user. Re-run it after fixes (at most 3 rounds, unless the fixes all fall under the skip criteria in `git-workflow.md`, Code Review Before Commit), then run **integration-reviewer** once on the final diff. Commit nothing until both pass; if CRITICAL/HIGH findings remain after 3 rounds, present them to the user first.
+Run **code-reviewer** on everything this run will push: the committed conflict resolution (for a merge, `git show --remerge-diff`) plus the uncommitted fixes. Auto-fix unambiguous CRITICAL/HIGH findings, deferring judgment calls to the user. Re-run it after fixes (at most 3 rounds, unless the fixes all fall under the skip criteria in `git-workflow.md`, Code Review Before Commit), then run **integration-reviewer** once on the final diff. Make no further commits until both pass; if CRITICAL/HIGH findings remain after 3 rounds, present them to the user first.
 
 Then commit per logical group with descriptive conventional messages, and push once after all commits so the single push carries all of it.
 
