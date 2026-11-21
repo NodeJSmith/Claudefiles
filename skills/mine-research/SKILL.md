@@ -6,172 +6,47 @@ user-invocable: true
 
 # Research
 
-Deep investigation of a codebase to evaluate a proposed change, new pattern, or architectural direction. Heavy on questions — surfaces what the user truly needs, not just what they initially say. Produces a structured research brief.
-
-## How This Differs From Other Skills
-
-| Skill | Question it answers |
-|-------|-------------------|
-| **`/mine-research`** | **"What would it take to do X in this codebase?"** |
-| `/mine-sketch` | "How should we build X?" |
-
-Research comes **before** a design. It's the investigation that makes one possible.
+Answer "what would it take to do X in this codebase?" before anyone designs it. The result is a research brief grounded in the actual code, good enough that a design can start from it without redoing the investigation. It informs a decision; it doesn't make one. Use `/mine-sketch` to settle how to build it.
 
 ## Arguments
 
-$ARGUMENTS — the proposal to investigate. Can be:
-- A change proposal: `/research "add SQLite database and command pattern"`
-- A technology question: `/research "should we use SQLAlchemy or raw sqlite3?"`
-- A pattern evaluation: `/research "would event sourcing work here?"`
-- A migration question: `/research "what would it take to move from files to a database?"`
-- A broad direction: `/research "this app needs persistent state — what are our options?"`
-- Empty: ask the user what they're considering
+$ARGUMENTS — the proposal to investigate (a change, a technology question, a pattern evaluation, a migration, a broad direction). If empty, ask what the user is considering.
 
-## Phase 1: Understand the Ask
+## Understand the ask first
 
-**Do not start exploring the codebase yet.** First, understand what the user actually wants and why.
+The user's first description is rarely the whole picture, so don't explore the codebase until you know what they want and why. The distinctions that change the research: whether they've decided on an approach or are choosing; whether the named technology is the need or one candidate for it; hard constraints; urgency; what's new territory for them.
 
-### Initial questions
+Ask what you can't tell from the request, in at most two rounds of `AskUserQuestion`, with options written for this proposal's domain. A specific proposal needs fewer questions than a vague one. The answers must settle the researcher's **Flexibility** value (`Exploring`, `Leaning`, `Decided`). `Decided` makes it drop alternatives, so record it only when the user said they've decided, never inferred from a confidently worded request. Anything else still unclear becomes an open question for the brief.
 
-Use `AskUserQuestion` to probe motivation, constraints, and prior thinking. Ask **2-3 questions** in a single call (multi-question, not multi-select).
+## Investigate
 
-The goal is to distinguish between:
-- "I've decided to do X, tell me how" vs. "I'm considering X, help me decide"
-- "I want specifically SQLite" vs. "I need persistence and SQLite is one option"
-- "This is urgent and I want to ship it this week" vs. "This is exploratory"
+Dispatch a `researcher` agent so the exploration and synthesis stay out of your context. Make a temp directory with `mktemp -d <scratchpad>/mine-research-XXXXXX` and launch `Agent(subagent_type: "researcher")` with the caller prompt checklist from `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/researcher.md` filled in from the user's answers, plus the output path `<tmpdir>/brief.md`.
 
-Example opening questions — **adapt the Motivation options to match the proposal's domain** (the example below is for a persistence/data-layer proposal; generate domain-fitting options for architecture, technology-choice, or migration proposals). The snippets are items within the `AskUserQuestion: questions:` array:
+Set `Depth` from what you learned. Quick suits a decided user with a narrow scope, deep suits an exploring user with a broad one, and normal is the default and the right choice when scope is unclear.
 
-```
-    - question: "What's driving this change?"
-      header: "Motivation"
-      options:
-        - label: "Data is getting lost"
-          description: "State doesn't survive restarts, crashes, or context switches"
-        - label: "Growing complexity"
-          description: "In-memory data structures are getting unwieldy"
-        - label: "New feature needs it"
-          description: "A planned feature requires persistent or queryable data"
-```
+When the agent finishes, read `<tmpdir>/brief.md` and confirm it exists and opens with a `# Research Brief:` header. If it's missing or incomplete, tell the user and offer a retry or a manual investigation in this context.
 
-The **Flexibility** question is consistent across all proposals:
-```
-    - question: "How committed are you to the specific approach mentioned, vs. open to alternatives?"
-      header: "Flexibility"
-      options:
-        - label: "Exploring options"
-          description: "I mentioned one idea but I'm open to whatever works best"
-        - label: "Leaning this way"
-          description: "I have a preference but could be convinced otherwise"
-        - label: "Decided"
-          description: "I've already thought this through — I want to know how, not whether"
-```
+## Save and present
 
-Generate domain-appropriate Motivation options based on the user's proposal — the examples above are illustrations, not templates. If the user mentioned multiple things (e.g., "SQLite + command pattern"), ask whether those are linked or separable. If the proposal is vague, ask more. If it's specific, ask fewer.
+Copy (never move) the brief to the repo's existing research location when it has one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` where the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the directory, tell the user the path, and leave the tmpdir copy intact. If the user would rather just see it, show it inline.
 
-### Follow-up questions
+Set `<research_brief_path>` to the saved file, or to `<tmpdir>/brief.md` if it wasn't saved. Present the key findings conversationally, then ask what to do next.
 
-Based on the answers, ask **1-2 targeted follow-ups** to fill in gaps:
-- Scope: "Should this cover all data in the app, or just [specific area]?"
-- Constraints: "Any hard requirements — must be zero-dependency, must work offline, must be reversible?"
-- Timeline: "Is this something you want to prototype now, or plan carefully for later?"
-- Experience: "Have you used [proposed technology] before, or would this be new territory?"
+## Closing menu
 
-**Do not ask more than 2 rounds of questions before moving to Phase 2.** If you still have uncertainties, note them as open questions to revisit after seeing the code.
+Build the menu from this brief, not from a stock list. The failure to avoid is a menu where every option assumes the research is finished: a brief with unresolved open questions isn't ready for challenge, design, or build, because those would stall on the same questions or bake a guess into the design. Read the brief's Open Questions and Recommendation, decide what the natural next move is, put that first as the recommended option, and write each description around the brief's actual content (name the open questions rather than saying "resolve open questions"). Order by fit.
 
-## Phase 2: Investigate
+Outcomes that may fit, depending on the findings: resolving the open questions now; challenging the findings with `/mine-challenge`; sketching a design with `/mine-sketch`; building directly when the brief leaves nothing to decide; investigating a specific gap further; stopping here with the brief saved (always available). Offer the others only when the findings make them meaningful, and add an outcome the brief calls for that isn't listed.
 
-Dispatch the research to a `researcher` agent. This runs the heavy codebase exploration, web research, and synthesis outside the main context window.
+Resolving open questions: sort each by what answers it. Questions that need the user (preference, priority, intent) go to them in one `AskUserQuestion` call with options grounded in the findings. Questions that need more reading or a read-only command are investigated directly, or by a `researcher` or `standard-worker` if broad; a throwaway probe in the tmpdir that only observes behavior is fine. Questions that need a real prototype stay open, since a prototype is build work. As answers land, update the brief at `<research_brief_path>`: check off the question with its answer and revise any feasibility, options, concerns, or recommendation text it changes. Then summarize what changed and rebuild the menu from the updated brief.
 
-1. Run `mktemp -d <scratchpad>/mine-research-XXXXXX` to get a temp directory.
-2. Determine the **research depth** from Phase 1 answers:
-   - **Quick** — user said "Decided" + narrow scope (single module or specific technology question). Use 2 worker subagents, focus on feasibility of the chosen approach.
-   - **Normal** (default) — user said "Leaning" or moderate scope. Use 3-4 worker subagents.
-   - **Deep** — user said "Exploring" + broad scope (architecture, migration, multiple systems). Use 4 worker subagents + web research.
-   - **If scope is unclear** from Phase 1 answers, default to **Normal** regardless of Flexibility.
-3. Launch `Agent(subagent_type: "researcher")` with a prompt containing:
-   - The proposal (from $ARGUMENTS or user input)
-   - The user's answers from Phase 1 (motivation, flexibility, constraints) — use the caller prompt checklist format from `researcher.md`
-   - Depth: `<quick|normal|deep>`
-   - Output file path: `<tmpdir>/brief.md`
-4. After the agent completes, **verify the output**: read `<tmpdir>/brief.md` and check that it exists and contains the `# Research Brief:` header. If the file is missing, empty, or lacks the expected header, inform the user that the research agent failed to produce a complete brief and offer:
-   - Retry the researcher agent
-   - Proceed with a manual investigation in the main context window
-
-## Phase 3: Present & Discuss
-
-### Save the brief
-
-Research briefs are forward-looking — they evaluate a proposed change before committing to an approach. They may feed into a design doc (when a direction is chosen) or be abandoned (if the approach is rejected).
-
-The recommended convention is a date-stamped topic directory under `design/research/`:
-
-```
-design/research/
-└── YYYY-MM-DD-topic-name/
-    ├── research.md           Main research brief
-    ├── prereq-01-name.md     Prerequisite breakdowns (if applicable)
-    └── ...                   Additional artifacts
-```
-
-Save the brief to the repo's existing research location when there is one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` when the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the destination directory if it doesn't exist. Tell the user the path; they can ask to move it or to just show it instead.
-
-**Copy** (never move) the brief from the temp file to the save location, or display it inline if the user asked to just see it. The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
-
-After the save step, set `<research_brief_path>`:
-- If saved to a permanent location: `<research_brief_path>` = the saved file path
-- If the user asked to just see it: `<research_brief_path>` = `<tmpdir>/brief.md`
-
-Present the key findings conversationally, then ask what the user wants to do next.
-
-### Choose the next step from the brief's state
-
-Before writing the question, read the brief's **Open Questions** and **Recommendation** and decide what the natural next move is. A brief with unresolved open questions usually isn't ready for challenge, design, or build — those steps would either stall on the same questions or bake a guess into the design. In that case, resolving the questions is the next step, and it should be the first, recommended option, not something the user has to type in as "Other". When the open questions are minor or already answered, the downstream options lead instead.
-
-Include the options below that fit this brief, order them by fit, mark your recommendation, and write the descriptions around this brief's actual content (e.g. name the open questions rather than "resolve open questions"). Keep "I need to think about it" available.
-
-- **Resolve the open questions**: work through the brief's Open Questions now (see below)
-- **Challenge these findings**: run `/mine-challenge` on the brief before committing to a direction
-- **Sketch it (`/mine-sketch`)**: turn the findings into a decision ledger, with the brief as prior work
-- **Build it**: skip design and implement now, when the brief leaves nothing to decide
-- **I need to think about it**: stop here; the brief is saved for later
-
-### Resolving open questions
-
-Sort the open questions by what it takes to answer each:
-
-- **Needs the user** (preference, priority, intent, facts only they know) — ask them, batched into one `AskUserQuestion` call where possible, with options grounded in what the research found.
-- **Needs more investigation** (more code reading, docs, a library's actual behavior, a read-only command) — investigate directly, or dispatch a `researcher`/`standard-worker` for anything broad. Running read-only commands or a throwaway probe in the tmpdir is fine: a probe observes existing behavior and leaves nothing to keep.
-- **Needs a real prototype** — say so and leave it open; a prototype is build work, not research.
-
-Update the brief at `<research_brief_path>` as answers land: check off each resolved question with its answer, and revise any Feasibility, Options, Concerns, or Recommendation content the answers change. (If the user asked to just see it, update the tmpdir copy.) Then summarize what changed and return to the next-step gate, rebuilding the options from the updated brief.
-
-### Dispatching the chosen step
-
-If "Challenge these findings" is selected: invoke `/mine-challenge --mode=passthrough --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
-
-If "Sketch it (`/mine-sketch`)" is selected: invoke `/mine-sketch` with a one-line description of the change and "Prior research brief at `<research_brief_path>`", so sketch reads the brief as prior work.
-
-If "Build it" is selected: implement the change now, using the brief at `<research_brief_path>` as the guide, through the normal pre-commit reviewers.
+Handoffs:
+- Challenge: `/mine-challenge --mode=passthrough --target-type=research <research_brief_path>`, then return to the menu.
+- Sketch: `/mine-sketch` with a one-line description of the change and "Prior research brief at `<research_brief_path>`", so sketch reads the brief as prior work.
+- Build: implement using the brief as the guide, through the normal pre-commit reviewers.
 
 ## Principles
 
-1. **Questions before code** — the user's first description of what they want is almost never the full picture.
-2. **Options, not prescriptions** — include a "do less" option when the proposal is ambitious.
-3. **Feeds forward** — the research brief should contain everything needed to write a design. No redundant investigation later.
-
-## Common Rationalizations
-
-| Rationalization | Reality |
-|---|---|
-| "I have extensive prior analysis — skip research" | Prior analysis covers the problem space. Research covers the solution space — competing approaches, existing patterns in the codebase, API constraints. They answer different questions. |
-| "The approach is obvious, no need to investigate" | The "obviously correct" approach is by definition the least-investigated one. Research surfaces the alternatives it skipped — different splits, orthogonal dimensions. Research is cheap relative to a design revision after challenge finds gaps. |
-| "Research will slow us down" | A 2-minute research dispatch is cheaper than a design revision after challenge finds holes that research would have prevented. The brief feeds forward into design — skipping it means the design phase compensates with ad-hoc investigation anyway. |
-| "This question implies we should design/file/ship" | A scoped question ("can X be done?") is not a workflow trigger. Answer the question by completing the brief and presenting the Phase 3 next-step gate — that gate is the escalation offer. Don't silently launch issue filing, design, or shipping from a scoped question. |
-
-## What This Skill Does NOT Do
-
-- **Make decisions** — it informs them. Use `/mine-sketch` to settle and ratify them.
-- **Write code during the investigation** — no prototypes or scaffolding; a throwaway probe in the tmpdir to observe behavior is as far as it goes. Code gets written only after the next-step gate, if the user picks "Build it".
-- **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine-challenge` for general health assessment.
-- **Benchmark or profile** — it can identify likely performance concerns from code reading, but won't run benchmarks.
+- A scoped question ("can X be done?") is answered by completing the brief and offering the menu. Don't silently start filing issues, design, or shipping from it.
+- Prior analysis covers the problem space; research covers the solution space (competing approaches, existing codebase patterns, API constraints). Skipping it moves that investigation into the design phase, where it's more expensive.
+- No code during investigation, beyond a throwaway observe-only probe in the tmpdir. Code is written only after the menu, if the user picks build.

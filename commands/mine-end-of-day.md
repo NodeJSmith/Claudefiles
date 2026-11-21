@@ -4,62 +4,21 @@ description: "Use when the user says: \"end of day\", \"wrapping up\", \"eod\", 
 
 # End of Day
 
-Write a handoff document capturing everything needed to resume this work tomorrow. Fully autonomous — no questions asked.
+Write a handoff that lets someone with zero context resume this work tomorrow, without having to reconstruct what happened. Fully autonomous: no questions asked.
 
-## Step 1: Handoff Path
+## Where it goes
 
-The handoff lives at `<git-toplevel>/.claude/handoff.md` — local to the project or worktree.
+`<git-toplevel>/.claude/handoff.md`, local to the project or worktree (`git rev-parse --show-toplevel`; create `.claude/` if needed). If not in a git repo, say "Not in a git repo — nothing to hand off." and stop. `mine-good-morning` reads this exact path and deletes the file after pickup, so a handoff left from an earlier day is replaced, not kept alongside.
 
-First, get the git toplevel:
+## What it should say
 
-```bash
-git rev-parse --show-toplevel
-```
+Gather git state (branch, status, recent log, uncommitted diff stat, and the branch's open PR if any), any tracked tasks in this session, and the tmux session if in one (`claude-tmux current`). Combine that with the conversation. When the conversation is thin, lean on git state and any design ledger (`design/specs/*/design.md`).
 
-If this fails: "Not in a git repo — nothing to hand off."
+Write for a colleague who has never seen this session: no shorthand, no "what we discussed." Say why, not just what: the goal, the reasoning behind the approach, and what any uncommitted work is for. Use file paths. The first next step should be immediately actionable.
 
-Then create the `.claude/` directory if needed:
+## Format
 
-```bash
-mkdir -p <toplevel>/.claude
-```
-
-The handoff path is `<toplevel>/.claude/handoff.md`. The `mine-good-morning` command deletes this file after pickup.
-
-## Step 2: Gather State
-
-Run in parallel where possible:
-
-### Git (Bash)
-- `git branch --show-current`
-- `git status --short`
-- `git log --oneline -8`
-- `git diff --stat` (uncommitted changes)
-
-### Tasks (Tool)
-- TaskList — any tracked tasks in this session
-
-### Tmux (Bash)
-- `claude-tmux current` — skip if not in tmux
-
-## Step 3: Synthesize the Handoff
-
-Reflect on the entire conversation and write each section below. Brief a colleague who has zero prior context — no shorthand, no references to "what we discussed."
-
-1. **What We Were Working On** — the goal and why it matters. One paragraph.
-2. **Approach** — how the work was structured. Key technical choices and their rationale.
-3. **Current State** — what's done (committed, tested, verified) vs. in progress vs. not started. Use file paths.
-4. **Uncommitted Changes** — if any, describe contents and intent. If none, say so.
-5. **Decisions Made** — non-obvious choices a fresh reader wouldn't know from the code.
-6. **Open Questions** — unresolved items needing attention.
-7. **Key Files** — files central to the work, one-line note on each.
-8. **Next Steps** — ordered list. First item should be immediately actionable.
-
-If the conversation is thin (skill invoked early in a session), lean on git state and any design ledger (`design/specs/*/design.md`) instead of narrative.
-
-## Step 4: Write the File
-
-Write to the path from Step 1:
+`mine-good-morning` reads this file and relies on the **Date:**, **Branch:** and **PR:** header fields and the `Uncommitted Changes`, `Open Questions`, and `Next Steps` sections, so keep those. `Uncommitted Changes` is always present; omit any other section with nothing to say. The rest is the default shape.
 
 ```markdown
 # Handoff: <short description>
@@ -68,59 +27,24 @@ Write to the path from Step 1:
 **Project:** <basename of toplevel>
 **Directory:** <full toplevel path>
 **Branch:** <branch name>
+**PR:** <open PR number or URL, or none>
 **Tmux:** <session name, or omit if not in tmux>
 
 ## What We Were Working On
-
-<narrative>
-
 ## Approach
-
-<narrative>
-
 ## Current State
-
 ### Done
-- <item>
-
 ### In Progress
-- <item>
-
 ### Not Started
-- <item>
-
 ## Uncommitted Changes
-
-<summary or "None — all changes committed.">
-
 ## Decisions Made
-
-- <decision — rationale>
-
 ## Open Questions
-
-- <question>
-
 ## Key Files
-
-- `<path>` — <role in context>
-
 ## Next Steps
-
-1. <step>
-2. <step>
 ```
 
-Omit empty sections (e.g., skip "Decisions Made" if there were none worth recording).
+`### Done` means committed, tested, and verified. `Uncommitted Changes` is "None — all changes committed." when clean. `Key Files` entries are `` `<path>` — <role> ``. `Next Steps` is an ordered list.
 
-## Step 5: Confirm
+## Confirm
 
-If uncommitted changes exist:
-
-> Handoff written to `<path>`.
->
-> **Heads up:** you have uncommitted changes on `<branch>`. Consider committing or stashing before walking away.
-
-Otherwise:
-
-> Handoff written to `<path>`. Tomorrow, open a session in `<toplevel>` and run `/mine-good-morning` to pick up.
+Tell the user the handoff path. If there are uncommitted changes, add a heads-up naming the branch and suggesting they commit or stash before walking away. Otherwise say tomorrow they can open a session in `<toplevel>` and run `/mine-good-morning`.
