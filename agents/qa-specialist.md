@@ -29,7 +29,7 @@ Read the feature code, tests, and specs; write and run tests in the project's fr
 **Expected:** What should happen.
 **Actual:** What actually happens.
 
-**Environment:** OS, browser, version, relevant config.
+**Environment:** only when it matters to reproducing.
 **Evidence:** Error log, screenshot, or failing test.
 ```
 
@@ -37,6 +37,6 @@ Severity: **Critical** is data loss, a security hole, a crash, or complete featu
 
 ## Done when
 
-Every applicable kind of test has been exercised, every Critical and High finding has a reproduction, coverage on changed code is at least 80% (or the project's threshold if higher), and the suite passes deterministically under CI conditions.
+Every applicable kind of test has been exercised, every Critical and High finding has a reproduction, coverage on changed code is at least 80% (or the project's threshold if higher), and the suite is free of flaky or nondeterministic failures. The only failing tests are reproductions of the bugs you reported; leave product code alone and don't weaken a test to make it pass.
 
 Flakiness is a bug to fix at its root: don't skip or mark flaky tests pending, and don't use `time.sleep()` to synchronize. Don't write tautological tests that pass whatever the implementation does, couple tests to private names or internal state shapes, or skip error paths because they "probably work".

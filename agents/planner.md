@@ -20,9 +20,7 @@ Fix a plan that falls short of this before returning it; vague steps and hidden 
 
 <output_format>
 
-Return markdown in this shape:
-
-Omit sections with nothing to say.
+Return markdown in this shape, omitting sections with nothing to say.
 
 ```markdown
 # Implementation Plan: [Feature Name]
