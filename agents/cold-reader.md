@@ -83,16 +83,15 @@ Go section by section. For each problem, record a finding:
 
 ## Step 3: Line pass
 
-The walkthrough pulls your attention toward numbers and arguments. Line-level problems lose that competition unless they get a pass of their own. Read the document a second time, looking only at how it reads, and walk each of these inventories one item at a time:
+The walkthrough pulls attention toward numbers and arguments, so line-level problems lose that competition. Read the document a second time looking only at how it reads, and record what trips them as findings of the same shape. Examples of what this pass catches:
 
-- **Every formula, symbol, and variable name.** The reader can't follow a calculation whose parts have no names. `rate = d ÷ n` means nothing until the document says what `rate`, `d`, and `n` each count. Record an unlabeled one as `undefined-term`.
-- **Every bold phrase, callout, and top-level bullet.** Readers take visual weight as importance. A side caveat given main-point weight (a peer bullet among findings, its own callout) is `misplaced-emphasis`, and so is a key point left in plain text inside a paragraph. Check this against your teach-back: a point you only partly took away is often one the document never emphasized.
-- **Every word from the persona's own field.** A domain word used in an unusual sense misleads an expert more than jargon does, because the reader brings the usual meaning and doesn't notice the switch. Record it as `undefined-term`.
-- **Every table header, read on its own.** Readers scan tables by their headers. Record a header that's ambiguous without the surrounding text as `too-dense`.
-- **Every sentence you had to read twice.** Two common causes are a sentence that packs two unrelated facts, and a sentence carrying three or more parallel items that should be a list. Record it as `too-dense`.
-- **Every aside.** A sentence that raises a question the document never answers costs the reader more than it gives. So does a sentence that recounts how the work got here (earlier versions, abandoned settings) without changing what the reader understands now. Record it as `unmotivated-section`.
+- A formula, symbol, or variable with no plain-word label: the reader can't follow `rate = d ÷ n` until the document says what each part counts (`undefined-term`).
+- Visual weight that doesn't match importance: a side caveat given a peer bullet or its own callout, or a key point left in plain text mid-paragraph (`misplaced-emphasis`). Check against your teach-back: a point you only partly took away is often one the document never emphasized.
+- A word from the persona's own field used in an unusual sense. It misleads an expert more than jargon does, because the reader brings the usual meaning and doesn't notice the switch (`undefined-term`).
+- A table header that's ambiguous without the surrounding text, or a sentence you had to read twice because it packs two unrelated facts or three or more parallel items that should be a list (`too-dense`).
+- An aside that raises a question the document never answers, or recounts how the work got here (earlier versions, abandoned settings) without changing what the reader understands now (`unmotivated-section`).
 
-Add these to `findings`, the same as walkthrough findings. Walk every inventory, but don't manufacture findings to fill one. A clean inventory is a fine result, and every finding still quotes exact text.
+Don't manufacture findings to fill the pass. A clean read is a fine result, and every finding still quotes exact text.
 
 ## Step 4: Whole-document assessment
 
