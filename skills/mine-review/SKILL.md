@@ -1,6 +1,6 @@
 ---
 name: mine-review
-description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\", \"review this skill\", \"review these instructions\". Dispatches three parallel reviewers — code, integration, and a readability pass for code; consistency, instruction quality, and writing quality for instruction files — and consolidates findings into one prioritized report."
+description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\", \"review this skill\", \"review these instructions\". Dispatches parallel reviewers — code, integration, and a readability pass for code; consistency, instruction quality, and writing quality for instruction files; both sets for a mixed change — and consolidates findings into one prioritized report."
 user-invocable: true
 ---
 
@@ -22,9 +22,9 @@ Read and follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detect
 
 The reviewers each carry their own checklist and output format, so give them the scope and nothing else: no hypotheses about what is wrong, which would anchor them.
 
-Split the files in scope by kind: `.md` files are instruction files, everything else is code. Only code means **code mode**, only instruction files means **instruction mode**, and both means **mixed mode**, which runs both reviewer sets, each scoped to its own files. Code reviewers given a skill alongside a script would judge the skill as code, and instruction-quality review of it would never happen.
+Split the files in scope by kind. Instruction files are what an agent loads as instructions: skills, agent prompts, rules, commands, `CLAUDE.md`, and their reference files. Other prose (README, CHANGELOG, design docs) goes with the code when there is code, and counts as instruction files when the change is prose only. Only code means **code mode**, only instruction files means **instruction mode**, and both means **mixed mode**, which runs both reviewer sets, each scoped to its own files. Code reviewers given a skill alongside a script would judge the skill as code, and instruction-quality review of it would never happen.
 
-In diff mode, write each set's diff to a file first so its reviewers all read the same one: `mktemp -d <scratchpad>/mine-review-XXXXXX` for `<tmpdir>`, `git rev-parse HEAD` for `<sha>`, then `<diff command> -- <that set's files> > <tmpdir>/<code|instruction>.patch`.
+In diff mode, write each set's diff to a file first so its reviewers all read the same one: `mktemp -d <scratchpad>/mine-review-XXXXXX` for `<tmpdir>`, `git rev-parse HEAD` for `<sha>`, then the diff command with its pathspec replaced by that set's files (`git diff <base>...HEAD -- <that set's files> > <tmpdir>/<code|instruction>.patch`; appending a second `--` would OR the pathspecs and undo the split).
 
 Scope line:
 - **Diff mode**: `Diff at <tmpdir>/<its patch> (HEAD: <sha>). Read changed files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.`
@@ -38,7 +38,7 @@ Dispatch every agent for the mode in one message (six in mixed mode):
 
 ## Consolidate and present
 
-Merge duplicate findings into one entry that notes the cross-signal (`flagged by code-review + readability pass`). Judge validity with `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default, and calling one likely invalid needs a concrete evidence trail.
+Merge duplicate findings into one entry that notes the cross-signal (`flagged by code-review + readability pass`). The instruction reviewers report blocking/minor; rank blocking as High and minor as Low alongside the code reviewers' severities. Judge validity with `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default, and calling one likely invalid needs a concrete evidence trail.
 
 Organize the report by severity, not by reviewer, under `## [Technical|Instruction|Technical + Instruction] Review: [branch name or target path]`. Open with the scope (files and line counts), each reviewer's verdict or finding counts, and the likely-invalid count. Label sources `Code`, `Integration`, `Readability` for the code reviewers and `Consistency`, `Instruction`, `Writing` for the instruction reviewers. Every finding carries the proposed fix, the specific edit, because the user decides from seeing both the problem and the edit. Likely-invalid findings go in their own section with Claimed / Actually / Why-invalid.
 

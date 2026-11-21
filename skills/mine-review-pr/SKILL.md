@@ -1,12 +1,12 @@
 ---
 name: mine-review-pr
-description: "Use when the user says: \"review this PR\", \"review PR <number>\", \"review someone else's PR\", \"review the PR for <branch>\", \"review their branch\". Reviews another developer's open PR read-only. Gathers the PR's context, dispatches the standard reviewer trio, proves or drops each finding with executed checks (tests, queries, consumers, CI, the target branch), shows full drafts, and optionally posts them as PR comment threads. Never edits code."
+description: "Use when the user says: \"review this PR\", \"review PR <number>\", \"review someone else's PR\", \"review the PR for <branch>\", \"review their branch\". Reviews another developer's open PR read-only. Gathers the PR's context, dispatches the standard reviewers for each kind of changed file, proves or drops each finding with executed checks (tests, queries, consumers, CI, the target branch), shows full drafts, and optionally posts them as PR comment threads. Never edits code."
 user-invocable: true
 ---
 
 # Review External PR
 
-Review someone else's open PR so the user can judge it and, if they choose, send the author comments worth acting on. Run the reviewer trio on the diff, then prove or drop every finding that matters by running the check that settles it. Re-reading the code is not proof. Nothing should reach the author that this skill could have checked itself and didn't, because a wrong or unchecked comment on a teammate's PR costs the user's credibility. Posting needs explicit approval (a posted thread can't be unsent and lands under the user's name), and this skill never edits code. `REFERENCE.md` has the comment template, labels, and footer.
+Review someone else's open PR so the user can judge it and, if they choose, send the author comments worth acting on. Run the standard reviewers on the diff (code and instruction files each get their own set), then prove or drop every finding that matters by running the check that settles it. Re-reading the code is not proof. Nothing should reach the author that this skill could have checked itself and didn't, because a wrong or unchecked comment on a teammate's PR costs the user's credibility. Posting needs explicit approval (a posted thread can't be unsent and lands under the user's name), and this skill never edits code. `REFERENCE.md` has the comment template, labels, and footer.
 
 The investigation is open-ended digging, so this skill works best on Opus.
 
@@ -49,7 +49,7 @@ Run from a review worktree. Confirm `git status --porcelain` is clean, fetch the
 
 ## Dispatch reviewers and write the overview
 
-Split the changed files by kind: `.md` files are instruction files, everything else is code. Each kind goes to its own reviewers, so a PR with both runs both sets, each with its own diff (`git diff 'origin/<target>...HEAD' -- <that set's files> > <tmpdir>/<code|instruction>.patch`); code reviewers would otherwise judge a skill as code and its instruction quality would go unreviewed. In one message dispatch all the reviewers that apply (three or six parallel `Agent` calls), each given:
+Split the changed files by kind. Instruction files are what an agent loads as instructions: skills, agent prompts, rules, commands, `CLAUDE.md`, and their reference files. Other prose (README, CHANGELOG, design docs) goes with the code when there is code, and counts as instruction files when the PR is prose only. Each kind goes to its own reviewers, so a PR with both runs both sets, each with its own diff (`git diff 'origin/<target>...HEAD' -- <that set's files> > <tmpdir>/<code|instruction>.patch`; the full `diff.patch` is for your overview, not the reviewers); code reviewers would otherwise judge a skill as code and its instruction quality would go unreviewed. In one message dispatch all the reviewers that apply (three or six parallel `Agent` calls), each given:
 
 ```
 Review changes. Diff at <tmpdir>/<its patch> (HEAD: <sha>). PR context (description,
@@ -67,7 +67,7 @@ Pass only the gathered context, never your own hypotheses about the PR: a hypoth
 
 While they run, write an overview for the user only, never posted, since the author knows what their PR does. The user needs it to judge the findings, and on a clean PR it is the main output. Read the diff (and files where hunks need context) and compare it with the description, work items, and `git log --oneline '<base>..HEAD'`. Describe what the diff does, not what the description or commit subjects claim: its purpose, its changes grouped by intent rather than file, any mismatch between description and diff (omit if they agree), and the **claims** the PR makes (a root cause, "logic unchanged", "fixes the duplicate rows", "no consumer impact"). Each checkable claim is an item to prove or disprove below, so the PR's own story is tested, not only its lines.
 
-Then wait for all three completion notifications; don't fabricate or predict results.
+Then wait for every dispatched reviewer's completion notification; don't fabricate or predict results.
 
 ## Consolidate
 
