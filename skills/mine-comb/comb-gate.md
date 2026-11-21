@@ -56,6 +56,6 @@ If run 3 or any later run still reports blocking findings, stop fixing automatic
 
 - `Fix and re-review`: "One more fix-and-re-comb cycle". Apply `<re_review_instructions>` to the same findings an ordinary fix pass covers, then re-run the comb from the top. If the next run still blocks, it asks again.
 - `Fix and finish`: "Fix these findings but skip the next comb". Same fixes, then proceed without re-running.
-- `Stop`: "Halt and address issues manually". Leave any checkpoint in place.
+- `Stop`: "Halt and address issues manually".
 
 Minor-only findings never trigger this prompt: at the cap they are fixed (when `minor_blocks` is `true`) and the gate finishes without another run.
