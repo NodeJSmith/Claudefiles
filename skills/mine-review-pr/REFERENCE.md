@@ -27,7 +27,7 @@ The author should be able to act on the comment from its first two lines: the la
 - `Non-blocking` — Medium and below, and the tests and docs bucket threads.
 - `Non-blocking — worth fixing while you're in here` — an issue that predates the PR, in code the PR touches.
 
-The user can flip any label at the Phase 5 shaping gate.
+The user can flip any label when shaping the set.
 
 **Question form.** Used only when the user chooses at the shaping gate to post an open question to the author. The header is `**[Question] <title>**`, the first sentence is the one question, and the why says what was checked and why this session couldn't settle it.
 
@@ -64,7 +64,7 @@ What makes this work:
 
 Re-invoking the skill after the author pushes is normal. It should show which prior findings the new commits addressed and what new issues appeared.
 
-Phase 4 step 1 handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue is still present in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
+The "check what's already known" step of Prove or drop handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue is still present in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
 
 ---
 

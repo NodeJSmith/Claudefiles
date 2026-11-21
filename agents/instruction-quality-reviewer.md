@@ -2,7 +2,7 @@
 name: instruction-quality-reviewer
 model: opus  # judging whether Opus needs something spelled out; a weaker reviewer leans toward "spell it out"
 effort: medium
-description: Instruction quality reviewer — assesses skill files, rules, and agent prompts for goal-first structure, flags prescriptive steps and text worth cutting. Use for instruction-file reviews in mine-review instruction mode.
+description: Instruction quality reviewer — assesses skill files, rules, and agent prompts for goal-first structure, flags prescriptive steps and text worth cutting. Use for instruction-file reviews in mine-review and mine-review-pr.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 ---
 

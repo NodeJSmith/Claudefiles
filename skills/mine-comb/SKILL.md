@@ -6,68 +6,32 @@ user-invocable: true
 
 # Fine-Toothed Comb
 
-A one-off, open-ended holistic review of an artifact — a brief, design doc, plan, spec, or an implementation against the design it was built from. It is **not** a checklist or rubric: it takes the artifact in as a whole and surfaces what a structured pass can't — the doc reading as inconsistent, inaccurate, or thin; a requirement silently dropped; behavior that drifted from intent.
+Read an artifact as a whole and surface what a checklist can't: a doc that contradicts itself, is inaccurate or thin, a requirement silently dropped, behavior that drifted from intent. The artifact is a brief, design doc, plan, spec, or an implementation against the design it was built from. This is the standalone form of the comb `mine-sketch` runs in its workflow; use it for things sketch didn't produce.
 
-This is the standalone form of the comb that `mine-sketch` (Phase 5) runs inside its workflow. Reach for this skill to comb something sketch didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
+Done looks like: the comb comes back clean, or the findings were fixed and re-combed within the gate's limits, and the user knows what was fixed and what remains open.
 
-## Phase 1: Resolve the target
+## Resolve the target
 
-Determine what to comb and whether there's a reference to comb against:
+Work out what to comb and whether there is a reference to comb it against. One artifact means checking internal consistency, accuracy, and thoroughness. An artifact plus a reference ("comb the implementation against the design") means reading the reference first and combing the artifact for fidelity to it. If the target is ambiguous, ask which artifact and whether there's a reference, in one `AskUserQuestion`.
 
-- **Single artifact** — the user points at one file or doc ("comb this brief"). Comb it for internal consistency, accuracy, and thoroughness.
-- **Artifact against a reference** — the user names both ("comb the implementation against the design", "do the tasks match the design"). Read the reference first, then comb the artifact for fidelity.
+If design plus diff would exceed ~900k tokens, comb by file group and reconcile.
 
-If the reference is a `design.md` with a terminal `**Status:**` (`built`, `archived`, or `abandoned`, per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), tell the agent so in the dispatch prompt — see Phase 2. That doc is frozen; drift from it isn't something to reconcile.
+## Dispatch
 
-If the target is ambiguous (no path given, several candidates), ask the user which artifact and whether there's a reference — one focused `AskUserQuestion`, then proceed.
+Dispatch `subagent_type: fine-toothed-comb` with a prompt that says what to read (the artifact, plus the reference first when there is one), asks it to go over it with a fine-toothed comb for accuracy, consistency, and thoroughness (against a reference: also whether everything the reference specified is present and nothing was dropped or drifted), and defines blocking: an inconsistency, inaccuracy, gap, or drift that would mislead whoever acts on this next (or make the artifact wrong relative to the reference).
 
-**Pick the model:**
-- Default: dispatch the agent on its declared model (`sonnet`) — right for docs, briefs, plans, and implementation diffs, including large ones.
-- For diffs so large that design + diff exceeds ~900k tokens, comb by file group and reconcile.
+For a reference that is a `design.md` whose `**Status:**` is `built`, `archived`, or `abandoned` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), add: it documents a settled decision, so don't report drift from it as a finding or suggest editing its body; note any Addendum-worthy divergence separately as non-blocking.
 
-## Phase 2: Dispatch the comb
+The agent returns a `## Summary` line and grouped findings (format in `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`).
 
-```
-Agent:
-  subagent_type: fine-toothed-comb
-  prompt: |
-    <For a single artifact:>
-    Read this <artifact type>: <path>
-    Go over it with a fine-toothed comb and make sure it's accurate, consistent,
-    and thorough. Report anything you find.
-
-    <For an artifact against a reference, instead:>
-    Read this reference: <reference path(s)>
-    Then read/get the artifact: <path, or the diff command>
-    Go over the artifact against the reference with a fine-toothed comb — is it
-    consistent, accurate, and thorough; is everything the reference specified
-    actually present; did anything get silently dropped or drift. Report anything
-    you find.
-
-    <Always:>
-    Define blocking as: an inconsistency, inaccuracy, gap, or drift that would
-    mislead whoever acts on this next<, or make the artifact wrong relative to
-    the reference — if a reference was given>.
-
-    <If the reference is a design.md with Status: built, archived, or abandoned, add:>
-    The reference design.md is terminal-status (built/archived/abandoned): it's frozen,
-    documenting a past decision rather than a live spec. Do not report drift from
-    it as a finding, and do not suggest editing its body sections; note any
-    Addendum-worthy divergence separately, non-blocking.
-```
-
-The agent classifies findings and returns a `## Summary` line plus grouped findings. (See `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`.)
-
-## Phase 3: Comb gate
+## Comb gate
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Comb`
-- **`minor_blocks`**: `true` — the user invoked this to get what the comb finds, so minor findings are fixed even in a run with no blocking ones
-- **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings — don't expand scope), then re-comb from the top
+- **`minor_blocks`**: `true`. The user invoked this to get what the comb finds, so minor findings get fixed too.
+- **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings, no wider scope), then re-comb from the top.
 
-The gate fixes and re-combs on its own for up to two cycles, and asks only about design decisions or a loop that hasn't converged (after which each further blocking run asks again).
+When the target was a sweep across many files, the findings are independent worklist items. The gate still applies; only `<re_review_instructions>` changes: fix in batches, root causes first (the ones that keep producing the defect), and re-comb only the files you changed.
 
-When the target was a sweep across many files rather than one artifact, the findings are a worklist of independent items. The gate still applies as written; only `<re_review_instructions>` changes: fix the findings in batches, root causes first (the ones that would keep producing the defect), and re-comb only the files you changed rather than the whole sweep.
-
-When the comb is clean (or the gate has finished), report the final result to the user: what was fixed across runs, the final summary, and any findings left open.
+When the gate finishes, report what was fixed across runs, the final summary, and any findings left open.

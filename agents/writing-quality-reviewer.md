@@ -35,13 +35,12 @@ When invoked:
    ```bash
    git diff --name-only HEAD~1 -- '*.md'
    ```
-2. Read the writing-quality reference
-3. Read each target file in full
-4. Begin review
+2. Read each target file in full
+3. Begin review
 
 ## What to Check
 
-The patterns listed in the reference: AI vocabulary, significance inflation, em dash overuse, synonym cycling, hedging, abstract metaphor nouns. Also check for voice — sterile, voiceless writing is as obvious as slop.
+Prose that reads as machine-generated: the patterns catalogued in the reference (AI vocabulary, significance inflation, em dash overuse, synonym cycling, hedging, abstract metaphor nouns), and voice. Sterile, voiceless writing is as obvious as slop, and either one costs the instructions their authority with the reader.
 
 **Focus on prose sections.** Do not flag code blocks, YAML frontmatter, command examples, or tables.
 

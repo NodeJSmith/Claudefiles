@@ -1,6 +1,6 @@
 # REVIEW.md Authoring
 
-`REVIEW.md` is a per-directory file of review questions that forces investigation instead of confirmation. `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` all read it explicitly via `find-review-md` (see each agent's own Step 1) and answer each question against the current code. It lives in its own file, not `CLAUDE.md`, specifically so its content is never auto-injected into non-reviewer agents that also touch the directory — only an agent that goes looking for it reads it.
+`REVIEW.md` is a per-directory file of review questions that forces investigation instead of confirmation. `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` all read it explicitly via `find-review-md` (see each agent's review-questions step) and answer each question against the current code. It lives in its own file, not `CLAUDE.md`, specifically so its content is never auto-injected into non-reviewer agents that also touch the directory — only an agent that goes looking for it reads it.
 
 This covers the authoring side: what makes a `REVIEW.md` question actually catch bugs, versus one a reviewer skims and confirms.
 

@@ -16,7 +16,7 @@ Before your first commit in a repo during a session, check for a hook config. Re
 
 ## Code Review Before Commit
 
-The trio costs minutes and attention, so run it where findings are likely, not as a ritual. Run `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` in parallel on the final diff before committing new or changed logic, config that alters runtime behavior, or instruction files (skills, rules, agent prompts, CLAUDE.md). Instruction files steer agent behavior, so they are never docs-only. `/mine-review` routes them to instruction-mode reviewers automatically.
+The trio costs minutes and attention, so run it where findings are likely, not as a ritual. Run `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` in parallel on the final diff before committing new or changed logic, config that alters runtime behavior, or instruction files (skills, rules, agent prompts, CLAUDE.md). Instruction files steer agent behavior, so they are never docs-only. `/mine-review` routes them to the instruction reviewers automatically, including when they're mixed with code.
 
 Skip review when it couldn't plausibly catch anything the tests and type checker wouldn't: prose-only docs, a comment or whitespace tweak, a small deletion already covered by passing tests, one more parameterized test case, a rename the type checker verifies, or the user said to skip. A one-line logic fix is not automatically in this list; ask what a reviewer would see that the tests don't. Making that call is yours. Don't ask the user whether to review, and don't run the trio just to be safe. Reviewers earn their keep on small diffs mostly by catching inaccurate comments and docstrings, so a change that adds a comment claiming an invariant is worth the run.
 

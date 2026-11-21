@@ -1,95 +1,57 @@
 ---
 name: mine-review
-description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\", \"review this skill\", \"review these instructions\". Dispatches three parallel reviewers — code, integration, and a readability pass for code; consistency, instruction quality, and writing quality for instruction files — and consolidates findings into one prioritized report."
+description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\", \"review this skill\", \"review these instructions\". Dispatches parallel reviewers — code, integration, and a readability pass for code; consistency, instruction quality, and writing quality for instruction files; both sets for a mixed change — and consolidates findings into one prioritized report."
 user-invocable: true
 ---
 
 # Technical Review
 
-Dispatches three parallel reviewers adapted to content type. Code: correctness, integration fit, readability. Instruction files: consistency, instruction quality, writing quality. Consolidates into a prioritized report.
+Get an independent read on the user's changes (or a directory) before they ship, from reviewers working in parallel, and hand back one prioritized report the user can act on. Code gets correctness, integration fit, and readability reviewers; instruction files (what agents load: skills, rules, agent prompts) get consistency, instruction-quality, and writing-quality reviewers. Every file in scope reaches the reviewers for its kind, so a change that touches both gets both sets.
+
+Done looks like: each real problem appears once with the specific edit that would fix it, ordered by how much it matters, with weak findings separated out so the user isn't asked to act on them.
 
 ## Arguments
 
-$ARGUMENTS — optional scope. Empty for full branch diff, or a directory/file list. Path mode when files exist with no branch changes.
+$ARGUMENTS — optional scope. Empty for the full branch diff, or a directory/file list. Path mode applies when the files exist but have no branch changes.
 
-## Phase 1: Determine Scope
+## Scope
 
-Read and execute `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detection.md`.
+Read and follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detection.md`. It resolves `$ARGUMENTS` to diff mode or path mode.
 
-## Phase 2: Dispatch Reviewers
+## Dispatch
 
-### Pre-compute diff (diff mode only)
+The reviewers each carry their own checklist and output format, so give them the scope and nothing else: no hypotheses about what is wrong, which would anchor them.
 
-1. `mktemp -d <scratchpad>/mine-review-XXXXXX` → `<tmpdir>`
-2. `git rev-parse HEAD` → `<sha>`
-3. `<diff command> > <tmpdir>/diff.patch`
+Split the files in scope by kind. Instruction files are what an agent loads as instructions: skills, agent prompts, rules, commands, `CLAUDE.md`, and their reference files. Other prose (README, CHANGELOG, design docs) goes with the code when there is code, and counts as instruction files when the change is prose only. Only code means **code mode**, only instruction files means **instruction mode**, and both means **mixed mode**, which runs both reviewer sets, each scoped to its own files. Code reviewers given a skill alongside a script would judge the skill as code, and instruction-quality review of it would never happen.
 
-### Detect review mode
+In diff mode, write each set's diff to a file first so its reviewers all read the same one: `mktemp -d <scratchpad>/mine-review-XXXXXX` for `<tmpdir>`, `git rev-parse HEAD` for `<sha>`, then the diff command with its pathspec replaced by that set's files (`git diff <base>...HEAD -- <that set's files> > <tmpdir>/<code|instruction>.patch`; appending a second `--` would OR the pathspecs and undo the split).
 
-A file is an **instruction file** if it has a `.md` extension. If ALL files are instruction files, use **instruction mode**. Otherwise **code mode**.
-
-### Build scope line
-
-- **Diff mode**: `Diff at <tmpdir>/diff.patch (HEAD: <sha>). Read changed files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.`
+Scope line:
+- **Diff mode**: `Diff at <tmpdir>/<its patch> (HEAD: <sha>). Read changed files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.`
 - **Path mode**: `Review these existing files (not a diff): <file list>`
-- **Instruction diff mode** — append: `Read every changed file in full, not just diff hunks.`
+- **Diff mode, instruction reviewers**: also append `Read every changed file in full, not just diff hunks.`
 
-### Code mode — dispatch all three in one message
+Dispatch every agent for the mode in one message (six in mixed mode):
 
-Each agent has its own checklist and output format. Pass scope only:
+- Code files: `code-reviewer`, `integration-reviewer`, `wtf-reviewer`, each with `Review changes. <scope line>`
+- Instruction files: `fine-toothed-comb` with `Review these instruction files for consistency, accuracy, and completeness. <scope line>. Read sibling files for cross-reference context.`; `instruction-quality-reviewer` and `writing-quality-reviewer` with `Review these instruction files. <scope line>`
 
-- `subagent_type: "code-reviewer"` — `Review changes. <scope line>`
-- `subagent_type: "integration-reviewer"` — `Review changes. <scope line>`
-- `subagent_type: "wtf-reviewer"` — `Review changes. <scope line>`
+## Consolidate and present
 
-### Instruction mode — dispatch all three in one message
+Merge duplicate findings into one entry that notes the cross-signal (`flagged by code-review + readability pass`). The instruction reviewers report blocking/minor; rank blocking as High and minor as Low alongside the code reviewers' severities. Judge validity with `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default, and calling one likely invalid needs a concrete evidence trail.
 
-- `subagent_type: "fine-toothed-comb"` — `Review these instruction files for consistency, accuracy, and completeness. <scope line>. Read sibling files for cross-reference context.`
-- `subagent_type: "instruction-quality-reviewer"` — `Review these instruction files. <scope line>`
-- `subagent_type: "writing-quality-reviewer"` — `Review these instruction files. <scope line>`
+Organize the report by severity, not by reviewer, under `## [Technical|Instruction|Technical + Instruction] Review: [branch name or target path]`. Open with the scope (files and line counts), each reviewer's verdict or finding counts, and the likely-invalid count. Label sources `Code`, `Integration`, `Readability` for the code reviewers and `Consistency`, `Instruction`, `Writing` for the instruction reviewers. Every finding carries the proposed fix, the specific edit, because the user decides from seeing both the problem and the edit. Likely-invalid findings go in their own section with Claimed / Actually / Why-invalid.
 
-## Phase 3: Consolidate and Present
+## Next steps
 
-### Deduplicate
+If nothing is worth fixing (everything passed, what's left is likely-invalid, or only medium and low findings remain and aren't worth the churn), say so and stop; there is nothing to ask.
 
-If two reviewers flagged the same issue, keep one entry and note the cross-signal: `(flagged by code-review + readability pass)`.
+Otherwise ask what to do with the findings. This is a major gate (see `interaction.md`): run `context-pct` and prepend `[Context: N%]`. Build the options from the severity mix and what you found, put finding counts in the descriptions, and recommend the one that fits. The usual outcomes are fix everything, fix only critical/high, or note and move on; drop any the findings make meaningless (no critical/high means no "critical/high only"; if medium and low aren't worth the churn, recommend critical/high only over fix-all).
 
-### Validity assessment
-
-Apply the protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings valid by default; flagging one as likely invalid requires a concrete evidence trail.
-
-### Present the report
-
-Organize by severity, not by reviewer. Report header:
-
-```markdown
-## [Technical|Instruction] Review: [branch name or target path]
-
-**Scope:** N files changed, +X/-Y lines (diff) | N files, X total lines (path)
-**[Reviewer 1]:** PASS / WARN / FAIL
-**[Reviewer 2]:** PASS / WARN / FAIL
-**[Reviewer 3]:** X findings (N HIGH, N MEDIUM, N LOW)
-**Likely-invalid:** N
-```
-
-Source labels — code mode: `Code`, `Integration`, `Readability`. Instruction mode: `Consistency`, `Instruction`, `Writing`.
-
-Findings in severity-grouped tables (`### Critical / High`, `### Medium`, `### Low`). Each finding includes the proposed fix — the specific edit that would be applied. The user decides what to fix based on seeing both the problem and the proposed edit. Likely-invalid findings in a separate section with Claimed/Actually/Why-invalid fields.
-
-### Next steps
-
-If nothing is worth fixing (every reviewer passed, everything left is likely-invalid, or only medium and low findings remain and they aren't worth the churn), say so and stop. There is nothing to ask.
-
-Otherwise ask what to do with the findings. This is a major gate (review/challenge finding walkthrough, see `interaction.md`), so run `context-pct` and prepend the result to the question (`"[Context: N%] What would you like to do with these findings?"`, header `Next steps`). Build the options from the severity mix, put the finding count in each description, and recommend the one that fits. Drop "Fix critical/high only" when there are no critical or high findings. When there are critical or high findings but the medium and low ones aren't worth the churn, drop "Fix all" and recommend "Fix critical/high only".
-
-- **Fix all**: apply the proposed fixes, highest severity down, then re-read the modified content
-- **Fix critical/high only**: address blockers, leave medium/low for later
-- **Note and move on**: acknowledged, no fixes this session
-
-If fixing: work through findings top-down by severity, making edits directly. After fixes: "Fixes complete — run `/mine-commit-push` or proceed to commit when ready."
+When fixing, edit directly, highest severity first, then re-read what you changed and say: "Fixes complete — run `/mine-commit-push` or proceed to commit when ready."
 
 ## What This Skill Does NOT Do
 
 - **Deep codebase audit** — use `/mine-audit`
 - **Exhaustive style sweep** — use `/mine-clean-code`
-- **Automatic fixing without asking** — it diagnoses, then asks what to fix
+- **Fix without asking** — it diagnoses, then asks what to fix

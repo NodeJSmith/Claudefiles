@@ -36,28 +36,10 @@ After completing a review, create or update that same file — but only if the e
 When invoked:
 1. Find all changed files. If an explicit file list or diff command was provided, use it and skip discovery entirely. Only if no file list was provided, discover:
    ```bash
-   # 1. Uncommitted changes (staged + unstaged)
    git diff --name-only HEAD
-   ```
-   Also check for new untracked files:
-   ```bash
    git ls-files --others --exclude-standard
    ```
-   If both are empty, fall back to committed branch diffs:
-   ```bash
-   # 2. Branch diff vs upstream
-   git diff --name-only @{upstream}...HEAD 2>/dev/null
-   ```
-   If empty or fails:
-   ```bash
-   # 3. Branch diff vs default branch
-   git diff --name-only "origin/$(git-default-branch)...HEAD" 2>/dev/null || git diff --name-only "$(git-default-branch)...HEAD"
-   ```
-   If still empty:
-   ```bash
-   # 4. Last commit
-   git diff --name-only HEAD~1
-   ```
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
 2. Read every changed file in full
 3. Find applicable `REVIEW.md` files. If step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a readability or maintainability issue, report it.
 4. Begin review
@@ -66,31 +48,14 @@ When invoked:
 
 For each file, ask: "If a new developer opened this file with no context, what would confuse them?"
 
-<checklist>
-
 ## What to Look For
 
-### Readability Debt
-- Confusing or misleading names (variables, functions, classes that suggest one thing but do another)
-- Unclear boolean logic (double negatives, complex compound conditions that need a truth table to understand)
-- Variable shadowing (inner scope redefines outer scope name)
-- Functions that do more than their name suggests
-- Inconsistent return types within a function (sometimes returns X, sometimes Y)
-- **Completeness gaps** — things the implementation should have considered but didn't. Example: a new API endpoint with no rate limiting, a form with no validation, a list with no empty state, a cache with no eviction. (This is a completeness-of-thinking check — it applies equally to human-written code, not an LLM-specific smell.)
+Code a month-later reader will stumble on, even though it works: anything where the reader has to stop, hold hidden context, or reverse-engineer intent. Maintainability is the work a reader must do, so weigh both how many layers they trace and how much state they hold in their head. Some shapes it takes, as examples rather than a list to tick:
 
-### Bespoke Complexity
-- Hand-rolled state tracking that should use a well-known pattern or library (e.g., 4-ref version tracking instead of a single state object)
-- Fragile heuristics — logic that derives meaning from string patterns, substring matching, or positional assumptions instead of structured data
-- "Compact but complex" — code that's shorter than a human would write but harder to understand (clever one-liners, chained operations with no intermediate variables, implicit type coercion chains)
-
-### Structural Smells
-- Nested ternary chains (2+ levels deep)
-- Functions over 40 lines with multiple responsibilities
-- Deep nesting (4+ levels of if/for/try)
-- Magic numbers or strings with no explanation in logic paths
-- Type assertions / casts that bypass the type system
-
-</checklist>
+- **Misleading names and shapes.** Names that suggest one thing and do another, functions that do more than their name says, inconsistent return types, shadowed outer names, boolean logic that needs a truth table.
+- **Bespoke complexity.** Hand-rolled state tracking where a known pattern or single state object would do, fragile heuristics that derive meaning from string patterns or positional assumptions instead of structured data, and "compact but complex" one-liners and chains with no intermediate names.
+- **Structure that hides the point.** Nested ternaries, long multi-purpose functions, deep nesting, unexplained magic numbers or strings in logic paths, casts that bypass the type system.
+- **Completeness gaps.** Things the implementation should have considered but didn't, such as an endpoint with no input validation, a form with no validation, a list with no empty state, a cache with no eviction. This is a check on thinking and applies to human-written code equally.
 
 <output_format>
 
