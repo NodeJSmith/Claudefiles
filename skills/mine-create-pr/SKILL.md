@@ -14,7 +14,7 @@ A user or repo rule that changes the flow wins over this skill. If one says the 
 
 ## Before opening
 
-First, run `git-platform` (`github` → `gh`, `ado` → `ado-api pr`; on `unknown`, read stderr: if it says the directory is wrong, rerun from the repo root or with `-C <repo>`; if the remote isn't recognized, stop). Then check no PR already exists for the branch: `gh pr list --head <branch>` on GitHub, or `ado-api pr show --json` with no id on Azure DevOps, which looks up the active PR for the current branch (`ado-api pr list` has no branch filter and caps at 50, so it can miss it). A PR is returned as JSON; when none exists it exits 1 with `No active PR found for branch ...` on stderr, which is the clear-to-open outcome, while any other error means the check didn't happen. If a PR exists, report its URL and stop, before anything below pushes to it.
+First, run `git-platform` (`github` → `gh`, `ado` → `ado-api pr`; on `unknown`, read stderr: if it says the directory is wrong, rerun from the repo root or with `-C <repo>`; if the remote isn't recognized, stop). Then check no PR already exists for the branch: `gh pr list --head <branch>` on GitHub, or `ado-api pr show --json` with no id on Azure DevOps, which looks up the active PR for the current branch (`ado-api pr list` has no branch filter and caps at 50, so it can miss it). A PR is returned as JSON; when none exists it exits 1 with `No active PR found for branch ...` on stderr, which is the clear-to-open outcome, while any other error means the check didn't happen. If a PR exists, report its URL and stop, before anything below pushes to it. Also confirm the branch has no unpushed commits of the user's own (`git status -sb`, or `git log @{u}..`); if it does, stop and say so now, because the review-question steps below push and would publish them. Commits made below are yours to push.
 
 Run the pre-flight scripts, but treat their output as leads, not verdicts. Decide whether each finding matters for this branch; say in one line when you set one aside, and only stop or ask when a real decision is left.
 
@@ -26,8 +26,6 @@ Run the pre-flight scripts, but treat their output as leads, not verdicts. Decid
 
 Then gather what you need: current branch, `git-default-branch`, the remote URL, `git-branch-log`, and `git-branch-diff-stat`.
 
-The branch must be fully pushed, including anything committed above. If not, stop and say so.
-
 ## Draft PR Body
 
 Follow `git-workflow.md` (PR Description Content): the body answers what changed and why, as the shipped state, in terms a reviewer who never saw this session can use. You hold the whole session, including abandoned approaches, so draft from the full branch diff and commit log (all commits, not just the latest), reading modified files where the diff isn't enough.
@@ -36,7 +34,7 @@ Follow `git-workflow.md` (PR Description Content): the body answers what changed
 
 **Body:** group by topic under `###` headers, most impactful first, with bullets that state what changed and why, including the tradeoff of the approach taken. Collect small standalone changes under `### Notable Changes` (top, if worth seeing first) and `### Housekeeping` (bottom). If the PR changes `./design/` documents, reference them (`design/specs/NNN-slug/design.md`) instead of restating their reasoning.
 
-**Closing issues** (GitHub only; skip for Azure DevOps): find the issues this PR resolves and end the body with `Closes #N` per issue, each on its own line. Sources: a number in the branch name (`123-fix-null`, `issue-123`, `issue/123`, `fix/123-description`; confirm it is an open issue this work resolves, since `upgrade-node-20` isn't), closing keywords in commit messages (`Fixes #123`, `Closes #123`, `Resolves #123`; not `refs #123`), and every key on the `**Issues:**` line of a sketch ledger the branch builds. Judge whether the branch is really that ledger's work: a ledger touched only in passing, such as an Addendum on an already-built one, doesn't close its issues.
+**Closing issues** (GitHub only; skip for Azure DevOps): find the issues this PR resolves and end the body with `Closes #N` per issue, each on its own line. Sources include the conversation (an issue the user named as the work), a number in the branch name (`123-fix-null`, `issue-123`, `issue/123`, `fix/123-description`; confirm it is an open issue this work resolves, since `upgrade-node-20` isn't), closing keywords in commit messages (`Fixes #123`, `Closes #123`, `Resolves #123`; not `refs #123`), and every key on the `**Issues:**` line of a sketch ledger the branch builds. Judge whether the branch is really that ledger's work: a ledger touched only in passing, such as an Addendum on an already-built one, doesn't close its issues.
 
 ## Changelog
 
