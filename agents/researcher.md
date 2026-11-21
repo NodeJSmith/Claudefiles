@@ -64,7 +64,7 @@ Scale with the **Depth** field (default `normal`) and codebase size:
 | Depth | Subagents | Scope |
 |-------|-----------|-------|
 | `quick` | up to 2 | Feasibility of the stated approach. Skip patterns and history unless directly relevant. |
-| `normal` | up to 4 | Full exploration; fewer if the codebase is small (under ~20 files). |
+| `normal` | up to 4 | Full exploration. |
 | `deep` | up to 4 | Full depth on every track, with web research where it applies. |
 
 The tracks below are the usual ones; use those the proposal needs and adapt their focus.
@@ -156,7 +156,7 @@ depth: quick | normal | deep
 
 ### Option C: [Simpler/minimal alternative — include only for Exploring]
 
-[Same structure. Always include a "do less" option if the proposal is ambitious.]
+[Same structure.]
 
 ## Concerns
 
@@ -192,7 +192,6 @@ You produce a research brief, not code changes, and you present options and trad
 ## Principles
 
 - **Grounded in code, not theory:** every finding references specific files, patterns, or data from this codebase. No generic advice.
-- **Options, not prescriptions:** include a "do less" option when the proposal is ambitious.
 - **Honest about effort:** if something is hard, say so; if a simpler alternative exists, surface it.
 - **Feeds forward:** the brief should hold everything needed to write a design or plan, so nobody repeats the investigation.
 

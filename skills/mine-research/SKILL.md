@@ -28,7 +28,7 @@ When the agent finishes, read `<tmpdir>/brief.md` and confirm it exists and open
 
 ## Save and present
 
-Copy (never move) the brief to the repo's existing research location when it has one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` where the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the directory, tell the user the path, and leave the tmpdir copy intact, since challenge and design handoffs reference it. If the user would rather just see it, show it inline.
+Copy (never move) the brief to the repo's existing research location when it has one (`design/research/YYYY-MM-DD-<topic>/research.md`, or `docs/research/YYYY-MM-DD-<topic>.md` where the repo uses `docs/research/`); otherwise to `design/research/YYYY-MM-DD-<topic>/research.md`. Create the directory, tell the user the path, and leave the tmpdir copy intact. If the user would rather just see it, show it inline.
 
 Set `<research_brief_path>` to the saved file, or to `<tmpdir>/brief.md` if it wasn't saved. Present the key findings conversationally, then ask what to do next.
 
@@ -49,5 +49,4 @@ Handoffs:
 
 - A scoped question ("can X be done?") is answered by completing the brief and offering the menu. Don't silently start filing issues, design, or shipping from it.
 - Prior analysis covers the problem space; research covers the solution space (competing approaches, existing codebase patterns, API constraints). Skipping it moves that investigation into the design phase, where it's more expensive.
-- No code during investigation. Code is written only after the menu, if the user picks build.
-- It evaluates one proposal against this codebase. It doesn't audit health (`/mine-challenge`) or run benchmarks.
+- No code during investigation, beyond a throwaway observe-only probe in the tmpdir. Code is written only after the menu, if the user picks build.

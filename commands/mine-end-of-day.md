@@ -14,11 +14,11 @@ Write a handoff that lets someone with zero context resume this work tomorrow, w
 
 Gather git state (branch, status, recent log, uncommitted diff stat), any tracked tasks in this session, and the tmux session if in one (`claude-tmux current`). Combine that with the conversation. When the conversation is thin, lean on git state and any design ledger (`design/specs/*/design.md`).
 
-Write for a colleague who has never seen this session: no shorthand, no "what we discussed." Say why, not just what: the goal, the reasoning behind the approach, and what any uncommitted work is for. Done means committed, tested, verified. Use file paths. The first next step should be immediately actionable.
+Write for a colleague who has never seen this session: no shorthand, no "what we discussed." Say why, not just what: the goal, the reasoning behind the approach, and what any uncommitted work is for. Use file paths. The first next step should be immediately actionable.
 
 ## Format
 
-`mine-good-morning` reads this file, so keep the header block and these section names. Always include `Uncommitted Changes`; omit other sections with nothing to say.
+`mine-good-morning` reads this file and relies on **Date:**, `Uncommitted Changes`, `Open Questions`, and `Next Steps`, so those must be there (`Uncommitted Changes` always; the others unless empty). The rest is the default shape; omit sections with nothing to say.
 
 ```markdown
 # Handoff: <short description>
@@ -42,7 +42,7 @@ Write for a colleague who has never seen this session: no shorthand, no "what we
 ## Next Steps
 ```
 
-`Uncommitted Changes` is "None — all changes committed." when clean. `Key Files` entries are `` `<path>` — <role> ``. `Next Steps` is an ordered list.
+`### Done` means committed, tested, and verified. `Uncommitted Changes` is "None — all changes committed." when clean. `Key Files` entries are `` `<path>` — <role> ``. `Next Steps` is an ordered list.
 
 ## Confirm
 
