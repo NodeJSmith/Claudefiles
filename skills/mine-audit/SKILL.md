@@ -6,129 +6,39 @@ user-invocable: true
 
 # Codebase Audit
 
-Systematic assessment of a codebase's health. Finds the problems worth fixing — not everything that's imperfect, but the things that are actively hurting: code that's aged poorly, designs that have become brittle, abstractions that leak, areas with no test safety net.
+Find the problems in a codebase that are actively hurting: code that has aged poorly, designs that have become brittle, abstractions that leak, areas with no test safety net. Not everything imperfect, only what is likely to cause bugs, slow development, or resist change, ranked so the next production incident is at the top. Done is a findings file the user has walked through, with each finding fixed, filed, or knowingly skipped, and a saved report.
 
 ## Arguments
 
-$ARGUMENTS — optional scope narrowing. Can be:
-- Empty: audit the entire codebase (default)
+$ARGUMENTS: optional scope narrowing.
+- Empty: the whole codebase
 - A directory: `/mine-audit src/services/`
-- A concern: `/mine-audit "test coverage"` or `/mine-audit "error handling"`
+- A concern: `/mine-audit "test coverage"` or `"error handling"`
 - A question: `/mine-audit "what's the riskiest part of this codebase?"`
 
-## How to Analyze Code
+## How to analyze
 
-**Read the code and reason about it directly.** Subagents should use Read, Grep, and Glob to examine files. Do NOT write or execute Python/shell scripts to perform analysis — no AST parsers, no custom complexity calculators, no throwaway scripts to count imports or measure coupling. You can read code and identify these patterns yourself.
+Read the code and reason about it directly with Read, Grep, and Glob. Don't write or run analysis scripts (no AST parsers, complexity calculators, or throwaway import counters); identifying smells, mapping dependencies, and judging coupling and duplication come from reading. The commands worth running are `git log`/`diff`/`shortlog` for churn, age, and history, `pytest --cov` or the equivalent for real coverage numbers, the project's linters for existing output, `wc -l` for sizes, and `lint-agent-files .` in a Claudefiles-style repo.
 
-The only commands to execute during analysis are:
-- `git log` / `git diff` / `git shortlog` — for churn, age, and history data
-- `pytest --cov` or equivalent — for actual test coverage numbers
-- Project linters (`ruff`, `eslint`) — for existing lint output
-- `wc -l` or similar — for quick file size counts when scanning many files
-- `lint-agent-files .` — if auditing a Claudefiles-style repo (agents/, skills/, commands/)
+Map the directory tree (skipping vendored, generated, and build output), group it into review units (top-level modules, with small related directories combined), and dispatch one `standard-worker` per unit in parallel. Slicing by directory rather than by concern lets each subagent see the full context of its area. Each assesses structure and size, churn and age, dependencies (fan-in, fan-out, cycles), tests (coverage, staleness, untested high-churn code), and quality signals, and returns a structured summary.
 
-Everything else — identifying smells, mapping dependencies, assessing coupling, spotting duplication — comes from reading the files.
+Then dispatch one `standard-worker` over all the per-directory summaries plus the full file manifest, to find what only shows at the boundaries: duplicated logic across modules, the same concept under different names, circular dependencies between top-level modules, inconsistent patterns (error handling, logging, config access), and god modules everything imports from.
 
-## Phase 1: Directory Discovery
+## Judging what matters
 
-Identify the top-level modules and determine review units.
+Synthesize; don't dump raw data. Rank by impact. The most dangerous findings typically are code that changes often and is hard to change safely (high churn plus high complexity), things many others depend on with no tests, large old code still on the critical path, inconsistent patterns that stop developers building intuition, missing error handling at boundaries, and tight coupling clusters.
 
-1. Map the directory tree (depth 2-3) using Glob
-2. Identify top-level modules (e.g., `src/api/`, `src/services/`, `src/models/`)
-3. Group small related directories into single review units if needed
-4. Skip vendored, generated, and build output directories
+Leave out what a formatter fixes, slightly long one-off functions, code that works and isn't changing, and young TODOs. Manufacturing problems for working code wastes the user's time.
 
-## Phase 1.5: Per-Directory Reconnaissance
+Severity: **CRITICAL** is high churn with low coverage on the critical path, or cycles blocking all development; **HIGH** is significant structural problems, test gaps on high-value code, or active architectural debt; **MEDIUM** is accumulating risk that isn't urgent; **TENSION** is worth noting, low urgency.
 
-Launch parallel `standard-worker` subagents — one per review unit identified in Phase 1. Each subagent assesses ALL concerns for its directory:
+Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default, and calling one likely invalid needs a concrete evidence trail (the claim versus what the code actually does). Verify by reading the source, not just the summaries. Likely-invalid findings stay out of the narrative and go in the file's `## Likely Invalid` section per the protocol, with the count in both the file header and the narrative.
 
-- **Structure & Size** — largest files, largest functions, disproportionate growth
-- **Churn & Age** — hot spots, cold spots, churn + complexity
-- **Dependencies** — imports in/out, fan-in, fan-out, circular refs
-- **Tests** — coverage, stale tests, untested high-churn code
-- **Quality signals** — nesting, params, duplication, broad catches, hardcoded values
+## Presenting
 
-Each subagent returns a structured summary for its directory. This is faster and produces better results than concern-based slicing because each subagent sees the full context of its directory.
+First send the findings with `SendUserMessage` as a narrative by severity (critical, concerning, worth noting) so the user can orient. Every finding cites evidence: file names, line counts, churn data, dependency chains. Include the `**Likely-invalid:** N` count.
 
-## Phase 1.6: Cross-Scope Synthesis
-
-Launch a single `standard-worker` subagent that reads ALL per-directory findings plus the full file manifest. This subagent looks for problems that only emerge at the boundary between directories:
-
-- Cross-directory DRY violations (same logic duplicated in multiple modules)
-- Naming drift (same concept called different things in different directories)
-- Circular dependencies between top-level modules
-- Inconsistent patterns (error handling, logging, config access)
-- God modules that everything imports from
-
-## Phase 2: Synthesize Findings
-
-Don't just dump raw data. Synthesize the per-directory and cross-scope results into a prioritized assessment.
-
-### Prioritization criteria
-
-Rank findings by **impact** — how much this problem is likely to cause bugs, slow down development, or resist change:
-
-| Signal | Why it matters |
-|--------|---------------|
-| High churn + high complexity | Changed often but hard to change safely — the most dangerous combination |
-| High fan-in + no tests | Many things depend on it but there's no safety net |
-| Large + old + still active | Written long ago, never cleaned up, still critical path |
-| Inconsistent patterns | Developers can't build intuition — each area works differently |
-| Missing error handling on boundaries | Silent failures, data corruption, hard-to-debug production issues |
-| Tight coupling clusters | Can't change A without breaking B, C, and D |
-
-### What to ignore
-
-- Style nits that a formatter can fix (leave that to ruff/eslint)
-- One-off small functions that are slightly long
-- Code that works fine and isn't changing (don't manufacture problems)
-- TODO comments less than a month old (they're probably in progress)
-
-### Severity mapping
-
-- **CRITICAL** — high churn + low coverage on the critical path, or circular dependencies blocking all development
-- **HIGH** — significant structural problems, test gaps on high-value code, active architectural debt
-- **MEDIUM** — accumulating risk that isn't urgent but will compound
-- **TENSION** — worth noting; low urgency
-
-### Validity assessment
-
-Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Read the relevant source files directly to verify claims — do not rely solely on the per-directory summaries.
-
-Likely-invalid findings are excluded from the narrative summary and placed in the `## Likely Invalid` section of the findings file per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`. Always include the `**Likely-invalid:** N` count in the findings file header and in the narrative summary.
-
-## Phase 3: Present the Report
-
-### Step 1: Narrative summary
-
-Before entering the findings flow, send the findings with `SendUserMessage` as a narrative organized by severity so the user can orient:
-
-```
-## Codebase Audit: [project name]
-**Likely-invalid:** N
-
-### Critical (high impact, fix soon)
-1. **src/services/payment.py** (520 lines, 47 changes in 3 months, 12% test coverage)
-   The most frequently changed file in the codebase has almost no test coverage. It handles payment processing and has 3 broad `except Exception` blocks that silently swallow errors.
-
-2. **Circular dependency: models ↔ services ↔ utils**
-   These three directories have 14 circular import paths. Adding anything to models/ requires understanding how services/ and utils/ will react. This is the main reason features take longer than expected.
-
-### Concerning (accumulating risk)
-3. **src/api/routes.py** (680 lines, mixes routing + business logic + validation)
-   God file that 23 other modules import from. Every API change requires modifying this single file. Should be split by domain.
-
-4. **No tests for src/integrations/** (4 files, 1,200 lines)
-   External API integrations with zero test coverage. These modules do have error handling but it's untested — if an API changes behavior, you'll find out in production.
-
-### Worth noting (low urgency)
-5. **Inconsistent error handling** — src/api/ uses custom exceptions, src/services/ returns error tuples, src/utils/ raises ValueError for everything
-6. **8 TODO/FIXME comments older than 6 months** — may be stale or forgotten
-```
-
-### Step 2: Write findings file
-
-Run `mktemp -d <scratchpad>/mine-audit-XXXXXX` and write `<tmpdir>/audit-results.md` using the findings file format:
+Then run `mktemp -d <scratchpad>/mine-audit-XXXXXX` and write `<tmpdir>/audit-results.md` in the findings format below, following `findings-protocol.md` for field definitions. Finding types: `Test Gap` | `Structural` | `Coupling` | `Tech Debt` | `Pattern Drift`. `Raised-by` is `Audit Analysis (1/1)`, the single-source convention for non-critic-panel callers.
 
 ```markdown
 # Audit Findings
@@ -143,64 +53,30 @@ Run `mktemp -d <scratchpad>/mine-audit-XXXXXX` and write `<tmpdir>/audit-results
 **visibility:** presented
 **disposition:** pending
 
-**Problem:** [specific description with evidence — file names, line counts, churn data]
+**Problem:** [specific description with evidence]
 
-**Why-it-matters:** [concrete consequence — what breaks, what slows down]
+**Why-it-matters:** [concrete consequence: what breaks, what slows down]
 
 **Recommendation:** Option A
 
 **Options:**
 - **A** *(recommended)*: Fix it now
-- **B**: File as issue — track for future work
-- **C**: Skip — noted, no action this session
+- **B**: File as issue: track for future work
+- **C**: Skip: noted, no action this session
 
 **Why A:** [one-sentence rationale specific to this finding]
 
 ## Likely Invalid
 
-<!-- Findings flagged by validity assessment. See findings-protocol.md's ### LI-N format. Omit this section entirely when Likely-invalid is 0. -->
+<!-- See findings-protocol.md's ### LI-N format. Omit this section entirely when Likely-invalid is 0. -->
 ```
 
-Use finding types from this vocabulary: `Test Gap` | `Structural` | `Coupling` | `Tech Debt` | `Pattern Drift`
+Walk the user through them. Audit findings are User-directed with option letters: **A** (or `fix`) implements the fix now, **B** files an issue in the project's tracker, **C** (or `skip`) is noted in the session summary only. Present CRITICAL and HIGH findings one at a time via AskUserQuestion. MEDIUM and lower go in a single numbered list sent with `SendUserMessage`, then one question asking which to file (taking the numbers as free text; unselected ones are noted in the summary only), since they are rarely worth a stop each and a multiSelect holds at most four. When several findings are going to be fixed, suggest an order of attack: highest impact first and dependency-aware (break the cycle before refactoring the modules caught in it).
 
-The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel callers — audit has one analyst, not a critic panel.
+## Saving the report
 
-### Step 3: Follow findings protocol
+After the walkthrough, save the audit and tell the user the path. Audits are backward-looking snapshots that feed future design docs and refactors. Default to `design/audits/YYYY-MM-DD-topic-name/audit.md` (narrative summary plus findings list), creating `design/audits/` if needed; if the project already saves audits elsewhere, follow that.
 
-Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and field definitions.
+## Not this skill
 
-Audit findings use the User-directed model with explicit option letters (A/B/C). Present CRITICAL and HIGH findings one at a time via AskUserQuestion. List the MEDIUM and lower findings together as a numbered list sent with `SendUserMessage`, then ask once which to file as issues ("Which of these should I file? Unselected ones are noted in the summary only"), taking the numbers as free text, since they are rarely worth a separate stop each and a multiSelect holds at most four. The options for an individual finding are:
-- **`A`** (or `fix`) — implement the fix now, using the finding's description.
-- **`B`** — create an issue in the project's issue tracker for this finding
-- **`C`** (or `skip`) — noted in session summary, no action
-
-**Multiple findings selected for build**: if several findings are being fixed, suggest an order of attack — highest impact first, dependency-aware (e.g., fix the circular dependency before refactoring the modules caught in the cycle).
-
-## Phase 4: Save Report
-
-After findings are resolved, save the audit to the repo and tell the user the path. Audits are backward-looking snapshots that feed into future design docs and refactors.
-
-Recommended convention — date-stamped directory under `design/audits/`:
-
-```
-design/audits/
-└── YYYY-MM-DD-topic-name/
-    ├── audit.md              Narrative summary + findings list
-    └── ...
-```
-
-Create `design/audits/` if it doesn't exist. If the project already saves audits elsewhere, follow the existing convention.
-
-## What This Skill Does NOT Do
-
-- **Fix anything** — this is diagnosis, not treatment. Fixes happen after the walkthrough
-- **Rewrite scores or letter grades** — subjective ratings create false precision. Instead: specific problems ranked by impact
-- **Profile performance** — runtime performance requires execution and profiling tools, not static analysis
-
-## Principles
-
-1. **Problems, not nitpicks** — surface things that actually hurt. A 60-line function that's clear and well-tested is not a finding.
-2. **Evidence over opinion** — every finding should cite specific files, line counts, churn data, or dependency chains. No vague "this could be better."
-3. **Rank by impact** — the user's time is limited. Put the thing that will cause the next production incident at the top.
-4. **Respect working code** — code that works, has tests, and isn't changing doesn't need attention just because it's old or imperfect.
-5. **Actionable handoff** — every finding should connect to a concrete next step, even if the user decides not to take it right now.
+Fixing happens after the walkthrough, not during diagnosis. No letter grades or scores (they're false precision; specific problems ranked by impact instead). Runtime performance needs profiling, not static analysis.

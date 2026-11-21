@@ -6,19 +6,20 @@ user-invocable: true
 
 # Domain Model
 
-Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary down the moment terms crystallize. (Merely *reading* `CONTEXT.md` for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
+Keep the project's domain language sharp while the design is changing. When the user says something vague, overloaded, or at odds with the glossary or the code, resolve it into a precise term and write it down in `CONTEXT.md` right then, so the project's vocabulary stays one shared thing rather than whatever each conversation happened to mean.
 
-## Direct Invocation
+This is the *active* discipline, for when the model is changing. Merely reading `CONTEXT.md` for vocabulary is a habit any skill can have without this one. The skill usually runs ambient, layered on a design conversation; invoked directly with a term (`/mine-domain-model "what does cancellation mean"`), treat the argument as the term in question and start by pinning it down.
 
-Most of the time this skill runs ambient, layered onto whatever design conversation is already happening. It can also be invoked directly with a term to pin down — e.g. `/mine-domain-model "what does cancellation mean"`. In that case, treat the argument as the term in question and open with the relevant question from [Sharpen fuzzy language](#sharpen-fuzzy-language).
+## What good looks like
 
-## File Structure
+- When the user states how something works, check the code rather than taking it on faith. Terms in conversation match `CONTEXT.md`. When the user's usage conflicts with a definition ("your glossary says 'cancellation' is X, but you seem to mean Y"), or with how the code behaves ("your code cancels entire Orders, but you just said partial cancellation is possible"), say so immediately and get the user to say which is right.
+- Fuzzy words get a canonical term. Ask one question at a time and attach a recommendation the user can confirm or correct ("'account': Customer or User? Recommendation: Customer, since the billing module already uses that term").
+- Relationships are stress-tested with concrete invented scenarios that probe edge cases, which force the user to be precise about where one concept ends and another begins.
+- Resolved terms go into `CONTEXT.md` as they resolve, not batched at the end.
 
-`CONTEXT.md` lives at the repo root. Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved, using the format in [CONTEXT.md Format](#contextmd-format).
+## `CONTEXT.md`
 
-## CONTEXT.md Format
-
-`CONTEXT.md` is a glossary of domain terms — the project's ubiquitous language. It is devoid of implementation details: no file paths, no class names, no framework mentions. Just what each term means in this project's domain.
+It lives at the repo root, and is created only when the first term is resolved. It is a glossary, the project's ubiquitous language, and nothing else: not a spec, scratch pad, or home for implementation decisions. No file paths, class names, framework mentions, or notes on how a term is stored or validated; that belongs in code.
 
 ```markdown
 # Context: <Project Name>
@@ -26,42 +27,12 @@ Most of the time this skill runs ambient, layered onto whatever design conversat
 ## Glossary
 
 ### <Term>
-<Definition — what it means in this project's domain. One or two sentences.>
-
-### <Term>
-<Definition>
+<Definition: what it means in this project's domain.>
 ```
 
-### CONTEXT.md Rules
+- One `###` entry per term, in whatever order reads naturally.
+- A definition is one or two sentences; if it needs more, it is probably two terms.
+- Cross-reference related terms by name inline ("A **Refund** is a partial or full reversal of a **Payment**, distinct from a **Cancellation** which reverses an **Order** before fulfillment") instead of nesting definitions.
+- When a definition changes, edit the entry in place; don't add a second entry or leave the old one as a comment.
 
-- One `###` entry per term, alphabetized is not required — order by relatedness or introduction order, whichever reads more naturally.
-- Definitions are one or two sentences. If a term needs more than that to explain, it is probably two terms.
-- Cross-reference related terms by name inline (e.g., "A **Refund** is a partial or full reversal of a **Payment**, distinct from a **Cancellation** which reverses an **Order** before fulfillment.") rather than nesting definitions inside each other.
-- Do not describe how a term is implemented, stored, or validated — that belongs in code, not here.
-- When a term's definition changes, edit the entry in place. Do not append a second entry for the same term or leave the old definition as a comment.
-
-## During the Session
-
-### Challenge against the glossary
-
-When the user uses a term that conflicts with the existing language in `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
-
-### Sharpen fuzzy language
-
-When the user uses vague or overloaded terms, propose a precise canonical term. Ask one question at a time, and attach your recommended answer so the user can confirm or correct rather than starting from a blank page: "You're saying 'account' — do you mean the Customer or the User? Those are different things. Recommendation: Customer, since the code's billing module already uses that term."
-
-### Discuss concrete scenarios
-
-When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
-
-### Cross-reference with code
-
-When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
-
-### Update `CONTEXT.md` inline
-
-When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen. Use the format in [CONTEXT.md Format](#contextmd-format).
-
-`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
-
-Concurrent sessions in separate worktrees can each resolve the same term differently; both entries can merge in cleanly with no conflict marker if they don't textually overlap. This is a known, self-correcting risk for a single-user glossary — not actively guarded against — so re-read a term's entry if it seems inconsistent with a session you don't remember writing.
+Concurrent sessions in separate worktrees can resolve the same term differently, and both entries can merge in without a conflict marker. That risk is accepted for a single-user glossary, so re-read a term's entry if it looks inconsistent with a session you don't remember.
