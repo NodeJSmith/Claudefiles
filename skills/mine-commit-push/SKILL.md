@@ -10,21 +10,23 @@ user-invocable: true
 - Current git diff (staged and unstaged changes): !`git diff HEAD`
 - Current branch: !`git branch --show-current`
 
-## About this skill
+## Goal
 
-Handles the "commit & push with quality gates" phase — standalone, and as Phase 1 of `mine-ship` (which adds PR creation).
+Land the current changes as clean commits on the remote, after the review and verification that make a push safe to trust. Standalone, and also the first stage of `mine-ship`.
 
-## Your task
+Commit and push are outward-facing and hard to take back, so the gates below run before them, not after.
 
-Based on the above changes:
+## Where commits go
 
-1. If on the default branch (run `git-default-branch` to check), create a new branch first.
-2. **COMMIT SCOPE CHECK:** Review the diff for unrelated changes that belong in separate commits (e.g., a feature + an unrelated bug fix, or a config change mixed with new functionality). If the changes clearly span distinct concerns, split them into one commit per concern and say so. Review and verification (steps 3-4) run once on the whole change, before the first commit. Ask the user only when the concerns interleave within the same hunks, or when the unrelated change plausibly belongs on a different branch or PR. If the changes are all part of one logical unit of work, continue.
-3. **CODE REVIEW (skip when a reviewer couldn't catch anything the tests and type checker wouldn't; criteria in Code Review Before Commit in `rules/common/git-workflow.md`):** Run the code-reviewer loop, then `integration-reviewer` + `wtf-reviewer` in parallel on the final diff — protocol and exit conditions as specified in `rules/common/git-workflow.md` (Code Review Before Commit). If the same CRITICAL or HIGH findings recur and cannot be auto-fixed, defer to the user — do not proceed to commit.
-4. **LOCAL VERIFICATION (skip for documentation-only changes):** Run tests + linter per `rules/common/commit-conventions.md` (Local Verification Before Commit), plus one gate that file doesn't cover:
-   - **TEST PRESENCE CHECK (skip if no test command was found — the repo has no test infrastructure. Also skip for changes exempt per the Test Co-location rule in `references/common/testing.md`):**
-     Review the branch diff (`git diff --name-only` against the default branch). If the diff contains new or changed source files but zero changes in test files (no files matching common test patterns like `test_*`, `*_test.*`, `*_spec.*`, `__tests__/`), write the missing tests yourself, following the repo's test conventions, and include them in the commit. The trap is a test that exists to satisfy this check: one that asserts nothing, or mirrors the implementation. A test earns its place if it would fail with the change reverted. If no meaningful test is feasible, proceed and say so in one line: "no tests added: <reason>".
-5. Stage all relevant files.
-6. For multi-line commit messages, run `mktemp -d <scratchpad>/mine-commit-XXXXXX` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md` — cleaner than embedding a heredoc on the command line. For simple one-line messages, `git commit -m "..."` is fine.
-7. Push the branch to origin (use `-u` flag only if you just created a new branch).
-8. You MUST do steps 5–7 (stage, commit, push) in a single message; when splitting into several commits, stage and commit each in turn in that same message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
+By default, never commit to the default branch (`git-default-branch`): create a branch first, and set the upstream if the branch has none. Any rule in the user's or repo's instructions that changes where commits land or how they're published (for example a repo that takes direct pushes to the default branch) wins over this default. Follow it without asking.
+
+## Before committing
+
+- **Scope.** Changes that span distinct concerns (a feature plus an unrelated fix, config mixed with new behavior) become one commit per concern, and you say so. Review and verification run once on the whole change, before the first commit. Ask only when concerns interleave within the same hunks, or when an unrelated change plausibly belongs on another branch or PR.
+- **Review.** Run the code review in `rules/common/git-workflow.md` (Code Review Before Commit), including its skip criteria and loop. If the same CRITICAL or HIGH findings keep recurring and can't be auto-fixed, stop and defer to the user instead of committing.
+- **Verification.** Skip for prose-only docs; instruction files (skills, rules, agent prompts) still get the repo's lint. Otherwise run tests and linter per `rules/common/commit-conventions.md` (Local Verification Before Commit), and fix failures first.
+- **Test presence.** Skip when the repo has no test infrastructure or the change is exempt under the Test Co-location rule in `references/common/testing.md`. If the diff against the default branch has new or changed source but no test changes, write the missing tests yourself, in the repo's conventions, and commit them with the change. A test that exists only to satisfy this check (asserts nothing, mirrors the implementation) is the trap: a test earns its place if it would fail with the change reverted. If no meaningful test is feasible, say "no tests added: <reason>" in one line.
+
+## Committing and pushing
+
+Stage the relevant files, commit only what passed the gates, and push only after the commit succeeded: chain them (`git add ... && git commit ... && git push`) so a rejected commit never pushes the old HEAD and gets reported as shipped. When splitting, chain each commit in turn. If a hook rejects or reformats, fix it, re-stage, and retry; if the push is rejected, handle it per the user's rules, and don't report success until the push lands. For a multi-line message, make a directory with `mktemp -d <scratchpad>/mine-commit-XXXXXX`, write `<dir>/message.md`, and use `git commit -F <dir>/message.md`; a one-line message can use `-m`.
