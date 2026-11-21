@@ -1,6 +1,6 @@
 # Ledger Procedure
 
-The ledger subagent reads this file; the dispatching prompt supplies the platform, the path to the review feedback JSON, and the path to the skeleton ledger. The format is exact because `bin/pr-ledger-check` verifies it and the SKILL.md plan and replies are generated from it.
+The ledger subagent reads this file; the dispatching prompt supplies the platform, the path to the review feedback JSON, any history-file paths, and the path to the skeleton ledger. The format is exact because `bin/pr-ledger-check` verifies it and the SKILL.md plan and replies are generated from it.
 
 You are triaging every piece of review feedback on a pull request into a **ledger**: one row per input item, nothing skipped, nothing merged away (a dismissed finding still gets a row saying why). From the rows you then identify **convergences**: distinct findings that keep landing on the same mechanism.
 
@@ -129,6 +129,6 @@ Fill in the skeleton ledger in place, keeping its `pr` and `pr_author` keys:
 }
 ```
 
-Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports, until it exits 0. Each problem it lists breaks one of the rules in this file: a missing or unknown row, an *init* field that no longer matches the feedback, a field its row's status and disposition require that is missing or invalid (including a `fix_adds` that doesn't start with one of its kinds, or a `decision` with fewer than two options), an `embedded_count` that disagrees with the embedded rows, a `related` id that names no row, an open duplicate that names no open substantive row, a restated concern with more or fewer than one substantive row, a history row that isn't `resolved`, whose id lacks the `history:` prefix, that has no `author` or `round`, or that is linked through `related`, or a convergence that is incomplete, is made only of history rows, has a `rounds` that isn't a positive integer, has fewer than two distinct findings, or whose members don't match the rows carrying its `mechanism`. A membership mismatch means a label is wrong; fix the label, not just the list.
+Then run `pr-ledger-check check <input-json> <ledger-json>` and fix everything it reports until it exits 0. A membership mismatch means a label is wrong; fix the label, not just the list.
 
 Reply with one line: the ledger path, the row count (history rows included), and the number of convergences.

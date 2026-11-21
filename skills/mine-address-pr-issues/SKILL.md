@@ -56,7 +56,7 @@ History matters as much as threads: if the PR builds a sketch ledger, that featu
 
 A convergence doesn't need multiple rounds: one round whose findings share a mechanism counts. Build the ledger unless convergence is plainly impossible (a couple of unrelated findings, or a round of only typo and docs fixes); with history files present, a thin PR doesn't rule it out.
 
-Skip the ledger when convergence is plainly impossible or there is no open feedback (then the plan covers only conflicts and CI). Either way the plan is still shown and approved; only how it is built changes. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Hand-built replies still carry the marker a re-run recognizes: a thread reply ends with `<!-- addressed-pr-issues -->`, and a PR comment answering item X ends with `<!-- addressed-pr-issues:X -->`; a thread whose last reply from the user's account ends with that marker was already answered. Leave out every `ledger.json`/`plan.json` step below.
+Skip the ledger when convergence is plainly impossible or there is no open feedback (then the plan covers only conflicts and CI). Either way the plan is still shown and approved; only how it is built changes. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Hand-built replies carry the same markers (see Responses). Leave out every `ledger.json`/`plan.json` step below.
 
 Steps, in this order:
 
@@ -109,39 +109,48 @@ Then ask, and wait for the answer before changing anything: no merge, rebase, or
 
 ## Execute
 
+Fixes and their tests have to run on the code that will be pushed, so the order is: merge or rebase, CI fixes, group fixes, review over all of it, commits, one push.
+
+### Merge or rebase, then CI fixes
+
+Apply the approved merge or rebase first, on a clean tree, then the CI fixes (tests run after each). Leave them uncommitted until review.
+
 ### Fix each group, serially
 
 Per group, launch a **`standard-worker`** subagent giving it the comments (bodies, paths, lines), the root cause (the row's `root_cause`, or your triage), the approved fix, any resolved decision, the deepest `depth` among the group's rows so none is under-investigated, and an output path `<tmpdir>/group-N/result.md`. Tell it:
 
-- Investigate to the depth given: `light` is read the target file; `medium` is also grep the callers and read at least one; `deep` is read all callers, related tests, and adjacent modules.
+- Investigate until you know what this change could break, to the depth given: `light` (the target file is enough), `medium` (callers matter), `deep` (the contract itself is in question).
 - Apply the fix, then run the project's test suite (discovery order in `references/common/testing.md`). On failure, revise the fix; three attempts, then escalate.
 - Give it the failure modes listed in the opening section, plus never skipping a test or marking it as an expected failure.
 - Put a one-line summary first in the output file, details below.
 
-Read only the first line of each result file.
+Read only the first line of each result file, which keeps worker output out of your context; read the rest when the summary reports an escalation or failure.
 
 ### Review, then commit and push
 
+
 Run **code-reviewer** on the modified files and auto-fix unambiguous CRITICAL/HIGH findings, deferring judgment calls to the user. Re-run it after fixes (at most 3 rounds, unless the fixes all fall under the skip criteria in `git-workflow.md`, Code Review Before Commit), then run **integration-reviewer** once on the final diff. Commit nothing until both pass; if CRITICAL/HIGH findings remain after 3 rounds, present them to the user first.
 
-Resolve any approved merge or rebase and CI fixes first, then commit per logical group with descriptive conventional messages, then push once after all commits so the single push carries all of it.
+Then commit per logical group with descriptive conventional messages, and push once after all commits so the single push carries all of it.
 
 ### Responses
 
-Only after the push is confirmed, act on every item in `plan.json`'s `responses` (or the hand-built list), in order. The plan already covers every open row and leaves out what earlier runs finished, so act exactly on it. Each item says what's needed: post one message when `reply` is true (one line per entry in `lines`), and resolve the thread when `resolve` is true. They are separate calls: `reply` false with `resolve` true is a thread an earlier run replied to but didn't resolve, so resolve without posting again. Drop lines for rows the user skipped; if all of an item's lines are dropped, post nothing and resolve only when `reply` is false.
+Only after the push is confirmed (or you know there was nothing to push), act on every item in `plan.json`'s `responses` (or the hand-built list), in order. The plan already covers every open row and leaves out what earlier runs finished, so act exactly on it. Each item says what's needed: post one message when `reply` is true (one line per entry in `lines`), and resolve the thread when `resolve` is true. They are separate calls: `reply` false with `resolve` true is a thread an earlier run replied to but didn't resolve, so resolve without posting again. Drop lines for rows the user skipped; if all of an item's lines are dropped, post nothing and resolve only when `reply` is false.
 
 Wording follows each line's `answer`; `with` names the row carrying the concern, so link it.
 - `fixed`: "Fixed — [what changed]." With `with`: "Fixed together with [link] — [what changed]."
 - `already-addressed`: "Already addressed — [evidence from the carrying row's `disposition_reason`]." If the code is gone: "The code at this location was refactored and this concern no longer applies."
 - `not-acting`: "Not planning to change this — [the carrying row's `disposition_reason`]."
 
-A `pr-comment` item answers a body or conversation comment, which has no thread: link the item in `about` and start each line with the finding it answers so it reads alone. End every message with the item's `marker`; a re-run uses it to know the feedback was answered and to tell this skill's comments from new feedback.
+A `pr-comment` item answers a body or conversation comment, which has no thread: link the item in `about` and start each line with the finding it answers so it reads alone. End every message with the item's `marker` (on the hand-built path: `<!-- addressed-pr-issues -->` for a thread reply, `<!-- addressed-pr-issues:X -->` for a PR comment, where `X` is the URL of the comment answered). A re-run uses markers, counted only at the very end of a message, to know feedback was answered and to tell this skill's comments from new feedback: a thread is answered only if a marker reply exists and nobody but the PR author commented after it; a PR comment is answered when a marker names its URL.
 
 | `channel` | GitHub | ADO |
 |---|---|---|
-| `thread`, `reply` true | `gh-pr-reply {PR} {comment_id} "{body}"`, plus `--resolve {thread_id}` when `resolve` is true | `ado-api pr reply {PR} {thread_id} "{body}"`, then `ado-api pr resolve {PR} {thread_id}` when `resolve` is true |
+| `thread`, `reply` true | `gh-pr-reply {PR} {comment_id} --body-file <tmpdir>/response-N.md`, plus `--resolve {thread_id}` when `resolve` is true | `ado-api pr reply {PR} {thread_id} --body-file <tmpdir>/response-N.md`, then `ado-api pr resolve {PR} {thread_id}` when `resolve` is true |
 | `thread`, `reply` false | `gh-pr-resolve-thread {thread_id}` | `ado-api pr resolve {PR} {thread_id}` |
-| `pr-comment` | write the body to `<tmpdir>/response-N.md`, then `gh pr comment {PR} --body-file <tmpdir>/response-N.md` | not produced (ADO carries all conversation in threads) |
+| `pr-comment` | `gh pr comment {PR} --body-file <tmpdir>/response-N.md` | not produced (ADO carries all conversation in threads) |
+
+Write every body to its `<tmpdir>/response-N.md` first, so backticks in a reply never reach the shell.
 
 `resolve` is true for open threads raised by a bot or the PR author. A human reviewer's thread gets the reply only, so they can verify the change and resolve it themselves. Wait 1 second between mutating API calls.
 
