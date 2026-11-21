@@ -6,163 +6,33 @@ user-invocable: true
 
 # Humanize
 
-Fix prose that reads as AI-generated. This skill edits text that already exists -- PR descriptions, commit messages, docs, research briefs, skill files, rule files. For code quality, use `/mine-clean-code`.
+Edit existing prose (PR descriptions, commit messages, docs, research briefs, skill and rule files) so it stops reading as AI-generated. The tells are structural (negative parallelisms, tricolon lists, resolution closers) and lexical (delve, tapestry, crucial). Readers spot them and discount the text even when the content is right. For code quality use `/mine-clean-code`.
 
-Agents default to generating text that reads as generated. The tells are structural (negative parallelisms, tricolon lists, resolution closers) and lexical (delve, tapestry, crucial). Readers develop an instinct for it and discount the text even when the content is correct.
+Done means the tells are gone, the meaning and every factual claim are unchanged, and the result doesn't read as sanded flat.
 
-The pattern reference is `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md`. Read it in full before starting any analysis.
+The pattern reference is `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md`. Read it in full before analyzing.
 
 ## Arguments
 
-$ARGUMENTS -- the target. Can be:
-- A file path: `/mine-humanize design/research/brief.md`
-- A directory: `/mine-humanize design/` (processes all `.md` files)
-- Empty: check for staged prose files first (`git diff --cached --name-only | grep -E '\.(md|txt|rst)$'`), then ask
+$ARGUMENTS — a file, a directory (its `.md`, `.txt`, `.rst` files, skipping `node_modules` and `.git`; ask to narrow if there are more than 10), or empty. If empty, use staged prose files (`git diff --cached --name-only`); if none, ask what to humanize, accepting a path or pasted text. Pasted text goes to a temp file under `mktemp -d <scratchpad>/mine-humanize-XXXXXX` and is treated as general prose.
 
-If $ARGUMENTS is empty and nothing is staged:
+## How to approach it
 
-```yaml
-AskUserQuestion:
-  question: "What should I humanize?"
-  header: "Target"
-  multiSelect: false
-  options:
-    - label: "Pick a file"
-      description: "I'll give you a file or directory path"
-    - label: "Paste text"
-      description: "I'll paste text in the next message for you to edit"
-```
+**Match the register to the text.** Infer the type from path and content and say what you're treating it as: research briefs are analytical and may use first person; commit messages are terse and imperative; PR descriptions are narrative but tight and outcome-focused; instruction files (`skills/`, `rules/`, `agents/`) are direct and imperative with no hedging; docs and READMEs are clear and concrete; other prose is balanced with varied rhythm.
 
-If the user picks "Paste text", wait for their next message, then treat the pasted content as the target. Write it to a temp file (via `mktemp -d <scratchpad>/mine-humanize-XXXXXX`), classify as "General prose", and proceed to Phase 2.
+**Leave non-prose alone.** Code blocks, inline code, URLs, frontmatter, tables, HTML, file paths, and command examples are accuracy-critical or structurally fixed. Edit only the prose between them.
 
-## Phase 1: Scope and Classify
+**Analyze, then fix.** Scan against the reference and number the findings across files so the user can refer to them: pattern, `file:line`, quoted text, suggested fix, grouped by file. End with the count by type. With zero findings, say so and stop.
 
-### Resolve target files
+**The invocation is the request to fix**, so choose the mode and go, naming it and why in one line:
+- Surgical edits for a few scattered vocabulary or style issues. Subtract first, with minimal targeted changes that keep meaning and register. Then re-read the file from disk, which forces a real second reading, to catch cascading tells and sterile patches and, where the register allows, restore rhythm, specificity, and voice.
+- Full rewrite when structural issues pervade most paragraphs. Rewrite from scratch in the target register, preserving all technical content, protected regions, and claims; show a before/after for each file and apply it only after the user accepts it, with options to adjust or reject.
+- Cherry-pick only when the user named which findings to apply or skip: apply exactly those, report applied and skipped, and don't ask again.
 
-If the target is a directory, find prose files:
+**Protect against loss.** A tracked file with no uncommitted changes can be restored from git. For an untracked or uncommitted-changes target, back it up to a `mktemp -d <scratchpad>/mine-humanize-XXXXXX` directory before editing and say where.
 
-```bash
-find <path> -type f \( -name '*.md' -o -name '*.txt' -o -name '*.rst' \) -not -path '*node_modules*' -not -path '*/.git/*'
-```
+When finished, summarize the files and changes made.
 
-If more than 10 files, ask to narrow scope.
+## Out of scope
 
-### Detect text type
-
-For each file, infer the register from its path and content:
-
-| Signal | Text type | Register |
-|--------|-----------|----------|
-| Path contains `design/` or file named `*brief*`, `*research*` | Research brief | Analytical, evidence-grounded, can use first person |
-| Commit message (piped or `.gitmessage`) | Commit message | Terse, imperative, no filler |
-| PR description or `PULL_REQUEST_TEMPLATE` | PR description | Narrative but tight, outcome-focused |
-| Path under `skills/` or `rules/` or `agents/` | Instruction file | Direct, imperative, no hedging |
-| Path under `docs/` or named `README*`, `CONTRIBUTING*` | Documentation | Clear, scannable, concrete examples |
-| Other `.md` files | General prose | Balanced, specific, varied rhythm |
-
-Surface the inferred type: "Treating `design/brief.md` as a research brief. Editing for analytical register."
-
-## Phase 2: Analyze
-
-### Content protection
-
-Protect regions where accuracy is mandatory or the content is structurally fixed, not prose. Edits to these regions would corrupt meaning. Common cases:
-- Fenced code blocks (``` or ~~~)
-- Inline code (backticks)
-- URLs and link references
-- YAML frontmatter (between `---` markers at file start)
-- Tables (lines starting with `|`)
-- HTML tags and blocks
-- File paths and command examples
-
-Analyze only the prose between protected regions.
-
-### Scan for patterns
-
-Read each file and identify AI writing patterns from writing-quality.md. Number each finding sequentially across all files. For each:
-
-```text
-- **Finding N** — [Pattern name] (file:line): "quoted text" → suggested fix
-```
-
-Group by file, then by category (AI Vocabulary, Structural, Style, Communication). For multi-file targets, emit progress: `Scanning [N/total]: <filename>`.
-
-End with a summary: `Found N issues across M files (X vocabulary, Y structural, Z style)`.
-
-### Choose the fix mode
-
-If there are zero findings, say "No AI writing patterns found." and stop.
-
-The user invoking this skill is the request to fix, so choose the mode from the count and type of issues and go:
-
-- **Surgical edits** (default): a few scattered vocabulary or style issues.
-- **Full rewrite**: the issues are structural and pervasive (most paragraphs affected). It has its own accept step per file.
-- **Cherry-pick**: only when the user said which findings to apply or skip, in the request or in a reply to the findings list. Apply exactly those; don't ask again.
-
-Say which mode you chose and why in one line. Git can restore a tracked file with no uncommitted changes; a target that is untracked or has uncommitted changes has no such copy, so write a backup to `mktemp -d <scratchpad>/mine-humanize-XXXXXX` before editing it and say where it is.
-
-## Phase 3: Fix
-
-### Surgical edits
-
-Two-pass editing, one file at a time. For multi-file targets, emit progress: `Editing [N/total]: <filename>`.
-
-**Pass 1 -- Subtract.** Fix the identified findings with minimal, targeted changes:
-- Replace AI vocabulary with plain words
-- Restructure negative parallelisms ("it's not X -- it's Y" → state Y directly)
-- Break tricolon lists to their natural count (2 or 4 items)
-- Cut resolution closers that restate what was just said
-- Remove filler phrases, excessive hedging, chatbot phrases
-- Fix em-dash and colon overuse (periods or commas)
-- Cut significance inflation and abstract metaphor nouns
-- Convert inline-header lists to prose where the bold label restates the line
-
-Apply pass 1 edits via the Edit tool. Preserve the author's meaning and the text type's register.
-
-**Pass 2 -- Re-read and add voice.** Read the file back from disk (this forces genuine re-reading of edited content, not continuation from the same context). This pass catches:
-- Cascading tells: vocabulary fixes that exposed structural patterns, or structural fixes that created new vocabulary tells
-- Sterile patches: sections where pass 1 removed everything interesting and left flat, lifeless prose
-- Voice injection (for text types that warrant it): vary rhythm, add specificity, let opinions through where the register allows
-
-Apply pass 2 edits. After all files are edited, show a summary:
-
-```text
-Edited N files, M changes total.
-- file1.md: X changes (vocabulary: A, structural: B, style: C)
-- file2.md: Y changes (...)
-```
-
-### Full rewrite
-
-One file at a time. For each file:
-
-1. Read the file and understand its meaning, intent, and factual claims
-2. Generate the rewrite in memory (do not call Edit yet)
-3. Present a before/after diff
-4. Ask:
-
-```yaml
-AskUserQuestion:
-  question: "Accept this rewrite of {filename}?"
-  header: "Accept"
-  multiSelect: false
-  options:
-    - label: "Accept"
-      description: "Apply the rewrite"
-    - label: "Adjust"
-      description: "I'll tell you what to change"
-    - label: "Reject"
-      description: "Keep the original, skip this file"
-```
-
-Only call Edit on Accept. Rewrite from scratch in the target register -- preserve all technical content, protected regions, and factual claims but restructure freely.
-
-### Cherry-pick
-
-Apply only the findings the user named (by the numbers from Phase 2), and report which were applied and which were skipped.
-
-## What This Skill Does NOT Do
-
-- **Code quality** -- use `/mine-clean-code` for LLM-bias patterns, deferred debt, and style hygiene in code
-- **Prevention** -- `writing-quality.md` is a reference file loaded on demand via the Domain References meta-rule. This skill fixes text after the fact.
-- **AI detection scoring** -- edits for quality, not to fool classifiers
+Code quality (`/mine-clean-code`), preventing the patterns at writing time (`writing-quality.md` is loaded on demand for that), and scoring against AI detectors. This edits for quality, not to fool classifiers.

@@ -6,194 +6,23 @@ user-invocable: true
 
 # How
 
-Interactive subsystem explanation grounded in actual code. Reads the real files, traces the runtime flow, and explains as a narrative walkthrough with file:line references. Every explanation is accuracy-reviewed before presenting.
+Give the user a mental model of how part of the codebase works, as a conversational walkthrough grounded in the code as it is now. Every claim carries a file:line reference, the explanation says why the code is shaped that way and not just what it does, and it is checked against the code before the user sees it. It is pitched at senior-engineer depth: the reader knows the language, not this codebase.
 
-## How This Differs From Other Skills
-
-| Skill | What it produces |
-|-------|-----------------|
-| **`/mine-how`** | **Conversational walkthrough — builds a mental model** |
-| `/mine-document` | Durable write-up — same investigation, written to a file that survives code churn |
-| `architect` agent | Documentation artifacts — Mermaid diagrams, architecture overviews |
-| `/mine-research` | Investigation brief — evaluates feasibility of a proposed change |
+Related skills: `/mine-document` writes a durable file-based version of the same investigation; `/mine-research` evaluates a proposed change; the `architect` agent produces diagrams and overviews. This one is ephemeral and stays in the conversation.
 
 ## Arguments
 
-$ARGUMENTS — the question to answer. Can be:
-- A subsystem question: `/mine-how "how does mine-challenge pick its critics?"`
-- A runtime flow: `/mine-how "walk me through what happens when a webhook arrives"`
-- A specific mechanism: `/mine-how "how does the rate limiter work?"`
-- A file/module: `/mine-how src/services/auth.py`
-- Empty: ask the user what they want to understand
+$ARGUMENTS — the question: a subsystem, a runtime flow, a mechanism, or a file/module. If empty, ask what they want to understand.
 
-## Phase 1: Assess Complexity
+## How to approach it
 
-If $ARGUMENTS is empty:
+- **Scale the investigation to the question.** One narrow function, class, or a few files: one agent reading the code is enough. A flow across modules or a named subsystem: split it into 2-4 distinct angles (entry and dispatch, error path, state, data in/out), run them as parallel `light-worker` explorers, then have a `standard-worker` weave their findings into one narrative, resolving conflicts by reading the code. When unsure, go wide; explorers are cheap and a single agent guessing at cross-module flow isn't.
+- **Check past conversations first** with `ccrecall --json search-messages -q "<the user's question>" -n 5`. Pass relevant matches to the investigators as a short digest, marked as something to verify against current code. Skip it if nothing relevant comes back.
+- **Surprising or unclear code gets called out**, not smoothed over. Write it as a walkthrough, not a bullet list.
+- **Review for accuracy before presenting.** A separate agent verifies each file:line claim against the code, plus flow order and missing aspects. It writes either `ACCURATE` or `CORRECTIONS` on the first line of its review; for corrections it writes the full corrected explanation with `[CORRECTED: reason]` annotations. Present the clean version with those annotations stripped.
 
-```
-AskUserQuestion:
-  question: "What would you like me to explain?"
-  header: "Question"
-  multiSelect: false
-  options:
-    - label: "I'll type my question"
-      description: "Ask about any subsystem, flow, or mechanism in this codebase"
-    - label: "What's the architecture?"
-      description: "High-level overview of how this project is structured"
-```
+Create a working directory with `mktemp -d <scratchpad>/mine-how-XXXXXX` before dispatching; agents write their findings there as files and you pass them paths.
 
-Assess whether the question is **simple** or **complex**:
+## Done looks like
 
-- **Simple** — the answer lives in 3 or fewer files. The question names a single function, class, file, or narrowly-scoped mechanism.
-- **Complex** — the answer spans 4+ files or traces a runtime flow across modules. The question uses words like "flow", "pipeline", "lifecycle", "subsystem", or names a skill/workflow/feature.
-
-When uncertain, default to complex — parallel explorers are cheap and produce better results than a single agent guessing at cross-module flows.
-
-## Phase 2: Investigate
-
-### Check prior conversations
-
-Before dispatching investigation agents, run:
-
-```bash
-ccrecall --json search-messages -q "<the user's question>" -n 5
-```
-
-If it returns relevant matches, condense them into a short digest (what was discussed, when) to pass along as `<prior-context>`. If nothing relevant comes back, skip this — don't pad the prompt with a null result.
-
-### Simple path
-
-Dispatch one agent:
-
-```
-Agent(subagent_type: "standard-worker")
-```
-
-Prompt:
-
-```
-Answer this question about the codebase by reading the actual code:
-
-Question: <the user's question>
-[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
-
-Instructions:
-1. Find the relevant files using Grep and Glob
-2. Read each file that contributes to the answer
-3. Trace the runtime flow — what calls what, what data flows where
-4. Write a narrative explanation to <dir>/explanation.md
-
-Format rules:
-- Write as a walkthrough, not a bullet list — guide the reader through the flow
-- Reference every claim with file:line (e.g., "the handler at src/api/routes.py:45 dispatches to...")
-- Explain WHY the code is shaped this way, not just WHAT it does
-- If something is unclear or seems wrong in the code, say so — don't paper over it
-- Keep it at senior-engineer depth — assume the reader knows the language but not this codebase
-```
-
-### Complex path
-
-First, decompose the question into 2-4 investigation angles. Each angle should cover a distinct aspect of the answer. Examples:
-- "Entry point and dispatch" / "Error handling path" / "State management" / "Caller chain"
-- "Data flow in" / "Processing" / "Data flow out" / "Edge case handling"
-- "Configuration and setup" / "Runtime behavior" / "Shutdown and cleanup"
-
-Dispatch 2-4 parallel explorer agents:
-
-```
-Agent(subagent_type: "light-worker")  # for each angle
-```
-
-Each explorer prompt:
-
-```
-Investigate one aspect of a subsystem for an explanation being assembled.
-
-Question: <the user's question>
-Your angle: <this explorer's specific angle>
-
-Instructions:
-1. Find files relevant to your angle using Grep and Glob
-2. Read each file and trace the flow specific to your angle
-3. Write your findings to <dir>/explorer-N.md
-
-Include:
-- File paths and line numbers for every claim
-- The sequence of calls or data flow you traced
-- Anything surprising, unclear, or potentially wrong in the code
-
-Stay focused on your angle — other explorers are covering other aspects.
-```
-
-After all explorers complete, dispatch a synthesis agent:
-
-```
-Agent(subagent_type: "standard-worker")
-```
-
-Synthesis prompt:
-
-```
-Synthesize explorer findings into a single narrative explanation.
-
-Question: <the user's question>
-[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
-
-Explorer findings (read each file):
-<list of explorer-N.md paths>
-
-Instructions:
-1. Read all explorer findings
-2. If explorers conflict on the same code path, read the code directly to resolve
-3. Weave findings into a single narrative walkthrough — not a section-per-explorer dump
-4. Write the explanation to <dir>/explanation.md
-
-Format rules:
-- Write as a walkthrough, not a bullet list
-- Reference every claim with file:line
-- Explain WHY the code is shaped this way, not just WHAT it does
-- Where explorers found surprising or unclear code, call it out
-- Keep it at senior-engineer depth
-```
-
-## Phase 3: Accuracy Review
-
-Dispatch a review agent:
-
-```
-Agent(subagent_type: "standard-worker")
-```
-
-Review prompt:
-
-```
-Review this explanation of a codebase subsystem for accuracy.
-
-Original question: <the user's question>
-Explanation: <dir>/explanation.md (read this file)
-
-Instructions:
-1. Read the explanation
-2. For every file:line reference, read that file and verify the claim
-3. Check for:
-   - Functions or classes that don't exist or are named differently
-   - Flow descriptions that skip steps or get the order wrong
-   - Claims about behavior that the code doesn't support
-   - Missing important aspects the explanation should have covered
-4. Write your review to <dir>/review.md
-
-Output format:
-- If accurate: write "ACCURATE" on the first line, then optionally note any minor additions that would strengthen the explanation
-- If corrections needed: write "CORRECTIONS" on the first line, then write a corrected version of the full explanation incorporating your fixes. Annotate each correction with [CORRECTED: reason].
-```
-
-## Phase 4: Present
-
-Run `mktemp -d <scratchpad>/mine-how-XXXXXX` before Phase 2 to establish `<dir>`.
-
-After the review completes, read `<dir>/review.md`:
-
-- If it starts with "ACCURATE": read and present `<dir>/explanation.md` to the user
-- If it starts with "CORRECTIONS": present the corrected explanation from the review file, stripping the `[CORRECTED: ...]` annotations — the user sees the clean version only
-
-Present the explanation as conversational text in the main context. Do not write files, create documents, or produce artifacts.
+The explanation is presented as conversational text in the main context. No files, documents, or artifacts are produced for the user.

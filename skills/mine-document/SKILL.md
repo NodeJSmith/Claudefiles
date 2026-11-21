@@ -6,257 +6,41 @@ user-invocable: true
 
 # Document
 
-Writes a durable explanation of a subsystem, flow, or mechanism — one that stays accurate across routine code changes because it describes **shape and responsibility**, not lines and locals.
+Write a durable explanation of a subsystem, flow, or mechanism: one that stays accurate across routine code changes because it describes shape and responsibility, not lines and locals.
 
-## How This Differs From Other Skills
-
-| Skill | What it produces |
-|-------|-----------------|
-| **`/mine-document`** | **Durable write-up — describes components, flows, and decisions at architectural altitude** |
-| `/mine-how` | Conversational walkthrough — builds a mental model with file:line provenance, ephemeral |
-| `architect` agent | Living architecture overview — Mermaid diagrams, narrative docs, TBD-tracking, whole-codebase scope |
-| `/mine-research` | Investigation brief — evaluates feasibility of a proposed change |
-
-The key distinction from `/mine-how`: that skill pins every claim to a line number, which makes it precise but fragile. This skill anchors to **named components and file-level references**, which survive refactors, renames within a file, and line count changes. The tradeoff is less precision — a reader may need to open a file and search, rather than jumping to an exact line.
+That durability is the point and the trade-off. `/mine-how` pins every claim to a line number, which is precise but stale after the next edit. This skill anchors to named components and file-level references that survive refactors, renames within a file, and line-count changes. A reader may have to open a file and search; that is the accepted cost. Related: `/mine-research` evaluates a proposed change; the `architect` agent produces whole-codebase architecture overviews with diagrams.
 
 ## Arguments
 
-$ARGUMENTS — what to document. Can be:
-- A subsystem: `/mine-document "the challenge pipeline"`
-- A runtime flow: `/mine-document "webhook ingestion"`
-- A mechanism: `/mine-document "rate limiting"`
-- A file/module: `/mine-document src/services/auth.py`
-- Empty: ask the user what they want documented
+$ARGUMENTS — what to document: a subsystem, a runtime flow, a mechanism, or a file/module. If empty, ask what they want documented, offering to scan the codebase and suggest 2-3 subsystems complex enough to benefit (recent churn and large files are good signals), each with a one-line rationale.
 
-## Phase 1: Scope
+## Where it goes
 
-Run `mktemp -d <scratchpad>/mine-document-XXXXXX` to establish `<dir>` for all intermediate files.
+Use `docs/` or `design/` if the repo already has one holding documents, preferring the one with similar ones; with no convention, default to `docs/` (relative to the session's cwd). Name the file with a kebab-case slug of the subject (about 40 chars max). Tell the user the path in the final summary. `scripts/hooks/project-docs-check.sh` invokes this skill with a subject and its own placement decision, so a location named by the caller wins.
 
-If $ARGUMENTS is empty:
+If the target file exists, hold its content as prior content and pass it to the investigators so hand-added material the code still supports survives. If it is tracked with no uncommitted changes, git holds the old version: say you're refreshing it and continue. If it is untracked or has uncommitted changes, an overwrite could lose work git can't restore, so ask the user whether to overwrite or cancel first, and leave the file alone on cancel.
 
-```
-AskUserQuestion:
-  question: "What would you like me to document?"
-  header: "Subject"
-  multiSelect: false
-  options:
-    - label: "I'll type the subject"
-      description: "Name a subsystem, flow, or mechanism in this codebase"
-    - label: "Suggest a subject"
-      description: "Scan the codebase and suggest subsystems worth documenting"
-```
+## What a good document is
 
-If "Suggest a subject": scan the codebase for documentation candidates — look at directory structure, recently modified files (`git log -n 20 --diff-filter=M --name-only --format=`), and large files. Identify 2-3 subsystems that are complex enough to benefit from a durable explanation. Present them via `AskUserQuestion` with a brief rationale for each.
+Conversational, like a knowledgeable teammate rather than a reference manual, at senior-engineer depth. It is descriptive narrative, not a procedure for the reader to perform, and not a field-by-field catalog. In particular:
 
-Then decide where the output goes. If the repo already has one of `docs/` or `design/` with existing documents, use it and tell the user the path; if both exist, use the one holding similar documents. When there is no convention, default to `docs/` and say where the document went in the final summary.
+- **Include:** named components and which files own what; responsibilities and runtime flow as a narrative; why the system is shaped this way; invariants the system relies on that aren't obvious from one file; data shapes at boundaries (what goes in and out, shape-level); what the subsystem expects from its callers and dependencies. A shape like overview, components, flow, decisions and invariants, boundaries fits this well, but let the subject decide.
+- **Leave out:** line numbers, local variable names, method names that aren't stable API surfaces, exhaustive parameter lists. These are what rot. Boundary and contract content drifts into reference-mode enumeration most easily.
+- **Say so** when code is unclear or looks wrong.
 
-Derive `<slug>` from the subject (kebab-case, max ~40 chars). Determine the full output path from the chosen directory + slug.
+## How to approach it
 
-**Existing file check:** If the target path already exists, read its content and hold it as `<prior-content>` — it will be passed to investigation/synthesis agents in Phase 2 so manually-added material can be preserved. If the file is tracked and has no uncommitted changes (`git status --porcelain -- <path>` is empty), git holds the prior version: say "Refreshing the existing document at <path> (prior content kept as context)" and proceed. If it has uncommitted changes or is untracked, overwriting could lose work git can't restore, so ask:
+- **Scale the investigation.** Three or fewer files: one `standard-worker` reads the code and writes the explanation. Wider: split into 2-4 angles (entry and dispatch, error path, state, data in/out), run parallel `light-worker` explorers who report file paths (no line numbers), then a `standard-worker` synthesizes, reading the code to resolve conflicts. When unsure, go wide. Intermediate files go in a directory from `mktemp -d <scratchpad>/mine-document-XXXXXX`.
+- **Check past conversations** with `ccrecall --json search-messages -q "<the subject>" -n 5`. Rationale is often discussed and never written down, which makes this useful for the decisions and invariants part. Pass relevant matches to investigators as a digest to verify against current code; skip if nothing relevant.
+- **Review for structural accuracy, not line accuracy.** A separate agent checks that components exist with the described responsibilities, the flow matches the real call chain, the invariants are real, boundary shapes match, nothing is missing, and no implementation detail or procedural/catalog drift crept in. It writes `ACCURATE` or `CORRECTIONS` on the first line; for corrections it writes the full corrected document with `[CORRECTED: reason]` annotations. Use the clean version with those stripped.
 
-```
-AskUserQuestion:
-  question: "<path> has uncommitted changes (or isn't tracked). Re-investigate and overwrite it?"
-  header: "Overwrite"
-  multiSelect: false
-  options:
-    - label: "Overwrite"
-      description: "Re-investigate and replace — prior content will be passed as context to preserve hand-edits where supported"
-    - label: "Cancel"
-      description: "Keep the existing file unchanged"
-```
+## Done looks like
 
-If "Cancel": stop. Tell the user the existing file is unchanged.
-
-Assess complexity:
-
-- **Simple** — the answer lives in 3 or fewer files.
-- **Complex** — 4+ files or cross-module flows.
-
-Default to complex when uncertain.
-
-## Phase 2: Investigate
-
-### Check prior conversations
-
-Run:
-
-```bash
-ccrecall --json search-messages -q "<the subject>" -n 5
-```
-
-If it returns relevant matches, condense them into a short digest (what was discussed, when) to pass along as `<prior-context>` — useful for the "Key decisions and invariants" section, since rationale is often discussed in conversation and never written into a commit or doc. If nothing relevant comes back, skip this — don't pad the prompt with a null result.
-
-### Simple path
-
-Dispatch one agent:
-
-```
-Agent(subagent_type: "standard-worker")
-```
-
-Prompt:
-
-```
-Write a durable subsystem explanation based on actual code.
-
-Subject: <the user's subject>
-[If <prior-content> exists] Prior version of this document (preserve manually-added material that the investigation still supports): <prior-content>
-[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
-
-Instructions:
-1. Find the relevant files using Grep and Glob
-2. Read each file that contributes to the answer
-3. Trace the runtime flow — what calls what, what data flows where
-4. Write the explanation to <dir>/explanation.md
-
-Writing rules:
-- Conversational tone — explain like a knowledgeable teammate, not a reference manual
-- Anchor to NAMED COMPONENTS (files, classes, functions that are stable API surfaces)
-- Describe RESPONSIBILITIES and FLOW — the decisions and shape, not transient implementation details
-- Explain WHY the system is shaped this way, not just the structure
-- Name INVARIANTS — things the system relies on that aren't obvious from one file
-- Describe DATA SHAPES at boundaries — what goes in, what comes out, in what form (shape-level, not exhaustive field enumeration)
-- If something is unclear or seems wrong in the code, say so
-- Keep it at senior-engineer depth
-- Never include: line numbers, internal variable names, method names that aren't stable API surfaces, exhaustive parameter lists
-
-Structure the document as:
-1. One-paragraph overview (what this subsystem does and why it exists)
-2. Components and their responsibilities (which files own what)
-3. The flow (walk through runtime behavior as a narrative)
-4. Key decisions and invariants (why it's shaped this way, what must stay true)
-5. Boundaries (what this subsystem expects from its callers and dependencies)
-```
-
-### Complex path
-
-Decompose the question into 2-4 investigation angles. Each angle should cover a distinct aspect. Examples:
-- "Entry point and dispatch" / "Error handling path" / "State management"
-- "Data flow in" / "Processing" / "Data flow out"
-- "Configuration and setup" / "Runtime behavior" / "Shutdown and cleanup"
-
-Dispatch 2-4 parallel explorer agents:
-
-```
-Agent(subagent_type: "light-worker")  # for each angle
-```
-
-Each explorer prompt:
-
-```
-Investigate one aspect of a subsystem for a durable explanation being assembled.
-
-Subject: <the user's subject>
-Your angle: <this explorer's specific angle>
-
-Instructions:
-1. Find files relevant to your angle using Grep and Glob
-2. Read each file and trace the flow specific to your angle
-3. Write your findings to <dir>/explorer-N.md
-
-Include:
-- File paths (no line numbers) for every claim
-- The sequence of calls or data flow you traced
-- Component responsibilities within your angle
-- Anything surprising, unclear, or potentially wrong
-
-Stay focused on your angle — other explorers are covering other aspects.
-```
-
-After all explorers complete, dispatch a synthesis agent:
-
-```
-Agent(subagent_type: "standard-worker")
-```
-
-Synthesis prompt:
-
-```
-Synthesize explorer findings into a durable subsystem explanation.
-
-Subject: <the user's subject>
-[If <prior-content> exists] Prior version of this document (preserve manually-added material that the investigation still supports): <prior-content>
-[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
-
-Explorer findings (read each file):
-<list of explorer-N.md paths>
-
-Instructions:
-1. Read all explorer findings
-2. If explorers conflict on the same code path, read the code directly to resolve
-3. Write the explanation to <dir>/explanation.md
-
-Writing rules:
-- Conversational tone — explain like a knowledgeable teammate, not a reference manual
-- Anchor to NAMED COMPONENTS (files, classes, functions that are stable API surfaces)
-- Describe RESPONSIBILITIES and FLOW — the decisions and shape, not transient implementation details
-- Explain WHY the system is shaped this way, not just the structure
-- Name INVARIANTS — things the system relies on that aren't obvious from one file
-- Describe DATA SHAPES at boundaries — what goes in, what comes out, in what form (shape-level, not exhaustive field enumeration)
-- Where explorers found surprising or unclear code, call it out
-- Keep it at senior-engineer depth
-- Never include: line numbers, internal variable names, method names that aren't stable API surfaces, exhaustive parameter lists
-
-Structure the document as:
-1. One-paragraph overview (what this subsystem does and why it exists)
-2. Components and their responsibilities (which files own what)
-3. The flow (walk through runtime behavior as a narrative)
-4. Key decisions and invariants (why it's shaped this way, what must stay true)
-5. Boundaries (what this subsystem expects from its callers and dependencies)
-```
-
-## Phase 3: Coherence Review
-
-This replaces `/mine-how`'s line-level accuracy review with a structural coherence check. The question isn't "does line 45 say what I claimed?" but "does the code's shape match what I described?"
-
-Dispatch a review agent:
-
-```
-Agent(subagent_type: "standard-worker")
-```
-
-Review prompt:
-
-```
-Review this durable explanation for structural accuracy.
-
-Subject: <the user's subject>
-Explanation: <dir>/explanation.md (read this file)
-
-Instructions:
-1. Read the explanation
-2. For every file reference, open that file and verify:
-   - Does the component exist and have the described responsibility?
-   - Does the described flow match the actual call chain?
-   - Are the named invariants real?
-   - Do the data shapes at boundaries match?
-3. Check for:
-   - Components described that don't exist or do something different
-   - Flow descriptions that skip steps or get the order wrong
-   - Claims about behavior the code doesn't support
-   - Missing important components or flows the explanation should cover
-   - Implementation details that crept in (line numbers, local variable names, exhaustive parameter lists, unstable internal method names)
-   - Documentation-mode drift: numbered instructional steps, exhaustive field-by-field catalogs, or anything phrased as a procedure for the reader to perform — flag and rewrite as descriptive narrative. Scrutinize the Boundaries section especially, since boundary/contract content is the most prone to drifting into reference-mode enumeration.
-4. Write your review to <dir>/review.md
-
-Output format:
-- If accurate: write "ACCURATE" on the first line, then optionally note any additions that would strengthen the explanation
-- If corrections needed: write "CORRECTIONS" on the first line, then write a corrected version of the full explanation. Annotate each correction with [CORRECTED: reason].
-```
-
-## Phase 4: Write
-
-After the review completes, read `<dir>/review.md`:
-
-- If "ACCURATE": use `<dir>/explanation.md` as the source
-- If "CORRECTIONS": use the corrected version from the review file, stripping `[CORRECTED: ...]` annotations
-
-Add a provenance footer to the document. Run `git rev-parse --short HEAD` to get the current commit SHA.
+The document is written at the chosen path and ends with this provenance footer, with `<short-sha>` from `git rev-parse --short HEAD`:
 
 ```markdown
 ---
 *Generated by `/mine-document` against commit `<short-sha>`. If the codebase has changed significantly since this commit, re-run to refresh.*
 ```
 
-Write the file to the chosen location. Present a brief summary to the user (what it covers, where it landed), not the full document — they can read the file.
+The user gets a brief summary (what it covers, where it landed), not the document itself.

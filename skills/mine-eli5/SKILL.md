@@ -8,10 +8,10 @@ user-invocable: true
 
 Topic: $ARGUMENTS — if empty, ask the user what to explain.
 
-Explain the topic to someone who knows nothing about it, using the `Artifact` tool: big pictures, very few words. The default failure mode here is dense, bulleted text explanations — resist it. Cut words before adding detail, and use an actual visual element (diagram, icon, simple illustration) rather than prose styled to look visual.
+Explain the topic to someone who knows nothing about it, as an `Artifact`: big pictures, very few words. Dense bulleted text is the default failure here, so cut words before adding detail, and use a real visual element (diagram, icon, simple illustration) rather than prose styled to look visual.
 
-Keep the simplification honest: trade detail for clarity, never accuracy for cuteness. If the plain-language version would state something that isn't actually true, find a simpler-but-still-correct framing instead of a wrong one.
+Keep the simplification honest: trade detail for clarity, never accuracy for cuteness. If the plain version would say something untrue, find a simpler framing that is still correct.
 
-Write the source HTML to the scratchpad directory, never into the working repo, before publishing it as the artifact.
+Write the source HTML in the scratchpad directory, never the working repo, then publish it.
 
-Before calling it done, verify the artifact actually renders as intended — read it back or view it rendered. Layout bugs (a percentage height resolving against the wrong box, say) are invisible in the source and obvious on screen, and for a picture explainer the picture is the whole point.
+Done means you checked that the artifact renders as intended, by viewing it rendered, not just reading the source. If you can't see a render, say so rather than claiming you checked. Layout bugs (a percentage height resolving against the wrong box, say) are invisible in source and obvious on screen, and for a picture explainer the picture is the whole point.

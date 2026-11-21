@@ -6,253 +6,101 @@ user-invocable: true
 
 # Writeup
 
-Turn technical research, investigation notes, or dense working documents into a document a specific reader can act on. The input is messy and thorough; the output is structured and scannable.
+Turn technical research, investigation notes, or dense working documents into a document a specific reader can act on. The input is messy and thorough; the output is short enough to read and complete enough to decide from.
 
-This skill is an **editor**, not a researcher. It works from existing material. It does not discover new findings, expand scope, or add sections the user did not ask for. See [Editorial Discipline](#editorial-discipline).
+This skill is an editor, not a researcher. It works from existing material and doesn't discover findings, expand scope, or add sections the user didn't ask for. Long research leaves findings that feel load-bearing but aren't all load-bearing for the reader, and the pull to include everything produces documents nobody reads. See [Editorial Discipline](#editorial-discipline).
 
 ## Arguments
 
-$ARGUMENTS — path(s) to the source material. Multiple paths separated by spaces. If empty, ask the user to point you at the documents to distill. If a given path doesn't resolve, say so explicitly rather than surfacing a raw tool error.
+$ARGUMENTS — path(s) to the source material, space-separated. If empty, ask what to distill. If a path doesn't resolve, say so plainly rather than surfacing a raw tool error.
 
-Read every source file end-to-end before doing anything else. **Do not edit the source files. They are read-only to this skill.**
+Read every source file end to end first. The source files are read-only to this skill.
 
-If the user did not say where to save the writeup, run `mktemp -d <scratchpad>/mine-writeup-XXXXXX`, write to `<dir>/writeup.md`, and tell the user where it's saved.
+If the user didn't say where to save the writeup, run `mktemp -d <scratchpad>/mine-writeup-XXXXXX`, write to `<dir>/writeup.md`, and tell them where.
 
----
+## Know the reader first
 
-## Phase 1: Audience and Outcome
+Before writing, settle who reads this, what they should do after reading (decide, approve an approach, understand scope, or just be informed), and how long it should be. Ask for whatever the user's prompt didn't already answer, together in one `AskUserQuestion` call. Let the answers drive depth, tone, and which sections exist: a one-page note for a manager leads with the bottom line and drops situation setting; a longer one for leadership curates findings; even an unbounded one applies the tests below to every paragraph.
 
-Before writing anything, settle three things. Ask them together in one `AskUserQuestion` call. Skip any already answered by the user's prompt.
+## Scope, outline, and reader brief
 
-```yaml
-AskUserQuestion:
-  questions:
-    - question: "Who reads this?"
-      header: "Audience"
-      multiSelect: false
-      options:
-        - label: "My manager"
-          description: "They need to understand scope and make decisions or carry the message up"
-        - label: "Leadership / execs"
-          description: "Time-poor, need the bottom line and what they need to decide"
-        - label: "Cross-team peers"
-          description: "Technical but not close to this work, need enough context to engage"
-        - label: "Mixed / not sure"
-          description: "Multiple audiences or you'll help me figure it out"
-    - question: "What should the reader do after reading this?"
-      header: "Outcome"
-      multiSelect: false
-      options:
-        - label: "Make decisions"
-          description: "There are open questions and you need answers before work can proceed"
-        - label: "Understand scope"
-          description: "The work is bigger or more complex than expected and they need to see why"
-        - label: "Approve an approach"
-          description: "You've figured out the how — you need sign-off"
-        - label: "Be informed"
-          description: "No action needed, just awareness"
-    - question: "How long should this be?"
-      header: "Length"
-      multiSelect: false
-      options:
-        - label: "One page"
-          description: "A Slack message or single page, executive summary density"
-        - label: "2-3 pages"
-          description: "Room for context and detail, still scannable"
-        - label: "Whatever it takes"
-          description: "As long as needed, but not longer"
-```
+Define the closed-world scope (what this covers, and "everything else stays in the source docs"), then propose an outline, then draft the reader brief for the cold read below. Present them together and get approval through `AskUserQuestion` (approve, or adjust and re-confirm). Approval is the single gate for scope and structure; once approved, scope is locked and no topic, section, or finding outside it is added unless the user asks. No prose is written before approval.
 
-Use the answers to calibrate depth, tone, and which sections to include. A one-page writeup for a manager skips the situation section entirely and leads with the bottom line. A 2-3 page writeup for leadership includes situation and curated findings. "Whatever it takes" includes every applicable section but still applies the So What test to every paragraph.
+The outline needs only the sections this reader needs, and you say which you dropped and why. What a good one tends to contain:
 
----
+- **Bottom line** (always): everything the reader needs if they stop here — what you found, what it means, what you need from them. The answer, not the journey.
+- **Findings** (when the source holds investigation results), each as fact → so what for the project, with technical evidence referenced rather than inlined.
+- **Decisions needed** (when the outcome is "make decisions"): a table of what needs deciding, who can decide it, and what it gates, ordered by urgency. **Proposed approach** (when the outcome is "approve an approach"): the recommendation, key tradeoffs, and what sign-off enables, concrete enough that the reader knows exactly what they're approving.
+- **Situation** only if the reader lacks context; **real scope** if the work is bigger than expected (what must be done, by whom, in what order, showing what gates what, no hour or week estimates unless asked); **risks** only the few that could change the shape of the work, each with what could go wrong, why it matters, and what to do.
+- **Appendix pointer** (always): one line to the full source material.
 
-## Phase 2: Scope Lock
+The tests that decide what survives (duplicated from `rules/common/writing-discipline.md` by design, since this skill must be self-contained; if you change them here, update that file too):
 
-Before outlining, define the **closed-world scope**: what this writeup covers and what it does not. Carry it into the outline as one line above the outline itself:
+- **So What test.** Does this finding change a decision the reader needs to make? If not, it belongs in the source material, not the writeup.
+- **Forwarding test.** If the reader forwards this to someone with less context, will it still make sense? If a section requires the reader to explain it, rewrite or cut.
+- **30-second test.** Can a reader get the bottom line from the first paragraph alone? If not, the document is structured wrong. Restructure before adding detail.
 
-> "In scope: [list]. Everything else stays in the source docs."
+### Reader brief
 
-The outline approval in Phase 3 is the single gate for both scope and structure: a reader who disagrees with the scope sees it there. Once the outline is approved, the scope is locked. Do not add topics, sections, or findings outside it unless the user asks.
+The audience answer is a label; the cold reader needs knowledge boundaries. Infer them from the audience and source material:
 
----
+- **Persona:** role, what they know (their domain, business context), and what they do NOT know (this work's internal vocabulary, methods, earlier drafts, anything only the sources contain). "Doesn't know statistics vocabulary (precision, holdout, confidence interval)" beats "non-technical."
+- **Reading goal:** what the reader needs to do with the document.
+- **Intent:** `decide` when the reader must make decisions, `recommend` when they must approve an approach, `describe` when they should understand scope or just be informed.
+- **Deliberate positions:** statements the writeup makes on purpose that could look like they break the intent or invite a finding, such as firm requirements in a descriptive writeup, or qualitative wording ("most teams," "a small share") where an exact number wouldn't change what the reader does. Often none.
+- **Intended takeaways:** the 3-5 things the reader should be able to repeat after one read, with a key number only where the decision depends on it. The reader never sees these; the comparison below uses them.
 
-## Phase 3: Outline
+## Writing
 
-Propose an outline using the structural template below. Not every section is mandatory. Drop sections that don't apply and say which you're dropping and why.
+Write the full draft to the writeup file. It should work at three reading speeds: 30 seconds (the bottom line alone gives the answer), 3 minutes (headers and first sentences give the shape), 30 minutes (the full read gives the reasoning). A section that only works at the last speed needs rewriting.
 
-### Structural Template
+Answer first, evidence second, in every section. Use plain language: define a needed technical term on first use, otherwise use the plain word. Prefer concrete to abstract ("the network path doesn't exist yet" over "infrastructure prerequisites remain outstanding"). One idea per paragraph. Use a table when the same shape repeats three or more times.
 
-**1. Bottom line** (mandatory, 1 paragraph)
-Everything the reader needs if they stop here. What you found, what it means, what you need from them. Lead with the answer, not the journey that got you there.
+Keep a number only when the decision depends on it. Every number invites the reader to check it (out of what, which population, which period), and one the reader doesn't need costs that check for nothing. Ask whether the reader would act differently at 40% than at 60%; if not, say it in words ("most," "roughly double") or cut it, and add the substitute wording to the brief's deliberate positions.
 
-**2. Situation** (drop for one-pagers or when the reader already has context)
-What the reader already knows. Just enough to establish shared ground, without explaining things the audience already understands.
+Re-read the file from disk before every write so user edits are preserved. Edit sections in place when the user wants one rewritten, cut, or shortened.
 
-**3. What we found** (mandatory when source material contains investigation results)
-Curated findings, only those that change a decision or the shape of the work. Each finding stated as: **[fact] → [so what for the project]**. Technical evidence referenced but not inlined.
+## Cold read
 
-Apply the **So What test**: does this finding change a decision the reader needs to make? If not, it does not belong here. It belongs in the source material, which the writeup can point to.
+The three-speed check is the author's, and an author can't un-know what they meant. Before presenting, have a reader with the persona's knowledge read the draft cold. Skip it only when the gap is small (a short writeup for a reader who shares the context, with few numbers to check), and say you skipped it and why. Run it whenever the reader is far from the work or the writeup leans on numbers.
 
-Apply the **Forwarding test**: if the reader forwards this to *their* boss, will this finding still make sense without the reader explaining it? If not, rewrite or cut.
+Isolation is what makes it a cold read, so keep it:
 
-**4. The real scope** (include when the work is larger or more complex than expected)
-What actually has to be built or done, by whom, in what order. No hour or week estimates unless the user explicitly asks for them. Show structural dependencies (what gates what), not duration guesses.
+1. `mktemp -d <scratchpad>/mine-writeup-reader-XXXXXX`, and copy the writeup in as `document.<ext>` (same extension). Nothing else goes in that directory.
+2. `mktemp -d <scratchpad>/mine-writeup-key-XXXXXX`, and write the intended takeaways to `<key-dir>/intended-takeaways.md`. Never give the reader this path or quote the takeaways in its prompt.
+3. Dispatch the `cold-reader` agent with the brief only: `document` (the copied path), `persona`, `reading_goal`, `intent`, `deliberate_positions`, and no commentary of yours. If it returns `{"error": "incomplete brief", ...}`, fill the named fields and dispatch again.
 
-**5. Proposed approach** (include when the outcome is "approve an approach")
-What the user is recommending and why. State the approach, the key tradeoffs considered, and what sign-off enables. Keep it concrete: the reader should know exactly what they are approving.
+The reader's findings are hypotheses about the text; the user's scope and the stated intent outrank its reactions.
 
-**5a. Decisions needed** (mandatory when the outcome is "make decisions")
-Table format: what needs deciding, who can decide it, what it gates. Ordered by urgency. This is what the reader takes into the room.
+**Teach-back.** Mark each intended takeaway `landed`, `partly` (present but late, vague, or missing a number the decision depends on), `missed`, or `misread`, and note any point the reader took away that you didn't intend, which is often a misreading caused by emphasis. Every takeaway that isn't `landed` is a fix whether or not the reader raised a finding, since a reader can only quote text that exists. Write each fix from the scope-locked sources: add the point, move it earlier, give it its number, or reword what misled. If the sources can't support it (the number isn't in them), don't invent it; list it for the user as a possible follow-up.
 
-**6. Risks** (include when risks could change the timeline or kill the project)
-Only risks that could change the shape of the work — the few that matter, not an inventory. Each stated plainly: what could go wrong, why it matters, what to do about it.
+**Perceived asks.** For `decide` and `recommend`, the reader's `perceived_asks` should name the actual decision or recommendation; a reader who leaves with the wrong ask is the most expensive failure for those writeups. For `describe` the reader should perceive no ask. A wrong, missing, or unwanted ask is a fix too, planned the same way: state the ask plainly and early, or reword the passage that reads as a request.
 
-**7. Appendix pointer** (mandatory)
-One line pointing to the full source material for readers who want the evidence.
+**Verify every finding before acting on it.**
+- `unsupported-number`: first ask whether the reader needs the number at all. If not, remove it or reword it qualitatively and add the wording to the deliberate positions, since added context to an unneeded number only adds more to check. If needed, check it against the sources: fix it if wrong or irreconcilable, and if right but unexplained, add the denominator, population, or period.
+- A finding about wording the brief lists as a deliberate position, or one that conflicts with the stated intent: set it aside. The reader is told to check deliberate positions, so it may still raise one.
+- A finding that asks for content outside the scope (a cost analysis the sources lack, a new section): don't add it; list it as a possible follow-up.
+- Anything else: judge whether it's real for this audience and set it aside with a one-line reason if not.
 
-The So What and Forwarding tests in section 3 are duplicated from `rules/common/writing-discipline.md` by design (this skill must be self-contained). If you change the tests here, update the other file too.
+Keep the reader's `works_well` passages intact when planning fixes, since a revision that removes what worked leaves the reader worse off. A verified fix still wins when the passage itself is the problem (a wrong number, content outside scope); flag that conflict beside the fix.
 
-### Reader Brief
+### Presenting the results
 
-Alongside the outline, draft the brief that Phase 5's cold reader will get. Phase 1's audience answer is a label. The reader needs knowledge boundaries, so infer them from the audience answer and the source material:
+The user decides from what's on screen, so send with `SendUserMessage` before the draft: the takeaway table (plus the perceived ask if wrong); the planned fixes grouped by section (verified findings with quote and fix, takeaway fixes, the ask fix); out-of-scope requests and set-aside findings, each with its reason; and the reader's `overall_verdict`, `forwardable` answer, and `works_well` passages.
 
-- **Persona:** the reader's role, what they **know** (their domain, the business context), and what they **do NOT know** (this work's internal vocabulary, methods, earlier drafts, anything only the source docs contain). Be specific: "doesn't know statistics vocabulary (precision, holdout, confidence interval)" beats "non-technical."
-- **Reading goal:** what this reader needs to do with the document, from Phase 1's outcome answer plus anything the user said.
-- **Intent:** `decide` for "Make decisions", `recommend` for "Approve an approach", `describe` for "Understand scope" or "Be informed".
-- **Deliberate positions:** statements the writeup will make on purpose that might look like they break the intent or invite a finding, such as firm requirements in a descriptive writeup, or qualitative wording ("most teams," "a small share") used where the exact number wouldn't change what the reader does. Often none.
-- **Intended takeaways:** the 3–5 things the reader should be able to repeat after one read, with a key number only where the reader's decision depends on it. The reader never sees these. Phase 5 compares them against what the reader reports.
+If everything landed and nothing needs fixing, say so and present the draft. If the verdict is `lost`, or several takeaways were missed or misread, line edits won't help: recommend restructuring the sections that lost the reader. Otherwise ask how to handle the fixes (apply all, apply a picked subset, or skip and present as-is), building the options from what the reader found per `rules/common/interaction.md`.
 
-### Outline Approval
-
-Show the scope line, then the proposed outline as a bullet list with one-line descriptions of what each section will contain, then the reader brief.
-
-```yaml
-AskUserQuestion:
-  question: "Here's the scope, outline, and reader brief. Approve, adjust, or cut anything before I start writing."
-  header: "Outline"
-  multiSelect: false
-  options:
-    - label: "Approved"
-      description: "Write the full draft"
-    - label: "Adjust"
-      description: "I'll tell you what to change or cut"
-```
-
-If "Adjust": apply changes and re-confirm. No prose is written until the outline is approved.
-
----
-
-## Phase 4: Write
-
-Write the full draft to the writeup file once the outline is approved. Run Phase 5 before presenting it. If the user wants a section rewritten, cut, or shortened, edit it in place.
-
-### The Three Layers
-
-The writeup must work at three reading speeds:
-
-- **30 seconds** (the bottom line paragraph alone): the reader knows the answer
-- **3 minutes** (section headers + first sentences): the reader knows the shape
-- **30 minutes** (full read): the reader understands the reasoning
-
-If a section only works at the 30-minute layer, it needs rewriting.
-
-### Writing Rules
-
-- **Answer first, evidence second.** Every section leads with its conclusion. The reasoning follows for readers who want it.
-- **No jargon without earning it.** If a technical term is necessary, define it in plain language on first use. If it's not necessary, use the plain language instead.
-- **Concrete over abstract.** "The network path doesn't exist yet" beats "infrastructure prerequisites remain outstanding."
-- **Short paragraphs.** One idea each. A paragraph doing two jobs gets split.
-- **Tables for parallel structure.** If the same shape repeats 3+ times, use a table.
-- **Keep a number only when the decision depends on it.** Every number invites the reader to check it: what it's out of, which population, which period. A number the reader doesn't need costs that check and buys nothing. Test it: would the reader act differently if it were 40% instead of 60%? If not, say it in words ("most," "roughly double") or cut it, and add any wording you substitute to the brief's deliberate positions. Keep the numbers the reader would act on.
-
-Re-read the writeup file from disk before every write. Preserve user edits. If the user wants a section rewritten, edit that section in place.
-
----
-
-## Phase 5: Reader Test
-
-The three-layer check above is the author's self-check, and an author can't un-know what they meant. Before presenting the draft, have a cold reader with the persona's knowledge read it. The reader's findings are hypotheses about the text. The user's scope and the stated intent outrank the reader's reactions.
-
-Skip this phase when the gap is small: a short writeup for a reader who already shares the context, with few numbers to check. Say that you skipped it and why. Run it whenever the reader is far from the work or the writeup leans on numbers.
-
-### Isolate and dispatch
-
-1. Run `mktemp -d <scratchpad>/mine-writeup-reader-XXXXXX` and copy the writeup into it as `document.<ext>` (keep the original extension). Nothing else goes in this directory.
-2. Run `mktemp -d <scratchpad>/mine-writeup-key-XXXXXX` and write the intended takeaways to `<key-dir>/intended-takeaways.md`. Never give the reader this path or quote the takeaways in its prompt.
-3. Dispatch the `cold-reader` agent with the brief from Phase 3: `document` (the copied path), `persona` (role, knows, does NOT know), `reading_goal`, `intent`, and `deliberate_positions`. Pass the brief only. Don't add your own commentary about the document.
-
-If it returns `{"error": "incomplete brief", ...}`, fill in the named fields and dispatch again.
-
-### Compare and verify
-
-**Teach-back against takeaways.** For each intended takeaway, mark it `landed`, `partly` (it's there, but late, vague, or missing a number the decision depends on), `missed`, or `misread`. Also note any teach-back key point that isn't among the takeaways. A point the reader took away that the author didn't intend is often a misreading caused by emphasis.
-
-Every takeaway marked `partly`, `missed`, or `misread` is a fix in its own right, whether or not the reader raised a finding about it. The reader can only quote text that exists, so a takeaway the draft leaves out may produce no finding at all. Write each fix from the scope-locked sources: add the missing point, move it earlier, or give it the number the decision depends on. For a `misread`, reword or re-emphasize the passage that misled the reader. If the sources can't support the fix (the number isn't in them), don't invent it. List the takeaway for the user as a possible follow-up, like an out-of-scope finding.
-
-**Perceived asks against intent.** For `decide` and `recommend`, check that the reader's `perceived_asks` names the actual decision or recommendation. A reader who walks away with the wrong ask is the most expensive failure for those writeups. For `describe`, the reader should perceive no ask. If it does, something in the writeup reads like a request.
-
-A wrong, missing, or unwanted perceived ask is a fix too, planned the same way as a takeaway fix: an omitted ask leaves nothing to quote, so the reader may raise no finding about it. State the decision or recommendation plainly and early, or reword the passage that reads as a request. Write it from the scope-locked sources and the stated intent.
-
-**Verify every finding before presenting it.** The reader only has the document, so its findings are hypotheses about the text:
-
-- `unsupported-number`: first ask whether the reader needs this number at all, using the Phase 4 test.
-  - Not needed: remove it or reword it qualitatively, and add the wording to the brief's deliberate positions. Adding context to an unneeded number only adds more numbers to check.
-  - Needed: check it against the source material. Fix it if it's wrong or doesn't reconcile. If it's right but the document doesn't show why, add the denominator, population, or period.
-- A reader finding about qualitative wording the brief lists as a deliberate position ("'most' with nothing behind it"): set it aside. The reader is told to check deliberate positions for evidence, so it may still raise one.
-- A finding that conflicts with the stated intent or a deliberate position (the reader slipped anyway): set it aside.
-- A finding that asks for content outside the Phase 2 scope (a cost analysis the sources don't contain, a new section): don't add it. List it for the user as a possible follow-up. The scope lock still holds.
-- Everything else: decide whether it's real for this audience. Set it aside if not, and give a one-line reason.
-
-Keep the reader's `works_well` passages intact when planning fixes: a revision that removes what already worked leaves the reader worse off. A verified fix still wins when the passage itself is the problem, such as a wrong number or content outside the scope. Flag that conflict next to the fix.
-
-### Present
-
-Send the user, with `SendUserMessage`, before the draft:
-
-1. The takeaway table (takeaway → landed / partly / missed / misread), plus the perceived ask if it's wrong.
-2. The fixes you plan to make, grouped by section: verified findings, each with the quote and the fix, takeaway fixes, each with the takeaway and the fix, and the ask fix, if any, with the perceived and intended ask.
-3. Out-of-scope requests and set-aside findings, each with its one-line reason.
-4. The reader's `overall_verdict`, its `forwardable` answer, and the `works_well` passages.
-
-If every takeaway landed and nothing needs fixing, say so and present the draft. There's nothing to ask. If the verdict is `lost`, or several takeaways were missed or misread, line-level fixes won't help: recommend restructuring the sections that lost the reader, and offer it as an option in place of "Pick fixes". Otherwise ask:
-
-```yaml
-AskUserQuestion:
-  question: "The cold reader's results are above. How should I handle the fixes?"
-  header: "Reader"
-  multiSelect: false
-  options:
-    - label: "Apply the fixes"
-      description: "Edit the draft with the planned fixes; I'll offer a second cold read if they change numbers, rewrite whole sections, add or move a takeaway, or change the ask"
-    - label: "Pick fixes"
-      description: "I'll tell you which to apply"
-    - label: "Skip"
-      description: "Present the draft as-is"
-```
-
-After applying fixes, whether all of them or a picked subset, offer a second cold read when the fixes changed numbers, rewrote whole sections, added or moved a takeaway, or changed the ask. Use a fresh dispatch on a freshly copied document. A second read finds problems the first missed, especially in numbers that the fixes introduced. Don't loop beyond that unless the user asks.
-
-Then present the draft. From here, Phase 4's editing rules apply: when the user wants a section rewritten, cut, or shortened, edit it in place.
-
----
+After applying fixes, offer a second cold read on a freshly copied document with a fresh dispatch when the fixes changed numbers, rewrote whole sections, added or moved a takeaway, or changed the ask; a second read finds what the first missed, especially in numbers the fixes introduced. Don't loop beyond that unless asked. Then present the (revised) draft.
 
 ## Editorial Discipline
 
-This skill operates as an editor with a locked scope. These rules override the default instinct to be thorough:
+The user knows their audience, and these override the instinct to be thorough:
 
-- **Do not add findings, analysis, or context the user did not include in the scope lock.** The source material may contain more than the writeup needs. That is by design.
-- **When the user says cut, cut.** Do not argue, do not move content to an appendix, do not summarize it into a smaller section. Delete it.
-- **When the user says "shorter", make it shorter.** Do not preserve length by compressing. Remove content. The user is telling you what they don't need, not asking you to say it faster.
-- **Do not re-expand.** If a section was cut or shortened, do not reintroduce that content in another section under a different framing.
-- **The user's editorial judgment overrides completeness.** If the user says a finding doesn't belong, it doesn't belong, even if you think it's important. The user knows their audience.
-
----
+- Don't add findings, analysis, or context outside the scope lock. The sources may hold more than the writeup needs, by design.
+- When the user says cut, cut: don't argue, move it to an appendix, or summarize it into a smaller section.
+- When the user says shorter, remove content rather than compressing it. They're saying what they don't need, not asking you to say it faster.
+- Don't re-expand: cut content doesn't return in another section under a different framing.
 
 ## Handoff
 
-When the writeup is complete:
-
-> Writeup saved at `<path>`. Source material is at `<source paths>` for anyone who wants the full evidence.
-
-If the user wants to refine the prose quality, point them at `/mine-humanize <path>`.
+When the writeup is complete, say where it is and where the source material is for anyone wanting the evidence: "Writeup saved at `<path>`. Source material is at `<source paths>` for anyone who wants the full evidence." If the user wants to refine the prose, point them at `/mine-humanize <path>`.
