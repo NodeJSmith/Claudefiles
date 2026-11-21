@@ -18,7 +18,7 @@ Write for a colleague who has never seen this session: no shorthand, no "what we
 
 ## Format
 
-`mine-good-morning` reads this file and relies on **Date:**, `Uncommitted Changes`, `Open Questions`, and `Next Steps`, so those must be there (`Uncommitted Changes` always; the others unless empty). The rest is the default shape; omit sections with nothing to say.
+`mine-good-morning` reads this file and relies on the **Date:** and **Branch:** header fields and the `Uncommitted Changes`, `Open Questions`, and `Next Steps` sections, so keep those. `Uncommitted Changes` is always present; omit any other section with nothing to say. The rest is the default shape.
 
 ```markdown
 # Handoff: <short description>
