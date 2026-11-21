@@ -66,31 +66,14 @@ When invoked:
 
 For each file, ask: "If a new developer opened this file with no context, what would confuse them?"
 
-<checklist>
-
 ## What to Look For
 
-### Readability Debt
-- Confusing or misleading names (variables, functions, classes that suggest one thing but do another)
-- Unclear boolean logic (double negatives, complex compound conditions that need a truth table to understand)
-- Variable shadowing (inner scope redefines outer scope name)
-- Functions that do more than their name suggests
-- Inconsistent return types within a function (sometimes returns X, sometimes Y)
-- **Completeness gaps** — things the implementation should have considered but didn't. Example: a new API endpoint with no rate limiting, a form with no validation, a list with no empty state, a cache with no eviction. (This is a completeness-of-thinking check — it applies equally to human-written code, not an LLM-specific smell.)
+Code a month-later reader will stumble on, even though it works: anything where the reader has to stop, hold hidden context, or reverse-engineer intent. Maintainability is the work a reader must do, so weigh both how many layers they trace and how much state they hold in their head. Some shapes it takes, as examples rather than a list to tick:
 
-### Bespoke Complexity
-- Hand-rolled state tracking that should use a well-known pattern or library (e.g., 4-ref version tracking instead of a single state object)
-- Fragile heuristics — logic that derives meaning from string patterns, substring matching, or positional assumptions instead of structured data
-- "Compact but complex" — code that's shorter than a human would write but harder to understand (clever one-liners, chained operations with no intermediate variables, implicit type coercion chains)
-
-### Structural Smells
-- Nested ternary chains (2+ levels deep)
-- Functions over 40 lines with multiple responsibilities
-- Deep nesting (4+ levels of if/for/try)
-- Magic numbers or strings with no explanation in logic paths
-- Type assertions / casts that bypass the type system
-
-</checklist>
+- **Misleading names and shapes.** Names that suggest one thing and do another, functions that do more than their name says, inconsistent return types, shadowed outer names, boolean logic that needs a truth table.
+- **Bespoke complexity.** Hand-rolled state tracking where a known pattern or single state object would do, fragile heuristics that derive meaning from string patterns or positional assumptions instead of structured data, and "compact but complex" one-liners and chains with no intermediate names.
+- **Structure that hides the point.** Nested ternaries, long multi-purpose functions, deep nesting, unexplained magic numbers or strings in logic paths, casts that bypass the type system.
+- **Completeness gaps.** Things the implementation should have considered but didn't, such as an endpoint with no input validation, a form with no validation, a list with no empty state, a cache with no eviction. This is a check on thinking and applies to human-written code equally.
 
 <output_format>
 
