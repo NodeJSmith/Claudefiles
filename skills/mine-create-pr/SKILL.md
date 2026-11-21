@@ -47,6 +47,6 @@ Judge the full branch diff (`git diff origin/<base>...HEAD`), not individual com
 Make a directory with `mktemp -d <scratchpad>/mine-create-pr-XXXXXX` and write the body to `<dir>/body.md`.
 
 - **GitHub:** `gh pr create --title "..." --body-file <dir>/body.md`
-- **Azure DevOps:** `ado-api pr create --title "..." --description-file <dir>/body.md --source-branch <branch> --target-branch <default-branch>` (never put the body in a shell argument; backticks in it would execute). Take the PR URL from the output (`--json` if needed).
+- **Azure DevOps:** `ado-api pr create --title "..." --description-file <dir>/body.md --source-branch <branch> --target-branch <default-branch>` (never put the body in a shell argument; backticks in it would execute). It prints the new PR's id but no URL, so build the URL from the id and the remote (`git remote get-url origin`): `https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{id}`.
 
 Finish by giving the PR URL on its own line, preceded by any notes (e.g. no changelog found). If something failed, say which step and why instead of a URL.
