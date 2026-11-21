@@ -6,7 +6,7 @@ user-invocable: true
 
 # Technical Review
 
-Get an independent read on the user's changes (or a directory) before they ship, from reviewers working in parallel, and hand back one prioritized report the user can act on. Code gets correctness, integration fit, and readability reviewers; instruction files (`.md`) get consistency, instruction-quality, and writing-quality reviewers. Every file in scope reaches the reviewers for its kind, so a change that touches both gets both sets.
+Get an independent read on the user's changes (or a directory) before they ship, from reviewers working in parallel, and hand back one prioritized report the user can act on. Code gets correctness, integration fit, and readability reviewers; instruction files (what agents load: skills, rules, agent prompts) get consistency, instruction-quality, and writing-quality reviewers. Every file in scope reaches the reviewers for its kind, so a change that touches both gets both sets.
 
 Done looks like: each real problem appears once with the specific edit that would fix it, ordered by how much it matters, with weak findings separated out so the user isn't asked to act on them.
 
