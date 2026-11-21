@@ -6,173 +6,38 @@ user-invocable: true
 
 # Brainstorm
 
-Open-ended idea generation. Use this skill when you have a topic — a feature to build, a problem to solve, a direction to explore — and need divergent thinking before committing to an approach. Four parallel thinkers generate ideas independently, findings are collected and deduplicated, then ranked on all criteria, weighted by your constraints.
+Widen the option space before the user commits to an approach. Four thinkers with deliberately different lenses generate ideas independently, you merge and rank them against the user's constraints, and the user leaves with a decision about what to do next, not just a document.
 
-## How This Differs From Other Skills
-
-| Skill | Question it answers |
-|-------|-------------------|
-| **`mine-brainstorm`** | **"What are our options here?"** |
-| `mine-research` | "Is this specific proposal feasible?" |
-| `mine-challenge` | "Is this approach actually right?" |
-| Plan mode | "How do we execute this chosen direction?" |
+This answers "what are our options here?" For "is this specific proposal feasible?" use `mine-research`; for "is this approach right?" use `mine-challenge`.
 
 ## Arguments
 
-`$ARGUMENTS` — the topic to brainstorm. Can be:
-- A feature idea: `/mine-brainstorm "add offline support to the app"`
-- A problem: `/mine-brainstorm "users keep abandoning the onboarding flow"`
-- A direction: `/mine-brainstorm "what should we build next for the CLI?"`
-- Empty: ask the user what to brainstorm
+`$ARGUMENTS` — the topic: a feature idea, a problem, or a direction. If empty, ask what to brainstorm.
 
-## Phase 1: Understand the Ask
+## Understand the ask
 
-If `$ARGUMENTS` is empty, use `AskUserQuestion` to get the topic.
+Ask, in one `AskUserQuestion` call, what is off the table (time, tech, scope: anything that would make an idea immediately unworkable) and what has already been tried or rejected and why. Constraints are data: they shape the search space, and the thinkers waste output on dead ends without them.
 
-Once the topic is known, ask two quick questions in one `AskUserQuestion` call:
+For a software topic in a repo, read the codebase for context (dispatch subagents for related files if that's quicker) and pass the key excerpts and file paths to the thinkers, which especially helps the Pragmatist. For a non-code topic, work from the description. Ask only if it's unclear which applies.
 
-```
-AskUserQuestion:
-  question: "A couple of quick questions before we start:\n1. What's off the table? (time, tech, scope — anything that would make an idea immediately unworkable)\n2. What's already been tried or rejected, and why?"
-```
+## The four thinkers
 
-Decide whether to read the codebase for context. For a software topic in a repo, read it: dispatch subagents to read related files, which especially helps the Pragmatist lens. For a non-code topic, work from the description. Ask only when it's unclear which applies, offering "Read relevant code" and "Work from my description".
+Create a run directory with `mktemp -d <scratchpad>/mine-brainstorm-XXXXXX`. Each thinker writes its full, unfiltered output to a fixed filename in it, which you read back: `pragmatist.md`, `advocate.md`, `moonshot.md`, `wildcard.md`. Launch all four in parallel with `subagent_type: standard-worker` (they may use WebSearch for inspiration or prior art). Each gets the topic, the output path, and the context below, and writes 3-5 ideas, each with a short name, a one-sentence idea, and the lens-specific fields listed.
 
-If reading code: use Glob, Grep, and Read to find files relevant to the topic before launching thinkers. Pass key excerpts and file paths to each subagent so they can reason about what already exists.
+| Thinker | Gets constraints | Brief | Fields per idea beyond name and idea |
+|---|---|---|---|
+| **Pragmatist** | yes, plus prior attempts and codebase context | Reuse what exists, fit the constraints, scope to ship incrementally; the fastest path to something working, concrete enough to start tomorrow. | how it fits existing code; smallest shippable slice (a week-one increment) |
+| **User Advocate** | yes, plus prior attempts and codebase context | Start from the user's actual goal, not the engineering problem: what are they trying to accomplish and what blocks them? Challenge the assumption that they want what's been proposed. Some ideas may need less engineering than what's been tried. | the user pain it addresses; how it reframes the problem |
+| **Moonshot Thinker** | no, prior attempts only | Constraints don't apply: ignore time, resources, difficulty. Describe the ideal destination, the complete solution if execution were free, as a north star. | why it fully solves the problem; what it would take (name it, don't let it stop you) |
+| **Wildly Imaginative** | no, prior attempts only | No engineering knowledge; don't know what's hard or easy. Think in analogies from other industries, biology, games, fiction. Ideas will sound absurd, and that's the point: they hold insights engineers miss from being too close. Describe vividly; others judge feasibility. | the analogy or inspiration; the kernel worth extracting |
 
-## Phase 2: Launch Four Parallel Thinkers
+## Merge and rank
 
-Before launching, create a unique temp directory for this run:
+Read all four files and merge into one list of roughly 8-15 distinct ideas. Deduplicate the same concept arriving from different lenses, keep the sharpest phrasing, and tag each idea with its origin lens(es). Convergence across lenses is a stronger signal than any single-lens idea, so make it visible. The Wildly Imaginative's ideas hold a kernel worth extracting, not jokes to discard.
 
-1. Run: `mktemp -d <scratchpad>/mine-brainstorm-XXXXXX`
-2. Note the directory path printed (e.g., `<scratchpad>/mine-brainstorm-Kx3a8Q`)
+Present the unranked list briefly (one sentence and origin each, convergences called out), then score every idea 1-5 against what decides this choice, drawn from the user's constraints and topic, and average. For a software topic the defaults are feasibility, user impact, originality, fit to the existing codebase, and speed to ship. Don't ask the user which criteria to use first; they can ask to re-rank by any one afterwards. Ideas are good or bad relative to the user's constraints, so when those stress a criterion (a deadline stresses speed to ship), flag it and show the weighted ranking beside the unweighted one.
 
-Each thinker writes to a fixed filename inside this directory:
-- `<dir>/pragmatist.md`
-- `<dir>/advocate.md`
-- `<dir>/moonshot.md`
-- `<dir>/wildcard.md`
-
-Launch all four as parallel Task calls with `subagent_type: standard-worker`. Each thinker:
-- Receives the topic, constraints, prior attempts, and any codebase context
-- Generates **3–5 ideas** from their lens
-- Writes their full unfiltered output to their assigned temp file
-- May use WebSearch to find inspiration, prior art, or relevant examples
-
-### Thinker 1: The Pragmatist
-
-You are The Pragmatist. Your job is to generate 3–5 ideas for the following topic:
-
-<topic>
-[INSERT TOPIC]
-</topic>
-
-Constraints (things that are off the table): [INSERT CONSTRAINTS or "none stated"]
-
-Prior attempts / rejected ideas: [INSERT PRIOR ATTEMPTS or "none stated"]
-
-Codebase context: [INSERT EXCERPTS AND FILE PATHS or "none provided"]
-
-Generate ideas that reuse what already exists, fit within the stated constraints, and could be scoped to ship incrementally. Think about the fastest path from here to something working. Each idea should be concrete enough that an engineer could start on it tomorrow.
-
-For each idea, write:
-- **Name**: short label
-- **The idea**: one clear sentence
-- **How it fits**: how it connects to existing code or patterns
-- **Smallest shippable slice**: what a week-one increment looks like
-
-Write your full, unfiltered output to: [INSERT TEMP FILE PATH]
-
-### Thinker 2: The User Advocate
-
-You are The User Advocate. Your job is to generate 3–5 ideas for the following topic:
-
-<topic>
-[INSERT TOPIC]
-</topic>
-
-Constraints (things that are off the table): [INSERT CONSTRAINTS or "none stated"]
-
-Prior attempts / rejected ideas: [INSERT PRIOR ATTEMPTS or "none stated"]
-
-Codebase context: [INSERT EXCERPTS AND FILE PATHS or "none provided"]
-
-Start from the user's actual goal, not the engineering problem. What is the person using this product trying to accomplish? What's getting in their way? Some of your ideas may require less engineering than what's been tried — that's fine. Some may require more understanding of user behavior. Challenge the assumption that the user wants what's been proposed.
-
-For each idea, write:
-- **Name**: short label
-- **The idea**: one clear sentence
-- **The user pain it addresses**: what the user is actually struggling with
-- **What makes this different**: how it reframes the problem from the user's perspective
-
-Write your full, unfiltered output to: [INSERT TEMP FILE PATH]
-
-### Thinker 3: The Moonshot Thinker
-
-You are The Moonshot Thinker. Your job is to generate 3–5 ideas for the following topic:
-
-<topic>
-[INSERT TOPIC]
-</topic>
-
-Prior attempts / rejected ideas: [INSERT PRIOR ATTEMPTS or "none stated"]
-
-Constraints do not apply to you. Ignore time, resources, and technical difficulty. Describe the ideal destination — what the complete, perfect solution would look like if execution were free. These ideas set a north star. Some will be impractical today; that's expected. Focus on what would *actually solve the problem completely*, not what's achievable right now.
-
-For each idea, write:
-- **Name**: short label
-- **The idea**: one clear sentence
-- **Why this is the complete solution**: what makes this fully solve the problem
-- **What it would take**: resources, technology, or conditions required (don't let this stop you — just name them)
-
-Write your full, unfiltered output to: [INSERT TEMP FILE PATH]
-
-### Thinker 4: The Wildly Imaginative
-
-You are The Wildly Imaginative. Your job is to generate 3–5 ideas for the following topic:
-
-<topic>
-[INSERT TOPIC]
-</topic>
-
-Prior attempts / rejected ideas: [INSERT PRIOR ATTEMPTS or "none stated"]
-
-You have no engineering knowledge. You don't know what's hard or easy. You think in analogies, metaphors, other industries, science fiction, biology, games, and pure invention. Your ideas will sound absurd — that's the point. They contain kernels of insight the engineers will miss because they're too close to the problem. Don't worry about whether something is technically possible. Describe the idea vividly; let others figure out if it can be built.
-
-For each idea, write:
-- **Name**: short label
-- **The idea**: one clear sentence
-- **The analogy or inspiration**: where this idea comes from (another industry, a natural system, a story, a game)
-- **The kernel**: what insight this contains that might be worth extracting
-
-Write your full, unfiltered output to: [INSERT TEMP FILE PATH]
-
-## Phase 3: Collect and Deduplicate
-
-Read all four temp files. Merge into a unified idea list:
-- Deduplicate ideas that are the same concept from different angles — note which lenses converged on it (convergence is a signal worth surfacing)
-- Preserve the sharpest, most concrete phrasing for each idea
-- Tag each idea with its origin lens(es)
-
-Aim for 8–15 distinct ideas total. If multiple thinkers landed on the same core idea, that's noteworthy — it means the idea is compelling from multiple perspectives.
-
-## Phase 4: Present Ideas
-
-Present the deduplicated ideas as a brief unranked list (one sentence each + origin lens). Call out any ideas where multiple thinkers converged.
-
-Then go straight to scoring. Score every idea on all five criteria below, so the ranking doesn't wait on the user. The user can ask to re-rank by any one of them afterward.
-
-- **Feasibility**: how realistic is this given our constraints?
-- **User impact**: how much does this improve things for the user?
-- **Originality**: ideas we wouldn't have thought of otherwise
-- **Fit to existing codebase**: how naturally does this extend what already exists?
-- **Speed to ship**: how quickly could we have something working?
-
-## Phase 5: Score and Present Ranked List
-
-Score each idea against all five criteria (1–5 per criterion, averaged). Present as a ranked list, with the per-criterion scores in a compact table. When the constraints the user gave in Phase 1 stress one criterion (a deadline stresses speed to ship), flag it and show the weighted ranking beside the unweighted one.
-
-### Per-idea format (top 3)
+Present the top 3 as:
 
 ```
 ### [N]. [Idea name] — Score: X.X
@@ -180,62 +45,21 @@ Score each idea against all five criteria (1–5 per criterion, averaged). Prese
 **The idea**: [One clear sentence]
 **Why it could work**: [2–3 sentences — the best case for this idea]
 **The catch**: [Main risk, limitation, or open question]
-**Origin**: [Pragmatist / User Advocate / Moonshot / Wildly Imaginative — or combinations if multiple thinkers converged]
+**Origin**: [lens(es)]
 ```
 
-Ideas ranked 4 and below get a one-liner: name, score, one-sentence description, origin lens.
+with a compact per-criterion score table, and ideas 4 and below as one-liners (name, score, description, origin).
 
-If two or more thinkers converged on an idea, note it explicitly — convergence across lenses is a stronger signal than a single-lens idea, even if it scores lower on individual criteria.
+## Save and next step
 
-## Phase 6: Next Steps
+When there's a ranked result, write it to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md` and mention the path. Include an appendix listing the four thinker file paths (`<dir>/pragmatist.md` and so on) so individual output stays reachable during the session.
 
-Ask `"What's the primary next step for the top idea?"` (header `Next step`), recommending the option that fits the ranked result. If the top idea's catch is a large risk or open question, challenge it first. If feasibility is the unknown, go deeper via research. If the idea is clear and its catch is small, build. If no idea survived ranking, recommend keeping exploring. Name the top idea and its catch in the descriptions.
+Ask `"What's the primary next step for the top idea?"` (header `Next step`), recommending what the ranked result calls for: challenge it first when its catch is a large risk or open question, research when feasibility is the unknown, build when the idea is clear and the catch small, sketch it first when design decisions are still open, keep exploring when nothing survived. Name the top idea and its catch in the descriptions. Outcomes:
 
-- **Challenge the top idea first**: run `/mine-challenge` before committing to this direction
-- **Go deeper on the top idea**: hand off to `/mine-research` for feasibility analysis
-- **Build it**: implement the top idea now
-- **Keep exploring**: run another round with a different framing or constraint
+- **Challenge the top idea first:** `/mine-challenge --mode=passthrough <brainstorm-file-path>` if saved, otherwise `/mine-challenge --mode=passthrough <text>` with the top idea's name and description block. Return to this gate afterwards.
+- **Go deeper on the top idea:** hand off to `/mine-research`.
+- **Sketch it first:** hand off to `/mine-sketch`; recommended when the top idea still has open design decisions.
+- **Build it:** implement the top idea now.
+- **Keep exploring:** another round with a different framing or constraint.
 
-When the session has a ranked result, write it to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md` before asking and mention the path.
-
-If "Challenge the top idea first" is selected: if the session was saved, invoke `/mine-challenge --mode=passthrough <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text: `/mine-challenge --mode=passthrough <text>`. After challenge completes, loop back to this gate.
-
-### Creating issues
-
-Filing is outward-facing, so do it only when the user asks (they can say so alongside the next-step answer; mention the offer in one line after the ranked list). Create one issue per idea named, in the project's issue tracker, then proceed to the primary next step.
-
-Issue template:
-
-- **Title:** `[Brainstorm] <topic>: <concise idea name>`
-- **Body:**
-  - **Summary:** One-paragraph description of the idea.
-  - **Rationale:** Why this idea is valuable or promising.
-  - **Ranking:** Tier and score (e.g. `Top 3`, `Score: 4.7/5`).
-  - **Ranked by:** The criteria used (e.g. "feasibility, user impact, speed to ship").
-  - **Suggested next step:** e.g. "Run /mine-research on this idea" or "Start implementation plan".
-
-### Saving the session
-
-If saving: write to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md`
-
-Include an appendix with the four temp file paths so individual thinker output is accessible after the session:
-
-```markdown
-## Appendix: Individual Thinker Reports
-
-These files contain each thinker's unfiltered output and are available for the duration of this session:
-
-- Pragmatist: <dir>/pragmatist.md
-- User Advocate: <dir>/advocate.md
-- Moonshot Thinker: <dir>/moonshot.md
-- Wildly Imaginative: <dir>/wildcard.md
-```
-
-## Principles
-
-1. **Diverge before converging** — the thinkers generate ideas independently. Do not have them critique each other. Synthesis happens in Phase 3, not before.
-2. **Convergence is signal** — when multiple thinkers with different lenses land on the same idea, that's meaningful. Make it visible.
-3. **The wildcard earns its place** — the Wildly Imaginative lens exists to surface insights the pragmatic thinkers filter out. Treat its ideas as containing a kernel worth extracting, not as jokes.
-4. **Constraints are data** — what's off the table shapes the search space. State them clearly to the thinkers so they don't waste output on dead ends.
-5. **Weight by the user's constraints** — ideas aren't inherently good or bad. They're good or bad relative to the constraints the user gave. Score on every criterion, weight by those constraints, and say so.
-6. **Handoff, don't dead-end** — the output of brainstorming is a decision, not a document. Always offer a next step.
+Filing issues is outward-facing, so do it only when the user asks (they may say so alongside the next-step answer; mention the offer in one line after the ranked list). Create one issue per idea named, in the project's issue tracker, then proceed to the next step. Title `[Brainstorm] <topic>: <concise idea name>`; body with Summary (one paragraph), Rationale, Ranking (tier and score, e.g. `Top 3`, `Score: 4.7/5`), Ranked by (the criteria used), and Suggested next step.

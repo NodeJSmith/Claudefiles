@@ -6,148 +6,46 @@ user-invocable: true
 
 # Decompose
 
-Analyzes a codebase (or portion of it) for decomposition opportunities — files that should be split, god classes that need extraction, functions doing too much. Prioritizes by ROI using Git behavioral signals (what changes often) combined with structural metrics (what's complex), then proposes concrete splits with before/after sketches.
+Find the files, classes, and functions worth splitting, and propose concrete splits. A big file isn't a finding: a cohesive, stable, well-tested one should stay as it is. The cases that pay off are code that changes often and mixes unrelated responsibilities, so Git behavior (what changes together, what changes often) outranks static metrics. Done is a ranked set of splits, each saying what moves where and why those pieces belong together, or an honest "this is already well decomposed."
 
 ## Arguments
 
-$ARGUMENTS — optional target scope. Can be:
-- Empty: analyze the entire codebase (default)
-- A directory: `/mine-decompose src/services/`
-- A file: `/mine-decompose src/services/payment.py`
-- A concern: `/mine-decompose "god classes"` or `/mine-decompose "coupling hotspots"`
+$ARGUMENTS: optional target scope.
+- Empty: the whole codebase
+- A directory or file: `/mine-decompose src/services/`
+- A concern: `/mine-decompose "god classes"` or `"coupling hotspots"`. Treat it as `<concern_filter>`, which narrows what the subagents look for; for a path, the filter is empty.
 
-## How to Analyze Code
+If the scope holds more than about 200 source files, ask the user to narrow it before analyzing. Skip vendored, generated, and build directories.
 
-**Read the code and reason about it directly.** Subagents use Read, Grep, Glob to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom complexity calculators.
+## How to analyze
 
-Allowed commands during analysis:
-- `git log` / `git shortlog` / `git diff-tree` / `git show` — churn, change coupling, developer dispersion, per-commit diffs
-- `wc -l` — file and function size counts
-- `find` / `grep` — file discovery, import/fan-in analysis
-- `sort`, `uniq`, `head`, `xargs` — text processing for git output pipelines
-- Project linters if available
+Subagents read code with Read, Grep, Glob and use `git log`/`shortlog`/`diff-tree`/`show`, `wc -l`, `find`/`grep`, text-processing pipes, and the project's linters. They don't write or run analysis scripts (no AST parsers or custom complexity calculators); the reading is the analysis.
 
-## Phase 1: Scope
+Create a working directory with `mktemp -d <scratchpad>/mine-decompose-XXXXXX`, then dispatch two `light-worker` subagents in parallel using the prompt templates in `REFERENCE.md`, substituting `<tmpdir>`, `<scope>`, and `<concern_filter>`:
 
-1. If $ARGUMENTS specifies a file or directory, verify it exists. If it's a concern keyword (e.g., "god classes", "coupling hotspots"), set `<concern_filter>` to that keyword — this narrows what subagents look for in Phase 2. If it's a path, set `<concern_filter>` to empty.
-2. **Count files first** — run `find <scope> -type f \( -name '*.py' -o -name '*.ts' -o -name '*.js' -o -name '*.go' -o -name '*.rs' -o -name '*.java' \) | wc -l` (adapt extensions to project language). If >200: **stop here**, ask the user to narrow scope, and restart Phase 1 with the new scope.
-3. Map the file tree (depth 2-3), identify source files, skip vendored/generated/build directories.
+- **Git behavioral analysis** writes `<tmpdir>/git-analysis.md`: churn hotspots, change coupling, developer dispersion, and functions that never co-change with the rest of their file.
+- **Structural and cohesion analysis** writes `<tmpdir>/structural-analysis.md`: size, coupling, disconnected responsibility clusters, mixed abstraction levels, and the coupling effect of a split.
 
-## Phase 2: Analysis
+Both files start with the per-file summary tables given in the templates; join them on file path, noting the gap when a file appears in only one.
 
-Run `mktemp -d <scratchpad>/mine-decompose-XXXXXX` to create a temp directory.
+**Squash-merge trap.** If recent history is mostly single-commit squash merges, functions bundled in one PR look coupled when they aren't, so change-coupling data is diluted. Say so in the report and lean on structural signals for ranking.
 
-**Squash-merge caveat**: If `git log --oneline | head -50` shows mostly single-commit merges (squash-merge workflow), note this in the report. Change coupling data is diluted — functions bundled in the same PR appear coupled even when they aren't. The behavioral signals are still directionally useful if PRs are reasonably focused, but lean harder on structural signals for ranking when the history is squash-heavy.
+## Judging
 
-Launch **two subagents in parallel** (both `subagent_type: light-worker`). See REFERENCE.md for full prompt templates — substitute the actual `<tmpdir>` path, `<scope>`, and `<concern_filter>` into each template before dispatching.
+A file, class, or function qualifies when splitting it would make the code easier to change, and you can name the evidence. Examples: disconnected responsibility clusters, high churn with low cohesion, non-co-changing functions forced into one file, or fan-in high enough to suggest too many responsibilities, or a function too long, deep, or wide to follow. Behavioral evidence ranks higher than structural: HIGH when behavioral signals are present, MEDIUM for structural signals with little churn, LOW for a single marginal signal.
 
-Each subagent writes structured output to the tmpdir — the orchestrator reads both files in Phase 3 and joins on file path.
+Drop a suggestion when the split would make things worse:
+- **Coupling increase.** If the structural analysis marks `coupling-delta` positive, the new modules must always change together, which is worse than the status quo.
+- **Over-decomposition.** Modules under ~50 lines that are really private functions, all imported by the same callers, add indirection without reducing coordination cost.
 
-### Subagent A: Git Behavioral Analysis
+For each HIGH and MEDIUM opportunity, make the proposal concrete (see the report format in `REFERENCE.md`): specific functions and classes and the new module names, why they group together, how cohesion and coupling change and which callers are affected, a well-decomposed peer in the codebase if one exists, and a dependency-aware order for the splits.
 
-Writes to `<tmpdir>/git-analysis.md`. Examines Git history for decomposition signals:
-- **Churn hotspots**: files ranked by commit frequency in the last 6 months
-- **Change coupling**: for each hotspot, which other files/functions change in the same commits
-- **Developer dispersion**: how many authors touch each hotspot
-- **Temporal independence**: functions within a file that never co-change (safe extraction candidates)
+## Presenting
 
-Output must start with a per-file summary table: `| file | commits_6mo | co_changing_files | authors | notes |`
+Write `<tmpdir>/decomposition-report.md` in the format from `REFERENCE.md`. Present the top findings inline, HIGH first, each with the signal that flagged it and the proposed split in brief, ending with `Full report at <tmpdir>/decomposition-report.md`.
 
-### Subagent B: Structural & Cohesion Analysis
+If nothing survived the checks above, say the code is already well decomposed and stop. Otherwise ask what to do next, building the options from the findings (naming the top opportunity and the count). The outcomes are: build the top opportunity (recommend when it is HIGH and self-contained), file one issue per HIGH/MEDIUM opportunity in the project's tracker (recommend when they are many, MEDIUM, or need several PRs), save the report by copying it to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`, or done. Diagnosis only until the user picks a build.
 
-Writes to `<tmpdir>/structural-analysis.md`. Reads the code to assess structural signals:
-- **Size**: files >400 lines, functions >50 lines, nesting >4 levels
-- **Coupling**: fan-in/fan-out per file (import analysis), circular dependencies
-- **Cohesion**: disconnected responsibility clusters within files/classes (groups of methods sharing no data)
-- **Mixed abstractions**: high-level orchestration mixed with low-level details
-- **Responsibility mapping**: for each large file/class, which methods cluster by shared data/purpose
+## Not this skill
 
-Output must start with a per-file summary table: `| file | lines | functions | clusters | fan_in | fan_out | notes |`
-
-## Phase 3: Synthesize & Suggest
-
-Read `<tmpdir>/git-analysis.md` and `<tmpdir>/structural-analysis.md`. Join on file path — for each file, merge behavioral signals (churn, coupling, dispersion) with structural signals (size, clusters, fan-in/fan-out). Files appearing in only one report get partial data; note the gap.
-
-### Prioritization
-
-Two-stage ranking: **qualify** (does this file clear any decomposition bar?), then **rank** (given qualifying signals, what priority?). Behavioral signals dominate structural when they conflict.
-
-**Qualification** — a file is a decomposition candidate if ANY of these hold:
-- Multiple disconnected responsibility clusters (structural signal)
-- High churn with low cohesion (behavioral + structural)
-- Change coupling violations — non-co-changing functions forced into same file (behavioral)
-- High fan-in (>10 importers) suggesting too many responsibilities (structural)
-
-Do NOT qualify files that are cohesive, well-tested, and stable — size alone is not a decomposition signal.
-
-**Ranking** — given qualified candidates, assign priority:
-
-| Priority | Determining signal |
-|----------|--------------------|
-| HIGH | Behavioral signal present (high churn, change coupling violations, high developer dispersion) |
-| MEDIUM | Structural signals only (multiple clusters, high fan-in, large size) with low or no churn |
-| LOW | Single marginal signal (e.g., size threshold crossed but cohesive) |
-
-### Suggestion Generation
-
-For each HIGH and MEDIUM opportunity, propose a concrete split. See REFERENCE.md for the full output format. Each suggestion includes:
-
-1. **What moves where** — specific functions/classes, proposed new module names
-2. **Why these group together** — change coupling, shared data access, or domain concept
-3. **Cohesion improvement** — how the split reduces disconnected responsibility clusters
-4. **Coupling impact** — new cross-module dependencies? Existing callers affected?
-5. **Good example** — if the codebase has a well-decomposed module with a similar pattern, reference it
-6. **Suggested order** — dependency-aware sequence for implementing the splits
-
-### Anti-Pattern Guard
-
-Before finalizing any suggestion, check for two failure modes:
-
-1. **Coupling increase** — check Subagent B's `coupling-delta` field. If `positive`, drop the suggestion — splitting creates modules that must always change together, which is worse than the status quo.
-2. **Over-decomposition** — if a proposed split would produce modules under ~50 lines that are really just private functions, drop the suggestion. Extracting tiny modules that all get imported by the same callers adds indirection without reducing coordination cost.
-
-## Phase 4: Present
-
-### Step 1: Write the report
-
-Write `<tmpdir>/decomposition-report.md` (same tmpdir from Phase 2). See REFERENCE.md for the full format template.
-
-### Step 2: Narrative summary
-
-Present the top findings inline — lead with HIGH priority, include the key signal that flagged each, and show the proposed split in brief. End with: `Full report at <tmpdir>/decomposition-report.md`
-
-### Step 3: Offer next steps
-
-If no opportunity survived the Anti-Pattern Guard, say the code is already well decomposed and stop.
-
-Otherwise build the options from the findings: lead with "Build top opportunity" (recommended) when the top finding is HIGH and self-contained, and with "File as issues" when the opportunities are many, MEDIUM, or need splitting across several PRs. Name the top opportunity and the finding count in the descriptions.
-
-```
-AskUserQuestion:
-  question: "What would you like to do with these findings?"
-  header: "Next steps"
-  multiSelect: false
-  options:
-    - label: "Build top opportunity"
-      description: "Implement the highest-priority decomposition now"
-    - label: "File as issues"
-      description: "Create issues for the decomposition opportunities"
-    - label: "Save report"
-      description: "Save to design/audits/ for future reference"
-    - label: "Done"
-      description: "Acknowledged — no action this session"
-```
-
-If the user chooses "Build top opportunity", implement the split now. If "File as issues", create one issue per HIGH/MEDIUM opportunity in the project's issue tracker. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`.
-
-## What This Skill Does NOT Do
-
-- **Implement splits** — diagnosis only, until the user picks "Build top opportunity"
-- **Replace `/mine-audit`** — audit covers broad codebase health. This focuses specifically on decomposition
-- **Suggest micro-extractions** — a clear, cohesive 30-line function stays as-is even if 3 lines could be extracted
-- **Profile runtime performance** — complexity here is structural, not runtime
-
-## Principles
-
-1. **Show, don't tell** — concrete "move X to Y" suggestions, not "consider improving cohesion"
-2. **Behavioral signals first** — Git history reveals what actually changes together; static metrics are secondary
+Broad codebase health is `/mine-audit`. Micro-extractions (a clear, cohesive 30-line function stays as-is) and runtime performance are out of scope; complexity here is structural.

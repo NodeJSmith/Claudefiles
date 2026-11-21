@@ -6,41 +6,19 @@ user-invocable: true
 
 # Create Issue
 
-Codebase-aware issue creation. Dispatches a subagent to investigate the code, draft a structured issue, and create it in the project's issue tracker.
-
-To enrich an existing issue, use the `issue-refiner` agent instead.
+File an issue that someone (or an automated triager) can pick up without asking questions: the codebase is investigated first, so the issue names the real files, patterns, and constraints. A subagent does the investigation, drafting, and filing. To enrich an existing issue, use the `issue-refiner` agent instead.
 
 ## Arguments
 
-$ARGUMENTS — a description of the issue to create. Can be:
-- A short description: `/mine-create-issue "add retry logic to the webhook sender"`
-- A bug report: `/mine-create-issue "500 error when submitting empty form"`
-- Empty: ask the user what they want to file
+$ARGUMENTS — a description of the issue to file (a feature, a bug report, a task). If empty, ask what the user wants to file.
 
-## Classify and Gather
+## Before dispatching
 
-If $ARGUMENTS is empty, ask the user: "What do you want to create an issue for?"
+Work out whether this is a bug, feature, task, or chore, since that decides which labels apply and what detail the issue needs. When it's ambiguous, default to task.
 
-Classify the issue type from the description:
+Ask the user only for what the description lacks and the codebase can't supply, at most two questions. For a bug, that is usually what happens versus what should happen, and how to reproduce it. For a feature, the problem it solves and any constraints or non-goals. Don't ask for file paths or function names; the investigation finds those.
 
-| Type | Signals |
-|------|---------|
-| bug | "error", "broken", "crash", "fails", "wrong", "500", reproduction context |
-| feature | "add", "new", "support", "enable", "implement" |
-| task | "refactor", "rename", "move", "split", "clean up", "remove", "update", "upgrade" |
-| chore | "deps", "CI", "config", "version bump" |
-
-When signals overlap, prefer the type whose follow-up questions would extract the most useful detail. If genuinely ambiguous, default to task.
-
-### Targeted follow-ups
-
-Ask only what's missing from the description. Skip questions the user already answered. Keep this to **1-2 questions max**. The codebase investigation fills in the technical detail — don't ask the user for file paths or function names.
-
-**Bug** — what's happening vs what should happen; how to reproduce.
-**Feature** — what problem this solves; any constraints or non-goals.
-**Task / Chore** — only ask if the scope is ambiguous.
-
-## Execute
+## Dispatch
 
 Launch one subagent (`subagent_type: standard-worker`):
 
@@ -49,8 +27,6 @@ Launch one subagent (`subagent_type: standard-worker`):
 > **Type:** <classified type>
 > **Description:** <user's description + any follow-up answers>
 >
-> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-issue/worker.md` for the complete workflow. Follow every step. Do NOT use the Skill tool — the instructions are in worker.md, not a skill.
+> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-issue/worker.md` for the complete workflow. Do NOT use the Skill tool — the instructions are in worker.md, not a skill.
 
-The subagent returns the issue URL, or an `ERROR:` line if something blocked it.
-
-Present the result to the user. If the error says no tools are available for the configured tracker, ask the user how to proceed rather than retrying or picking a different tracker yourself — the tooling for that tracker may live in another repo on this machine.
+The subagent's final message ends with the issue URL on its own line (notes may precede it), or is an `ERROR:` line if something blocked it. Report the result to the user. If the error says no tools are available for the configured tracker, ask the user how to proceed rather than retrying or choosing another tracker yourself; the tooling for that tracker may live in another repo on this machine.

@@ -8,7 +8,7 @@ Extended guidance for the decomposition analysis skill. Referenced by SKILL.md.
 
 ### Subagent A: Git Behavioral Analysis
 
-Replace `<scope>` with the target from Phase 1 before dispatching. If `<concern_filter>` is set, append the concern focus line below.
+Replace `<scope>` with the resolved scope before dispatching.
 
 ```
 Analyze the Git history of the following target for decomposition-relevant signals.
@@ -52,7 +52,7 @@ Follow with detailed per-file analysis sections.
 
 ### Subagent B: Structural & Cohesion Analysis
 
-Replace `<scope>` and `<file list>` with targets from Phase 1 before dispatching. If `<concern_filter>` is set, append the concern focus line below.
+Replace `<scope>` and `<file list>` with the resolved scope before dispatching.
 
 ```
 Analyze the following files for structural decomposition signals. Read the code directly — do not write analysis scripts.
@@ -159,37 +159,3 @@ The decomposition report (`decomposition-report.md`) uses this structure:
 | `path/to/file.py` | 380 lines | Size only | Cohesive and stable — not urgent |
 | `path/to/other.py` | 420 lines | Mild coupling | 2 clusters but rarely changes |
 ```
-
----
-
-## Decomposition Signals Reference
-
-### Behavioral Signals (from Git)
-
-| Signal | What it reveals | Decomposition implication |
-|--------|----------------|--------------------------|
-| Change frequency | How often a file is modified | High churn = high ROI for decomposition |
-| Change coupling | Functions/files that change in same commits | Co-changing functions belong together; non-co-changing functions are extraction candidates |
-| Developer dispersion | How many authors touch a file | Many authors + complexity = coordination bottleneck |
-| Temporal independence | Functions that never co-change | Safe extraction candidates — no hidden coupling |
-
-### Structural Signals (from code)
-
-| Signal | Threshold | Implication |
-|--------|-----------|-------------|
-| File size | >400 lines | Investigate (not sufficient alone) |
-| Function length | >50 lines | Extract method candidate |
-| Nesting depth | >4 levels | Mixed abstraction levels |
-| Parameter count | >5 params | Combined responsibilities |
-| Fan-in | >10 importers | God module — too many responsibilities |
-| Fan-out | >10 imports | Too many dependencies |
-| Circular deps | Any | Must break the cycle |
-
-### Cohesion Signals (from reading code)
-
-| Signal | What to look for | Implication |
-|--------|-----------------|-------------|
-| Disconnected clusters | Groups of methods sharing no data | Each cluster -> separate module |
-| Mixed abstractions | Orchestration + implementation in same file | Extract the detail level |
-| Domain mixing | Unrelated domain concepts in same class | Extract by domain concept |
-| Utility accumulation | Generic helpers growing alongside domain logic | Extract to shared module |

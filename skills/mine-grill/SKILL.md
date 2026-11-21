@@ -6,82 +6,26 @@ user-invocable: true
 
 # Grill
 
-Multi-angle interrogation of a raw idea. Attacks the idea from product, design, engineering, and adversarial perspectives to surface what you haven't thought about. Produces a structured brief that `/mine-sketch` can take as input.
-
-Not a spec. Not a design doc. A thinking tool.
+Interrogate a raw idea from product, design, engineering, scope, and adversarial angles until the user has seen what they hadn't thought about, then capture the result as a brief that `/mine-sketch` can take as input. This is a thinking tool, not a spec or design doc.
 
 ## Arguments
 
-$ARGUMENTS — the idea, issue, or problem to explore. Can be a description, an issue reference, or a path to an existing document.
+$ARGUMENTS — the idea, issue, or problem to explore: a description, an issue reference, or a path to an existing document. If empty, ask what they want to think through.
 
----
+## What good looks like
 
-## Phase 1: Understand the Idea
+**The pain point is pinned down first.** Paraphrase the idea back in a sentence, and state the underlying problem driving it. If the user gave a solution ("I want to add X") without the problem, ask what isn't working well before going further. Then explore the codebase for context (existing patterns, related features, prior art) and tell the user briefly what you found; it grounds everything after.
 
-If $ARGUMENTS is provided, paraphrase it back in one sentence to confirm understanding. If empty, ask:
+**The questions are the ones the user hasn't asked themselves.** Work through the angles one at a time, one question per `AskUserQuestion` call: 
+- Product: who benefits and who doesn't, the smallest version that delivers value, what happens if it isn't built.
+- Design: how users discover it, what failure looks like.
+- Engineering: what code it touches, what will be annoying to maintain.
+- Scope: what's tempting to include, what would be cut at half the time.
+- Adversarial: which assumption could be wrong, the strongest argument against building it.
 
-```
-AskUserQuestion:
-  question: "What's the idea or problem you want to think through?"
-  header: "Grill"
-```
+These are prompts for where to look, not a checklist. Aim for the 5-8 questions that surface something new, and skip any the user or the codebase already answers. When an answer opens a decision branch, follow it until it settles before moving on, checking the code first if the code can inform the next question.
 
-Before exploring, confirm the pain point:
-
-> **Understood pain point:** <the underlying problem or frustration driving this idea>
-
-If the user gave a solution ("I want to add X") but not the problem, ask: "What's not working well?" before proceeding.
-
-Explore the codebase for relevant context (existing patterns, related features, prior art). Present a brief summary of what you found — this grounds the entire conversation.
-
----
-
-## Phase 2: Multi-Angle Interrogation
-
-Work through these lenses one at a time. For each lens, ask 1-3 questions — only the ones that surface something the user likely hasn't considered. Skip questions where the codebase already provides the answer. **One question per AskUserQuestion call.**
-
-### Product lens
-- Who exactly benefits from this, and who doesn't?
-- What's the smallest version that delivers value?
-- What happens if you don't build this?
-
-### Design lens
-- How does the user discover and interact with this?
-- What's the failure experience? (error states, edge cases, empty states)
-- What existing mental models does this break or build on?
-
-### Engineering lens
-- What existing code/patterns does this touch or conflict with?
-- What's the hardest technical constraint?
-- What will be annoying to maintain?
-
-### Scope lens
-- What's adjacent to this that you're tempted to include?
-- Where's the line between "this feature" and "the next feature"?
-- What would you cut if you had to ship in half the time?
-
-### Adversarial lens
-- What assumption are you making that could be wrong?
-- What's the worst way this could fail?
-- If someone argued against building this, what would their strongest point be?
-
-**You do not need to ask every question.** Skip any that are obvious, already answered, or where the codebase provides the answer. The goal is to find the 5-8 questions the user hasn't thought about, not to run a checklist.
-
-After each answer, walk down any decision branches it opens — follow each thread until it settles before moving to the next lens. If an answer reveals something the codebase can inform, check the code before asking the next question.
-
----
-
-## Phase 3: Synthesize
-
-After the interrogation, write a brief to the feature directory. If no feature directory exists yet, create one:
-
-```bash
-new-spec-dir <slug>
-```
-
-It prints the new directory's path — you will write the brief there.
-
-Write to `<feature_dir>/brief.md`:
+**The result is a brief on disk.** Write `<feature_dir>/brief.md`; if there is no feature directory yet, `new-spec-dir <slug>` creates one and prints its path. `/mine-sketch` and `/mine-challenge --target-type=brief` read this file, so keep this shape:
 
 ```markdown
 # Brief: <Title>
@@ -95,11 +39,11 @@ Write to `<feature_dir>/brief.md`:
 
 ## Key Decisions Made
 
-<Bullet list of decisions reached during the grill — things that were ambiguous and are now pinned down>
+<Things that were ambiguous and are now pinned down>
 
 ## Open Questions
 
-<Anything that came up but couldn't be resolved — these become decisions when the brief feeds /mine-sketch>
+<What came up but couldn't be resolved; these become decisions when the brief feeds /mine-sketch>
 
 ## Scope Boundaries
 
@@ -107,37 +51,19 @@ Write to `<feature_dir>/brief.md`:
 
 ## Risks and Concerns
 
-<Things that surfaced during adversarial questioning — assumptions, failure modes, maintenance burden>
+<Assumptions, failure modes, and maintenance burden that surfaced>
 
 ## Codebase Context
 
-<Relevant findings from code exploration — existing patterns, integration points, constraints>
+<Existing patterns, integration points, constraints>
 ```
 
----
+## Handoff
 
-## Phase 4: Handoff
+Ask `"Brief saved. What next?"` (header `Handoff`) with options built from the brief you wrote, naming its actual open questions or risks. Unresolved open questions that would change the scope or approach are the natural next step, because challenge, sketch, and building directly would each stall on them or bake in a guess; lead with resolving them and recommend it. When they are minor or empty, lead with whichever downstream step fits the feature's size and risk. Offer the outcomes the situation warrants, always keeping "Done for now" available:
 
-Ask `"Brief saved. What next?"` (header `Handoff`), building the options from the brief you just wrote. If its Open Questions would change the scope or approach, resolving them is the natural next step, so lead with that and recommend it. Challenge, sketch, and building directly would each stall on those questions or bake in a guess. When the open questions are minor or empty, lead with whichever downstream step fits the size and risk of the feature. Name the actual questions or risks in the descriptions. Keep "Done for now" available.
-
-- **Resolve the open questions**: keep grilling on just those questions, update the brief's Open Questions, Key Decisions, and Scope sections with the answers, then return to this gate
-- **Challenge this brief first**: run `/mine-challenge`; the brief shapes everything downstream
-- **Sketch it (`/mine-sketch`)**: turn the brief into a decision ledger, with the brief as input
-- **Build it directly**: implement it now, for a small feature whose brief left nothing to decide
-- **Done for now**: brief saved; pick it up later
-
-### On "Challenge this brief first"
-
-Invoke `/mine-challenge --target-type=brief <feature_dir>/brief.md`. After challenge completes, loop back to this handoff gate.
-
-### On "Sketch it"
-
-Invoke `/mine-sketch <feature_dir>`. Sketch reads the brief as prior work and writes its ledger in the same directory.
-
-### On "Build it directly"
-
-Implement the change described in `<feature_dir>/brief.md`, through the normal pre-commit reviewers.
-
-### On "Done for now"
-
-Confirm: "Brief saved at `<feature_dir>/brief.md`. Resume with `/mine-sketch <feature_dir>` later."
+- **Resolve the open questions:** keep grilling on just those, update the brief's Open Questions, Key Decisions, and Scope sections, then return to this gate.
+- **Challenge this brief first:** `/mine-challenge --target-type=brief <feature_dir>/brief.md`; afterwards return to this gate.
+- **Sketch it:** `/mine-sketch <feature_dir>`. Sketch reads the brief as prior work and writes its ledger in the same directory.
+- **Build it directly:** implement `<feature_dir>/brief.md` through the normal pre-commit reviewers, for a small feature whose brief left nothing to decide.
+- **Done for now:** confirm the brief is at `<feature_dir>/brief.md` and can be resumed with `/mine-sketch <feature_dir>`.

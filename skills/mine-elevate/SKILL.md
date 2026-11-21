@@ -6,84 +6,36 @@ user-invocable: true
 
 # Elevate
 
-Looks *up* at existing code and asks "if we did this over, knowing what we know now, what would we change?" — surfacing the upward moves that normally get skipped as "not worth it at this level." The deliberate inverse of `/mine-decompose` (which looks down and removes). It produces an impact-ordered menu of independently-landable candidates, each with a cheap first move, a cost, and an honest case against — **not** a ranked mandate.
+Look *up* at an existing subsystem and ask "if we did this over, knowing what we know now, what would we change?" Surface the upward moves that normally get skipped as "not worth it at this level." It is the inverse of `/mine-decompose` (which looks down and removes), and it is not a correctness review (`/mine-review`) or a debt audit (`/mine-audit`).
 
-Use it to pressure your own design choices on a subsystem you suspect could be better. It is **not** a correctness review (`/mine-review`) or a debt audit (`/mine-audit`).
+Done is an impact-ordered menu of independently-landable candidates, each with a cheap first move, a cost, and an honest case against, shown to the user to judge. It is a menu, not a ranked mandate.
 
 ## Arguments
 
-$ARGUMENTS — the subsystem to elevate (a directory or module). Empty → the skill asks. It does not silently sweep the repo.
+$ARGUMENTS: the subsystem to elevate (a directory or module). If empty, ask which one; a coherent design unit works best. Never silently sweep the repo.
 
 ## The one rule
 
-**The skill's job is to make upward options visible and let *you* judge them — never to decide for you that something isn't worth it.** Suppression is the exact myopia this exists to fight. Everything generated is shown; nothing is filtered out. The judge annotates and argues against, but it never deletes a candidate.
+**Make upward options visible and let the user judge them; never decide for them that something isn't worth it.** Suppression is the echo-chamber myopia this skill exists to fight. Everything generated is shown, annotated and argued against, never filtered out.
 
-## Named failure modes to resist
+Traps that defeat this:
 
-- **Pre-filtering ("not worth it at this level").** Agents suppress upward ideas to look disciplined. That instinct is wrong here — it *is* the echo chamber. Show everything; annotate, don't cut.
-- **Self-grading.** A generator judging its own ideas inflates them. Generation and annotation run in **separate subagent contexts**.
-- **Gold-plating dump.** The maximalist lens wants to recommend heavyweight patterns wholesale (tutorial bias). Its job is provocation→nugget: extract the cheap thing inside the pattern, not the pattern.
+- **Pre-filtering.** Agents drop upward ideas to look disciplined. Show everything; annotate, don't cut.
+- **Self-grading.** A generator judging its own ideas inflates them, so generation and annotation run in separate subagent contexts, and generators never see each other's prompt or output (a lens that sees another's restraint regresses to the cautious mean).
+- **Gold-plating.** The maximalist lens wants to recommend heavyweight patterns wholesale. Its job is provocation to nugget: the cheap thing inside the pattern, not the pattern.
 - **Hallucinated authority.** "Mature peers do X" from memory is fabricated. Prior-art claims carry a real URL or `[no source found]`.
 
-## How to analyze
+## How it runs
 
-Subagents read code directly with Read, Grep, Glob, and `git`. Do NOT write or run analysis scripts.
+Subagents read code with Read, Grep, Glob, and `git`; they don't write or run analysis scripts. Intermediate files live in a `mktemp -d <scratchpad>/mine-elevate-XXXXXX` directory.
 
-## Phase 1: Scope to one subsystem
+1. **Scope to one coherent unit.** Resolve $ARGUMENTS to the subsystem's source files. If it spans several subsystems or is the whole repo, pick the single unit that looks most worth elevating, say which and why, and proceed; three unfiltered lenses across a repo is a candidate dump.
+2. **Generate.** Read `REFERENCE.md`. In a single message, dispatch three generators in parallel (`subagent_type: standard-worker`), one per lens: Friction, Latent, Maximalist. Each gets the subsystem file list, only its own lens block verbatim, the candidate record format, and an output path `<tmpdir>/<lens>-candidates.md`. No candidate cap; quality over count. They write only to their own file, so no worktree isolation. Verify each output exists and is non-empty.
+3. **Annotate.** Dispatch one judge (`standard-worker`) in a context separate from every generator, with all three candidate files, the subsystem files, the judge prompt from `REFERENCE.md`, and output path `<tmpdir>/annotated.md`. One judge over the whole set keeps cost and case-against calibrated across lenses. It adds Cost and Case against to every candidate and changes nothing else.
+4. **Render.** Read `<tmpdir>/annotated.md` and render inline with the report template in `REFERENCE.md`, in tier order Friction, Latent, Maximalist regardless of the order in the file (high signal first; the ordering is the volume control, not a filter). If there are no candidates at all, say so and stop.
 
-Run `mktemp -d <scratchpad>/mine-elevate-XXXXXX` — note the dir; all intermediate files live here.
+## Next steps
 
-Resolve $ARGUMENTS to the subsystem's source files and confirm they're a **single coherent design unit**:
-- **A directory/module** → expand to its source files; that's the unit.
-- **Spans several distinct subsystems, or is the whole repo** → do not fan out across all of them. Pick the one unit that looks most worth elevating, state which and why, and proceed on it. Three un-filtered lenses across a repo is a candidate dump.
-- **Empty or all paths missing** → ask:
+Ask what to do with the candidates, even when the judge rates every one weak, since worth is the user's call. Build the menu from the candidates and name them in the descriptions. The outcomes are: implement some (recommend when Friction candidates are cheap and independently landable), file as issues via `/mine-create-issue` (when the strong ones are Latent or Maximalist and need design first), or note and move on (recommend when every candidate is weak or its case against dominates; this wins over the others).
 
-```
-AskUserQuestion:
-  question: "Which subsystem should I elevate? (One coherent unit works best.)"
-  header: "Target"
-  multiSelect: false
-  options:
-    - label: "A specific module"
-      description: "I'll name a directory or module"
-    - label: "Specific files"
-      description: "I'll list the files for one subsystem"
-```
-
-Resolve the user's answer — the module or files they name (typically via the free-text option) — to the subsystem's source file list. Do not build subsystem-detection logic; the user's pointer decides the boundary.
-
-## Phase 2: Generate (three lenses, in parallel)
-
-Read REFERENCE.md. Dispatch **three generator subagents in a single message** (parallel; `subagent_type: standard-worker`; no worktree isolation needed — each writes only to its own `<tmpdir>/<lens>-candidates.md`, never to the git working directory). One per lens — **Friction**, **Latent**, **Maximalist**. Each receives: the subsystem file list, **only its own** lens block from REFERENCE.md verbatim, the candidate record format from REFERENCE.md, and an output path `<tmpdir>/<lens>-candidates.md`. There is no cap on candidate count — quality over count.
-
-Keep the generators isolated: each receives **only its own** lens block and the subsystem — never another generator's prompt or output file. If one lens sees another's restraint, the maximalist lens regresses to the cautious mean.
-
-Model note: `sonnet` is the default; the Latent and Maximalist lenses are architecture-flavored, so `opus` may earn its place there — tune from usage, don't commit up front.
-
-After they complete, verify each output file exists and is non-empty.
-
-## Phase 3: Annotate (one independent judge)
-
-Dispatch **one** judge subagent (`subagent_type: standard-worker`) — not three. One judge over the whole set keeps cost and the case-against *calibrated* across lenses. It runs in a context separate from every generator, which is what preserves no-self-grading.
-
-It receives: all three candidate files, the subsystem files, the judge prompt from REFERENCE.md, and output path `<tmpdir>/annotated.md`. Its job is to add **Cost** and **Case against** to every candidate — including arguing against ideas it doubts — and to add nothing else. It must not drop, merge away, or reorder candidates.
-
-## Phase 4: Render and offer next steps
-
-Read `<tmpdir>/annotated.md`. Render the report inline using the template in REFERENCE.md. Sort candidates by their lens tag into the fixed tier order **Friction → Latent → Maximalist**, regardless of the order they appear in `annotated.md` (high signal first; the reader stops when they lose interest — this ordering is the volume control, not a filter). If there are no candidates at all, say so and stop. Otherwise ask with the block below, even when the judge rates every candidate weak, since whether they're worth it is the user's call. Recommend from the candidates: "Note and move on" when every candidate is weak or its case against dominates (this wins over the other two), "Implement some" when Friction candidates are cheap and independently landable, "File as issues" when the strong ones are Latent or Maximalist and need design first. Name the candidates in the descriptions. Then ask:
-
-```
-AskUserQuestion:
-  question: "What would you like to do with these?"
-  header: "Next steps"
-  multiSelect: false
-  options:
-    - label: "Implement some"
-      description: "Pick candidates to build now; each is independently landable"
-    - label: "File as issues"
-      description: "Turn selected candidates into issues via /mine-create-issue"
-    - label: "Note and move on"
-      description: "Acknowledged — no changes this session"
-```
-
-**Implementing any candidate is a refactor or a feature change** — pin behavior first per `refactoring-discipline.md`: confirm test coverage (or write a characterization test), apply the minimal move, then run the suite. After changes, say: "Run `/mine-review` before committing."
+Implementing a candidate is a refactor or feature change: pin behavior first per `refactoring-discipline.md` (confirm test coverage or write a characterization test, apply the minimal move, run the suite). After changes, say: "Run `/mine-review` before committing."

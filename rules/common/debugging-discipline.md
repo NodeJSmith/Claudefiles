@@ -1,6 +1,6 @@
 # Debugging Discipline
 
-When invoked as a skill, `mine-debug` provides the phased workflow. This file captures the cross-cutting principles.
+When invoked as a skill, `mine-debug` provides the workflow (investigate to a hypothesis, test one change at a time, escalate after three failed fixes). This file captures the cross-cutting principles.
 
 ## Evidence-Based Fixes Only
 

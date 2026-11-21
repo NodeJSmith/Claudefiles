@@ -4,40 +4,18 @@ description: "Use when the user says: \"status\", \"where am I\", \"quick summar
 
 # Status Command
 
-Fast "where am I?" snapshot. No subagents. Target output: 10-15 lines.
+A fast "where am I?" snapshot, about 10-15 lines of plain text (no headers or code blocks), gathered directly without subagents. Each source is optional; skip any that has nothing to show, and if there is no task, error, or git data, print `No active context.`
 
-## Gather Data
+## Sources
 
-Collect these in parallel where possible. Each section is **optional** — skip gracefully if data is unavailable.
+- **Tmux:** `claude-tmux current`. Skip if it says "Not in tmux". A purely numeric result means the session is unnamed.
+- **Git:** last commit (`git log --oneline -1 --format="%s (%cr)"`), `git status --short`, and the ahead count against the upstream if there is one. Skip if not a git repo.
+- **Tasks:** `TaskList`.
+- **Errors:** `/mine-debug` writes `<scratchpad>/claude-errors-*/errors.md` (glob the directories). Use the most recently modified one whose leading `Repo:` line names the current repo (`git rev-parse --show-toplevel`); others belong to other debugging runs.
 
-### Tmux (Bash)
+## Output
 
-Run: `claude-tmux current`
-
-If the output is "Not in tmux", skip. If the result is purely numeric, treat it as unnamed.
-
-### Git (Bash)
-
-Run these commands (in parallel where possible):
-- `git log --oneline -1 --format="%s (%cr)" 2>/dev/null`
-- `git status --short 2>/dev/null`
-- `git rev-parse --abbrev-ref @{upstream} 2>/dev/null` — if this returns an upstream name, then run `git rev-list --count HEAD --not <upstream> 2>/dev/null` to get the ahead count
-
-If not a git repo, skip the entire Git section.
-
-### Tasks (TaskList)
-
-Call `TaskList` to get current tasks.
-
-### Errors (Read)
-
-Look for error files in `<scratchpad>/claude-errors-*/errors.md` (glob for directories `/mine-debug` creates in this session's scratchpad). Read the most recently modified match whose leading `Repo:` line names the current repo (`git rev-parse --show-toplevel`); files for other repos belong to other debugging runs. If no match exists or the file is empty, skip.
-
-<!-- Error files are produced by /mine-debug — the skill owns the error-tracking contract and writes to this path at each fix attempt. -->
-
-## Output Format
-
-Print a compact status block. Use exactly this structure, omitting sections that have no data:
+Shaped like this, omitting empty sections:
 
 ```
 Session: <name> (or "<number> (unnamed)" if numeric, omit if not in tmux)
@@ -55,10 +33,4 @@ Errors (<N> this session):
 Last commit: <subject> (<relative time>)
 ```
 
-### Rules
-
-- `[>>]` = in_progress, `[ ]` = pending, `[x]` = completed
-- Show at most 8 tasks. If more exist, append `  ... and N more`
-- For errors, show only unresolved entries (no "Resolved:" in Next). If all resolved, show `Errors: all resolved`
-- If no tasks, no errors, and no git — just print `No active context.`
-- Do NOT use subagents, code blocks, or headers. Plain text only.
+Show at most 8 tasks, then `  ... and N more`. Show only unresolved errors (no "Resolved:" in Next); if all are resolved, `Errors: all resolved`.
