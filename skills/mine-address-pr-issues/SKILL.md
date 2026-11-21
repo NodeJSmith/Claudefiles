@@ -113,7 +113,7 @@ Fixes and their tests have to run on the code that will be pushed, so the order 
 
 ### Merge or rebase, then CI fixes
 
-Apply the approved merge or rebase first, on a clean tree, then the CI fixes (tests run after each). Leave them uncommitted until review.
+Conclude the approved merge or rebase first, on a clean tree, committing it as git does (a rebase makes its commits as it runs; an unfinished merge would swallow every later fix into its commit). Then apply the CI fixes, running tests after each; those fixes stay uncommitted until review, which should cover the conflict resolution too.
 
 ### Fix each group, serially
 
