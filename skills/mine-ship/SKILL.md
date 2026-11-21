@@ -12,40 +12,20 @@ user-invocable: true
 - Default branch: !`git-default-branch`
 - Remote URL: !`git remote get-url origin 2>/dev/null`
 
-## Your task
+## Goal
 
-Ship the current changes: commit, push, and open a PR. Follow each phase in order.
+Get the current changes from the working tree to a reviewable state on the remote in one step: committed, pushed, and, where the repo calls for one, a PR. Commit, push, and PR creation are outward-facing and hard to take back, so each runs only after its gates pass.
 
-### Phase 1 — Commit & Push
+The default flow below is a PR flow. Any rule in the user's or repo's instructions that changes how this repo ships (for example a repo that takes direct pushes to the default branch, so no PR) wins over it. Apply that rule instead of the matching default step, without asking and without restating it; the commit-and-push stage and the clean-code gate still run, and you report what was actually pushed in place of a PR URL.
 
-Follow **all steps in `mine-commit-push`** exactly (read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-commit-push/SKILL.md` and execute its full workflow — commit quality gates included). When that phase completes successfully — changes committed and pushed — continue to Phase 2 below.
+## Stages
 
-### Phase 1.5 — Clean Code Gate
+1. **Commit and push.** Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-commit-push/SKILL.md` and carry out its workflow in full, quality gates included. Continue only once the changes are committed and pushed.
 
-**Skip this phase if the branch diff contains only instruction files (`.md`).** Clean-code checkers are for code, not prose. Instruction files are already covered by mine-review's instruction-mode reviewers in Phase 1.
+2. **Clean-code gate.** Skip when the branch diff is only instruction files (`.md`); clean-code checkers are for code, not prose. Otherwise run `/mine-clean-code` on the branch diff, and when it offers its own next-steps prompt, choose "Note and move on", since this stage makes the fix/skip/stop call.
 
-After Phase 1 completes (changes committed and pushed), run `/mine-clean-code` on the branch diff.
+   Raw checker output doesn't decide anything. Judge which findings matter. If none do, say so in one line and move on. Fix the ones that do, inline, top to bottom (no subagent), re-run tests and linter, then commit (`refactor: address clean-code findings`) and push before the next stage, since `mine-create-pr` verifies the branch is fully pushed. State in one line what was fixed and what was left as not worth fixing.
 
-When mine-clean-code presents its own next-steps prompt, choose "Note and move on" — this phase handles the fix/skip/stop decision.
+   Escalate instead of fixing when a fix needs your judgment about intent: it changes a public interface or observable behavior, spreads across many files, or still fails the tests after one attempt. This is a major gate (see `interaction.md`): run `context-pct`, prepend `[Context: N%]` to the question, and offer the outcomes that fit what you found (ship with the findings listed in the PR body, stop so the user can address them, or others the findings call for). A checker that fails to complete is reported as "unavailable" and never blocks the PR.
 
-If mine-clean-code produces findings, decide which are worth fixing. If none are, say so in one line and proceed to Phase 2. Otherwise fix those, top-to-bottom, inline (no subagent), re-run the tests and linter, then stage, commit (`refactor: address clean-code findings`), and push before proceeding to Phase 2 — mine-create-pr verifies the branch is fully pushed. State in one line what was fixed and what was left as not worth fixing.
-
-Escalate instead of fixing when a fix is no longer mechanical and needs your judgment about intent: it changes a public interface or observable behavior, spreads across many files, or leaves the tests failing after one attempt. This is a major gate (clean code gate result, see `interaction.md`) — run `context-pct` and prepend the result to the question:
-
-```
-AskUserQuestion:
-  question: "[Context: N%] Stylistic review found findings that need a judgment call: <which and why>. What next?"
-  header: "Clean code"
-  multiSelect: false
-  options:
-    - label: "Ship anyway"
-      description: "Proceed to PR creation with findings noted"
-    - label: "Stop here"
-      description: "Pause; I'll address findings manually"
-```
-
-If any checker subagent fails to complete, skip that checker's findings and say "unavailable" in the summary line — do not block PR creation for checker failures.
-
-### Phase 2 — Create PR
-
-Follow **all steps in `mine-create-pr`** exactly (read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and execute its full workflow — platform detection, changelog entry, PR creation). Phase 1 already committed and pushed, so create-pr's push check passes. Return the PR URL it produces.
+3. **Create the PR.** Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and carry out its workflow in full (platform detection, changelog entry, PR creation). Stage 1 already pushed, so its push check passes. Return the PR URL it produces.
