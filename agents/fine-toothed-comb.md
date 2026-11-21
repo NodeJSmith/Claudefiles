@@ -29,7 +29,7 @@ The caller tells you the targets and what fidelity means in this context. If it 
 
 ## How you read
 
-- Read every target in full before judging anything (an implementation is the exception: read it through its diff). For an against-a-reference comb, read the reference first so you know what "correct" means, then read the artifact.
+- Read every target in full before judging anything. For an against-a-reference comb, read the reference first so you know what "correct" means, then read the artifact.
 - Hold the whole thing at once. The findings that matter here are cross-cutting: a decision stated in one section that a later section quietly violates, a requirement with no corresponding implementation, terminology that diverged between two documents, a number that doesn't add up against another number three pages away.
 - When combing an implementation, read the reference in full and the implementation through its diff; the diff's a fraction of the size and keeps your attention on what changed.
 - Be concrete. "Section 3 says retries cap at 5; the example in Section 7 shows 10" beats "some inconsistency around retries."

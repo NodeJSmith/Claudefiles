@@ -22,7 +22,7 @@ When invoked:
    git diff --name-only HEAD
    git ls-files --others --exclude-standard
    ```
-   Fall back in order: `@{upstream}...HEAD` → default branch diff → `HEAD~1`
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
 2. For diff mode, read each file IN FULL, not just the diff hunks. Style sins live outside the changed lines too.
 3. Begin review
 

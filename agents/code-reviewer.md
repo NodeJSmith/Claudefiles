@@ -38,7 +38,7 @@ When invoked:
    git diff --name-only HEAD
    git ls-files --others --exclude-standard
    ```
-   Fall back in order: `@{upstream}...HEAD` → default branch diff → `HEAD~1`
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
    - code files → apply What a good review catches
    - `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` → apply Skill & Markdown File Checks below
 2. Run static analysis for Python files if available
