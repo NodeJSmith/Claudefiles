@@ -56,7 +56,7 @@ History matters as much as threads: if the PR builds a sketch ledger, that featu
 
 A convergence doesn't need multiple rounds: one round whose findings share a mechanism counts. Build the ledger unless convergence is plainly impossible (a couple of unrelated findings, or a round of only typo and docs fixes); with history files present, a thin PR doesn't rule it out.
 
-When you skip the ledger, for either reason, the plan is still shown and approved; only how it is built changes. With no open feedback at all, the plan covers only conflicts and CI. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Leave out every `ledger.json`/`plan.json` step below.
+Skip the ledger when convergence is plainly impossible or there is no open feedback (then the plan covers only conflicts and CI). Either way the plan is still shown and approved; only how it is built changes. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Hand-built replies still carry the marker a re-run recognizes: a thread reply ends with `<!-- addressed-pr-issues -->`, and a PR comment answering item X ends with `<!-- addressed-pr-issues:X -->`; a thread whose last reply from the user's account ends with that marker was already answered. Leave out every `ledger.json`/`plan.json` step below.
 
 Steps, in this order:
 
@@ -124,7 +124,7 @@ Read only the first line of each result file.
 
 Run **code-reviewer** on the modified files and auto-fix unambiguous CRITICAL/HIGH findings, deferring judgment calls to the user. Re-run it after fixes (at most 3 rounds, unless the fixes all fall under the skip criteria in `git-workflow.md`, Code Review Before Commit), then run **integration-reviewer** once on the final diff. Commit nothing until both pass; if CRITICAL/HIGH findings remain after 3 rounds, present them to the user first.
 
-Commit per logical group with descriptive conventional messages, then push once after all commits.
+Resolve any approved merge or rebase and CI fixes first, then commit per logical group with descriptive conventional messages, then push once after all commits so the single push carries all of it.
 
 ### Responses
 
