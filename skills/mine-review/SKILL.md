@@ -24,12 +24,14 @@ The reviewers each carry their own checklist and output format, so give them the
 
 In diff mode, write the diff to a file first so all three read the same one: `mktemp -d <scratchpad>/mine-review-XXXXXX` for `<tmpdir>`, `git rev-parse HEAD` for `<sha>`, then `<diff command> > <tmpdir>/diff.patch`.
 
+If every file in scope is `.md`, it is **instruction mode**; otherwise **code mode**.
+
 Scope line:
 - **Diff mode**: `Diff at <tmpdir>/diff.patch (HEAD: <sha>). Read changed files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.`
 - **Path mode**: `Review these existing files (not a diff): <file list>`
-- **Instruction diff mode**: also append `Read every changed file in full, not just diff hunks.`
+- **Diff mode in instruction mode**: also append `Read every changed file in full, not just diff hunks.`
 
-If every file in scope is `.md`, it is **instruction mode**; otherwise **code mode**. Dispatch all three agents in one message:
+Dispatch all three agents in one message:
 
 - Code mode: `code-reviewer`, `integration-reviewer`, `wtf-reviewer`, each with `Review changes. <scope line>`
 - Instruction mode: `fine-toothed-comb` with `Review these instruction files for consistency, accuracy, and completeness. <scope line>. Read sibling files for cross-reference context.`; `instruction-quality-reviewer` and `writing-quality-reviewer` with `Review these instruction files. <scope line>`

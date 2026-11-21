@@ -36,28 +36,10 @@ After completing a review, create or update that same file — but only if the e
 When invoked:
 1. Find all changed files. If an explicit file list or diff command was provided, use it and skip discovery entirely. Only if no file list was provided, discover:
    ```bash
-   # 1. Uncommitted changes (staged + unstaged)
    git diff --name-only HEAD
-   ```
-   Also check for new untracked files:
-   ```bash
    git ls-files --others --exclude-standard
    ```
-   If both are empty, fall back to committed branch diffs:
-   ```bash
-   # 2. Branch diff vs upstream
-   git diff --name-only @{upstream}...HEAD 2>/dev/null
-   ```
-   If empty or fails:
-   ```bash
-   # 3. Branch diff vs default branch
-   git diff --name-only "origin/$(git-default-branch)...HEAD" 2>/dev/null || git diff --name-only "$(git-default-branch)...HEAD"
-   ```
-   If still empty:
-   ```bash
-   # 4. Last commit
-   git diff --name-only HEAD~1
-   ```
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
 2. Read every changed file in full
 3. Find applicable `REVIEW.md` files. If step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals a readability or maintainability issue, report it.
 4. Begin review

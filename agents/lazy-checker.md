@@ -25,34 +25,16 @@ Read the code and reason about patterns across the reviewed files.
 When invoked:
 1. Find all changed files. If an explicit file list or diff command was provided, use it and skip discovery entirely. Only if no file list was provided, discover:
    ```bash
-   # 1. Uncommitted changes (staged + unstaged)
    git diff --name-only HEAD
-   ```
-   Also check for new untracked files:
-   ```bash
    git ls-files --others --exclude-standard
    ```
-   If both are empty, fall back to committed branch diffs:
-   ```bash
-   # 2. Branch diff vs upstream
-   git diff --name-only @{upstream}...HEAD 2>/dev/null
-   ```
-   If empty or fails:
-   ```bash
-   # 3. Branch diff vs default branch
-   git diff --name-only "origin/$(git-default-branch)...HEAD" 2>/dev/null || git diff --name-only "$(git-default-branch)...HEAD"
-   ```
-   If still empty:
-   ```bash
-   # 4. Last commit
-   git diff --name-only HEAD~1
-   ```
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
 2. Read every file in full
 3. Begin review
 
 ## How to Analyze Code
 
-**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom linters, no sed pipelines, no xargs constructions. Allowed Bash commands: `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
+**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Don't write or run analysis scripts (AST parsers, custom linters, sed pipelines, xargs constructions). Hand-written scripts and piped one-offs replace the reading and judgment this review exists to provide with tool output, and they trigger permission prompts. Bash is for `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
 
 ## Scope for Duplication and Hardcoded Shortcuts
 

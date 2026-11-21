@@ -59,39 +59,13 @@ After completing a review, create or update that same file — but only if the e
 
 If the invoker provided an explicit file list in the prompt, use that and skip the discovery cascade below.
 
-Otherwise, get the list of changed files, trying each fallback in order:
+Otherwise, get the list of changed files:
 
-```bash
-# 1. Uncommitted changes (staged + unstaged) — catches files before commit
-git diff --name-only HEAD
-```
-
-Also check for new untracked files:
-
-```bash
-git ls-files --others --exclude-standard
-```
-
-If both are empty (no uncommitted changes), fall back to committed branch diffs:
-
-```bash
-# 2. Branch diff vs upstream
-git diff --name-only @{upstream}...HEAD 2>/dev/null
-```
-
-If empty or fails:
-
-```bash
-# 3. Branch diff vs default branch
-git diff --name-only "origin/$(git-default-branch)...HEAD" 2>/dev/null || git diff --name-only "$(git-default-branch)...HEAD"
-```
-
-If still empty:
-
-```bash
-# 4. Last commit
-git diff --name-only HEAD~1
-```
+   ```bash
+   git diff --name-only HEAD
+   git ls-files --others --exclude-standard
+   ```
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
 
 Read each changed file in full.
 
@@ -101,16 +75,7 @@ Read each changed file in full.
 
 **Module REVIEW.md files** — find applicable `REVIEW.md` files. If Step 1 used an explicit file list, pass it through so the lookup stays scoped to that list instead of falling back to this script's own diff: `printf '%s\n' <files> | find-review-md --paths`. Otherwise run `find-review-md` (no arguments) to self-discover via its own cascade. For each path it prints, read the file and answer each review question by reading the actual code it points at — including cross-module checks that reference files outside the diff. If an answer reveals an integration issue, report it. (`REVIEW.md` is deliberately separate from `CLAUDE.md` so review questions are only read by reviewers, not injected into every agent that touches the directory.)
 
-**Design doc (sketch ledgers)** — check for a design doc matching the current branch:
-
-1. Get the current branch name:
-   ```bash
-   git branch --show-current
-   ```
-2. Glob for `design/specs/*/design.md`. If any exists, pick the most recently modified one whose directory name relates to the current branch name (slug match). If there's only one, use it.
-3. If a design.md is found, read it in full. Its decisions define the intended architecture — deviations are design violations.
-4. If no design.md is found, proceed without it and mark dimension 4 as N/A.
-5. If the design.md's `**Status:**` is `built`, `archived`, or `abandoned` (the terminal set in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), also mark dimension 4 as N/A — a terminal-status design doc no longer constrains new work; treat it as settled history instead.
+**Design doc (sketch ledgers)** — find the `design/specs/*/design.md` for this branch (most recently modified one whose directory name matches the branch slug) and read it in full; its decisions define the intended architecture, so deviations are design violations. If there is none, or its `**Status:**` is `built`, `archived`, or `abandoned` (the terminal set in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`, where the doc is settled history and no longer constrains new work), mark dimension 4 as N/A.
 
 ---
 
@@ -127,7 +92,7 @@ Work through the dimensions above, recording each finding with evidence. A dimen
 - **Unresolved references.** Identifiers that exist nowhere, where tooling doesn't already catch it. CSS `var(--name)` is the main gap, since an undefined custom property silently resolves to `initial`: check each against a `:root`, `[data-theme]`, or other definition. LLM-written code also invents library APIs, parameters, config keys, and environment variables, so verify new third-party imports and method signatures against the installed version.
 - **Parallel drift.** Two implementations of one concept that can diverge independently (dual status mappings, two formatters for the same type, parallel validation). The danger is that a future change to one won't reach the other. Fix by extracting a single source of truth, or cross-reference if the separation is intentional.
 - **Unhandled variant** (only when the diff adds an enum, union, or status value; otherwise N/A). Find the parent type's consumers across the codebase, not only changed files, and check that each handles the new value explicitly or through a catch-all that is actually correct for it; an `else` assuming only the old variants isn't. Badges and colors, action predicates, filters and sorts, rollups, bulk commands, test factories, and serialization are where a missing handler silently degrades. Also check the new value can be emitted at all; a status nothing produces is dead code.
-- **Field propagation gap.** You own the architecture-wide half: whether the field's source and every output path beyond the diff carry it (`code-reviewer` owns the changed-file consumers; don't duplicate). Check downstream (every output format) and upstream (does the backing data source include every entity it claims to, or only "tracked" ones? (`code-reviewer` checks the same completeness for data behind changed UI surfaces; report it once, under whichever label fits.)). Hand-built dict/JSON literals drop fields silently, and a default on a field every constructor passes makes an always-present field look optional.
+- **Field propagation gap.** You own the architecture-wide half: whether the field's source and every output path beyond the diff carry it. Check downstream (every output format) and upstream (does the backing data source include every entity it claims to, or only "tracked" ones?). Hand-built dict/JSON literals drop fields silently, and a default on a field every constructor passes makes an always-present field look optional.
 
 Use the most precise label for each finding and don't report one problem under several. Rules must be derivable from the actual codebase or design.md; don't invent architecture.
 

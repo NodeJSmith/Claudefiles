@@ -14,15 +14,13 @@ Done looks like: the comb comes back clean, or the findings were fixed and re-co
 
 Work out what to comb and whether there is a reference to comb it against. One artifact means checking internal consistency, accuracy, and thoroughness. An artifact plus a reference ("comb the implementation against the design") means reading the reference first and combing the artifact for fidelity to it. If the target is ambiguous, ask which artifact and whether there's a reference, in one `AskUserQuestion`.
 
-If the reference is a `design.md` whose `**Status:**` is `built`, `archived`, or `abandoned` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), it is frozen: drift from it isn't something to reconcile, and the agent must be told.
-
 If design plus diff would exceed ~900k tokens, comb by file group and reconcile.
 
 ## Dispatch
 
 Dispatch `subagent_type: fine-toothed-comb` with a prompt that says what to read (the artifact, plus the reference first when there is one), asks it to go over it with a fine-toothed comb for accuracy, consistency, and thoroughness (against a reference: also whether everything the reference specified is present and nothing was dropped or drifted), and defines blocking: an inconsistency, inaccuracy, gap, or drift that would mislead whoever acts on this next (or make the artifact wrong relative to the reference).
 
-For a frozen reference, add: the design.md is terminal-status and documents a past decision, so don't report drift from it as a finding or suggest editing its body; note any Addendum-worthy divergence separately as non-blocking.
+For a reference that is a `design.md` whose `**Status:**` is `built`, `archived`, or `abandoned` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-sketch/design-template.md`), add: it is frozen, the design.md is terminal-status and documents a past decision, so don't report drift from it as a finding or suggest editing its body; note any Addendum-worthy divergence separately as non-blocking.
 
 The agent returns a `## Summary` line and grouped findings (format in `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`).
 

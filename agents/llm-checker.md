@@ -25,40 +25,22 @@ Read the code and reason about its structural choices. Don't fabricate findings:
 When invoked:
 1. Find all changed files. If an explicit file list or diff command was provided, use it and skip discovery entirely. Only if no file list was provided, discover:
    ```bash
-   # 1. Uncommitted changes (staged + unstaged)
    git diff --name-only HEAD
-   ```
-   Also check for new untracked files:
-   ```bash
    git ls-files --others --exclude-standard
    ```
-   If both are empty, fall back to committed branch diffs:
-   ```bash
-   # 2. Branch diff vs upstream
-   git diff --name-only @{upstream}...HEAD 2>/dev/null
-   ```
-   If empty or fails:
-   ```bash
-   # 3. Branch diff vs default branch
-   git diff --name-only "origin/$(git-default-branch)...HEAD" 2>/dev/null || git diff --name-only "$(git-default-branch)...HEAD"
-   ```
-   If still empty:
-   ```bash
-   # 4. Last commit
-   git diff --name-only HEAD~1
-   ```
+   Fall back in order: `@{upstream}...HEAD` → `origin/$(git-default-branch)...HEAD` (or the local default branch if there's no `origin`) → `HEAD~1`
 2. Read every file in full
 3. Begin review
 
 ## How to Analyze Code
 
-**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom linters, no sed pipelines, no xargs constructions. Allowed Bash commands: `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
+**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Don't write or run analysis scripts (AST parsers, custom linters, sed pipelines, xargs constructions). Hand-written scripts and piped one-offs replace the reading and judgment this review exists to provide with tool output, and they trigger permission prompts. Bash is for `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
 
 ## Review Dimensions
 
 Each dimension is a training-bias pattern with its own test. The examples are for recognition, not a complete list.
 
-1. **Obvious-Comment Plague.** Comments that restate the code (`# Open connection` above `db.connect()`, `# Return the result` above `return result`), docstrings that mirror the signature word for word, step-by-step narration of self-evident code. Test: would a developer who can read the code learn anything from this comment?
+1. **Obvious-Comment Plague.** Comments that restate the code (`# Open connection` above `db.connect()`, `# Return the result` above `return result`), docstrings that mirror the signature word for word, step-by-step narration of self-evident code, including debug logging that traces every call of a cheap function (`rules/common/logging.md` requires DEBUG entry/exit only for expensive operations). Test: would a developer who can read the code learn anything from this comment?
 
 2. **Defensive Everything.** Guards at the wrong trust boundary: try/except around operations the types or earlier validation already rule out, null checks on non-nullable returns, re-validation of values an internal collaborator already validated, retries on operations that can't fail transiently. Per `references/common/reliability.md`, defensive coding belongs at system boundaries (external APIs, databases, queue consumers, user input, env vars); inside the trust perimeter, trust the boundary layer. Test: is there a real failure mode this guard protects against, or one the types and upstream validation already exclude? A guard at a real boundary is legitimate.
 
@@ -66,7 +48,7 @@ Each dimension is a training-bias pattern with its own test. The examples are fo
 
 4. **Dead Helper Methods.** Helper infrastructure written as boilerplate before the code that would use it, where the usage never materialized. **Grep for callers before flagging** (definition, imports, call sites across the repo) and cite the result (e.g. `Grep for 'calculate_risk_score' returned 2 results: the definition at helpers.py:45 and one test at tests/test_helpers.py:12 — no production callers found.`). No citation means UNCERTAIN. Strong signals: tests but no production callers; added in the same diff as callers that don't call it; utility classes with several methods none called from outside. Probably legitimate: CLI entry points, `__init__.py` re-exports, test fixtures, documented extension hooks.
 
-5. **Over-Engineered Error Hierarchies.** Exception trees where callers only catch the base class (`UserNotFoundError(UserError)` while every caller writes `except UserError`), custom exceptions carrying nothing beyond the message, and entry/exit logging that traces execution instead of recording events (`logger.debug("Entering function X")`). Per `references/common/reliability.md`, log decisions and actions, not every step. Test: do callers use the type specificity, or is the hierarchy visible only to the `raise` sites?
+5. **Over-Engineered Error Hierarchies.** Exception trees where callers only catch the base class (`UserNotFoundError(UserError)` while every caller writes `except UserError`) and custom exceptions carrying nothing beyond the message. Test: do callers use the type specificity, or is the hierarchy visible only to the `raise` sites?
 
 6. **Context Blindness.** A design pattern applied where its preconditions don't hold: a stateless Singleton, a Builder for a small config dict, a Strategy with one concrete strategy, an event bus with one subscriber, a decorator framework around one call, a repository with no shared transaction or caching logic. Test: what is the precondition for this pattern to pay off, and is it present in this codebase?
 
