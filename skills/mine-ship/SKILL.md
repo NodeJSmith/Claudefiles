@@ -30,4 +30,4 @@ The default flow below is a PR flow. Any rule in the user's or repo's instructio
 
 3. **Create the PR.** Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/SKILL.md` and carry out its workflow in full (platform detection, changelog entry, PR creation). Stage 1 already pushed, so its push check passes. Return the PR URL it produces.
 
-   In the direct-push flow, run only that skill's `## Changelog` section instead (its "ask before opening a PR" applies when it's invoked directly, not here), then push everything once and report the pushed commits.
+   In the direct-push flow, run only that skill's `## Changelog` section instead, without its push (its "ask before opening a PR" applies when it's invoked directly, not here), then push everything once and report the pushed commits.
