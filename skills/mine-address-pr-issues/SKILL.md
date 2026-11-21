@@ -14,7 +14,7 @@ Get a PR unblocked: every unresolved review comment answered or fixed, merge con
 
 With no PR number, detect it from the current branch.
 
-Replies, resolved threads, and pushes are visible to reviewers and hard to take back, so nothing is posted or pushed until the user has seen the plan and the fixes have passed local tests and review. Three failures are worth guarding against:
+Replies, resolved threads, and pushes are visible to reviewers and hard to take back, so nothing is posted or pushed until the user has approved the plan and the fixes have passed local tests and review. Three failures are worth guarding against:
 
 - **Explaining away a failure.** A failing test or CI check means the code is wrong. Never call it flaky, outdated, or expected; fix the code, or escalate after three honest attempts.
 - **Fixing before understanding.** Read the file and the reviewer's intent before editing, and the callers as far as the fix's depth calls for. A fix that changes line Y without knowing why Y exists breaks Z.
@@ -54,7 +54,9 @@ The point of the ledger is to see all feedback side by side, resolved history in
 
 History matters as much as threads: if the PR builds a sketch ledger, that feature directory's `review-log.jsonl` and `known-issues.md` (found through the PR's changed files, e.g. `design/specs/<n>-<name>/`) are earlier rounds, and a mechanism a challenge already patched twice is the clearest convergence there is. Collect the ones that exist and pass their paths to the subagent below.
 
-A convergence needs no multiple rounds: one round whose findings share a mechanism counts. Build the ledger unless convergence is plainly impossible (a couple of unrelated findings, or a round of only typo and docs fixes); with history files present, a thin PR doesn't rule it out. With no threads, review bodies, or comments at all, skip it and plan only conflicts and CI. When you skip the ledger, say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Leave out every `ledger.json`/`plan.json` step below.
+A convergence doesn't need multiple rounds: one round whose findings share a mechanism counts. Build the ledger unless convergence is plainly impossible (a couple of unrelated findings, or a round of only typo and docs fixes); with history files present, a thin PR doesn't rule it out.
+
+With no threads, review bodies, or comments at all, skip the ledger and plan only conflicts and CI. Skipping changes how the plan is built, not whether it is shown and approved. Say why in one line, triage by hand, and build the plan and response list by hand in the same shape: every open item gets an entry and a response, and a thread an earlier run already replied to only needs resolving. Leave out every `ledger.json`/`plan.json` step below.
 
 Steps, in this order:
 
@@ -101,9 +103,9 @@ Pick merge or rebase from the repo's own convention (merge commits from base on 
 
 Build it mechanically: `pr-ledger-check plan <tmpdir>/feedback.json <tmpdir>/ledger.json > <tmpdir>/plan.json`. It walks every open row once: `entries` (one per open row carrying a concern, with `also_answers` for the duplicates answered along with it), `responses` (every reply and PR comment the Responses step will post), and `unanswered` (open rows getting no response, with reasons). Resolved rows are history and appear nowhere. Look up each row's other fields in the ledger by id.
 
-Show the full plan before asking anything, because the user can't judge a plan they haven't seen. Open with one count line (`counts`, or your own tally without a ledger): "Ledger: N open items — A actionable, B already addressed, C not acting on, D duplicates answered with them." Number the items and group actionable entries under their `mechanism` (a group is fixed together). Each item gives the reviewer's concern (`finding`), the proposed fix, its depth, the response (reply and resolve, reply only for a human reviewer's thread, resolve only when an earlier run replied but the resolve failed, or a PR comment), and `also_answers`. Mark rows with a non-null `decision` as `[DECISION NEEDED]` with its `why`, `options`, and `recommendation`. List separately, so dismissals are visible, the already-addressed entries with their evidence, "Not acting on" with reasons, and "No reply" rows with reasons. Include the draft and changes-requested warnings.
+Show the full plan before asking anything, because the user can't judge a plan they haven't seen. Open with one count line (`counts`, or your own tally without a ledger): "Ledger: N open items — A actionable, B already addressed, C not acting on, D duplicates answered with them." Number the items and group actionable entries under their `mechanism` (a group is fixed together). Each item gives the reviewer's concern (`finding`), the proposed fix, its depth, the response (reply and resolve, reply only for a human reviewer's thread, resolve only when an earlier run replied but the resolve failed, or a PR comment), and `also_answers`. Mark rows with a non-null `decision` as `[DECISION NEEDED]` with its `why`, `options`, and `recommendation`. List separately, so dismissals are visible, the already-addressed entries with their evidence, "Not acting on" with reasons, and "No reply" rows with reasons. Include what else goes out on the same approval: CI fixes, and the merge or rebase chosen above, including the `--force-with-lease` push a rebase implies. Include the draft and changes-requested warnings.
 
-Then ask. The question is what to skip or change, not whether to proceed: the default outcome is going ahead (accepting the recommendations on `[DECISION NEEDED]` items), with adjusting items and cancelling alongside it. For an adjusted item, ask what they want instead and update the plan entry.
+Then ask, and wait for the answer before any fix subagent runs. Recommend going ahead (accepting the recommendations on `[DECISION NEEDED]` items) and ask what to skip or change, with approving, adjusting items, and cancelling as the options. For an adjusted item, ask what they want instead and update the plan entry. Cancelling ends the run with no changes.
 
 ## Execute
 
@@ -113,7 +115,7 @@ Per group, launch a **`standard-worker`** subagent giving it the comments (bodie
 
 - Investigate to the depth given: `light` is read the target file; `medium` is also grep the callers and read at least one; `deep` is read all callers, related tests, and adjacent modules.
 - Apply the fix, then run the project's test suite (discovery order in `references/common/testing.md`). On failure, revise the fix; three attempts, then escalate.
-- Include the three failure modes above in its prompt: never explain away a failure, never skip or mark a test as expected failure.
+- Give it the failure modes listed in the opening section, including never skipping a test or marking it as an expected failure.
 - Put a one-line summary first in the output file, details below.
 
 Read only the first line of each result file.
