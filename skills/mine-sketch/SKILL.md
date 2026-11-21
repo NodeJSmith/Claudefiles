@@ -52,17 +52,17 @@ If the request names a brief or research file (from `/mine-research`, `/mine-gri
 
 ### Picking up a milestone issue
 
-When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Run the [peer check](#peer-check) before the posture, unless the parent ledger's `**Prior art:**` brief covers this issue's core problem, and say which in one line. Then propose the posture from the parent's stances with Altitude set to `build`, send it with `SendUserMessage` in the same turn, directly before the question, and confirm it as usual.
+When the change is one Breakdown issue of a milestone ledger, this sketch is the issue's **pickup**. That happens when the run was routed from the ledger, or when the issue's body names a ledger path; if the body points to one you can't find, ask. A pickup is an ordinary build-altitude sketch in its own new spec directory (never the parent's). Its ledger names the milestone ledger on `**Parent:**` and the issue's key on `**Issues:**`, so the PR closes it. Run the [peer check](#peer-check) before the posture, unless the parent ledger's `**Prior art:**` brief covers this issue's core problem, and say which in one line. Then, unless the user takes the [off-ramp](#off-ramp), propose the posture from the parent's stances with Altitude set to `build`, send it with `SendUserMessage` in the same turn, directly before the question, and confirm it as usual.
 
 The scan is what's different. The parent was written before the code it describes was built, and earlier issues in the milestone have since landed. So expect it to be wrong or silent in places, and check it before relying on it:
 
 - Read the parent's decisions this issue implements, plus its "Applies to all" line. Read the sibling pickup ledgers too (grep the specs directory for the parent's path on a `**Parent:**` line), since a sibling's decisions can supersede the parent's. Siblings still on unmerged branches won't show up.
-- Check that slice against the current code, the issue body, and what the landed sibling issues actually shipped. Find where each concept the parent names lives now.
+- Check that slice against the current code, the issue body and its comments, and what the landed sibling issues actually shipped. Find where each concept the parent names lives now. A sibling that took the [off-ramp](#off-ramp) records its overrides in those comments.
 - Carry each parent decision that still holds into Assumed, citing the parent and its `D<n>`. Don't redraft it.
 - Anything the parent leaves open, and any place it disagrees with the issue body, is a decision.
 - A parent decision that no longer holds becomes a decision in this ledger that supersedes it, naming the `D<n>`. The parent isn't edited. Later pickups find the override through the sibling read above.
 
-Put what this check finds straight into the draft as decisions. Don't settle them in conversation first, since Phase 3 is where they get answered. A pickup that finds nothing open still writes its ledger, with the carried decisions in Assumed and `None open; this pickup carries the parent's decisions.` under `## Decisions`, so build mode and the ship-time challenge run on it.
+Put what this check finds straight into the draft as decisions. Don't settle them in conversation first, since Phase 3 is where they get answered. A pickup that finds nothing open still writes its ledger, with the carried decisions in Assumed and `None open; this pickup carries the parent's decisions.` under `## Decisions`, so build mode and the ship-time challenge run on it. The [off-ramp](#off-ramp) is the exception.
 
 ### Fit check
 
@@ -77,6 +77,12 @@ Stay within the places this change has to put something. Structural problems els
 Run `/mine-prior-art` before the posture on how comparable projects handle this change's core problem. Its findings bear on both the stances and the decision tables, and a design reasoned out only in this session tends to engineer around limitations peers simply accept. "It's internal" isn't a reason to skip: how peers structure the same thing internally is exactly the question. (A convergence gate's skip for internal mechanisms is narrower: it means things like a project's own file format, with no outside equivalent.)
 
 Skip it when there's nothing to compare against (usually a private repo with no `peers` in the frontmatter and no public analogue you can name), when a prior-art brief, the parent ledger, or research from this session already covers it, or when the change is mechanical enough that no decision could turn on the answer. Say which in one line. Record the path of the prior-art brief the check ran or reused on the ledger's `**Prior art:**` line, carry the parent ledger's own `**Prior art:**` value on a parent-ledger skip, and leave the line out when the research has no file.
+
+### Off-ramp
+
+This is where the sketch decides whether the change needs a ledger and the challenge that comes with it. A ledger earns that overhead when decisions interlock or are hard to reverse. The scan and peer check often show they don't: peers already solved the hard part, and the independent calls left fit in one question. When that's where you land, say so before the posture, with what prior art settled, and offer to leave the sketch for the inline path in `sketch-before-building.md`. That rule covers how to ask and when to come back. Say in the offer that the inline path has no challenge, since the user asked for a sketch and should know what leaving it drops. Count any posture stance the user might dispute as one of the remaining calls, and don't offer the off-ramp while a structural gap is open. Once a ledger exists, Phase 4's challenge runs on it.
+
+Leaving the sketch keeps its obligations. The PR still has to close the issues the sketch was for, so close each one the way the tracker does (on GitHub, a `Closes #N` line per issue in the commit). A pickup's override of a parent `D<n>` still has to reach later pickups, so comment it on each open Breakdown issue it applies to, and show the comment before posting it.
 
 ### Posture
 
@@ -173,7 +179,7 @@ When no decision is pending, on the first pass only, copy `design.md` to `<tmpdi
 
 ## Phase 4: Challenge
 
-Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+The ledger's decisions were reasoned out and ratified inside this session. The challenge tests them against outside critics before any code exists. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
 
 - **`<header>`**: `Challenge`
 - **`<gate_type>`**: `sketch-challenge`

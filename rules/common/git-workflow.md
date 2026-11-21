@@ -40,9 +40,9 @@ Code review and challenge are **orthogonal quality gates** with different scopes
 
 A green code review does not mean challenge is unnecessary. A green test suite is necessary but not sufficient — tests verify expected behavior, not unexpected behavior.
 
-Challenge is mandatory in `mine-sketch`, at sketch time and again at build time. It runs automatically at defined points and cannot be declined.
+Challenge exists to catch what a design reasoned out in one session misses: decisions that don't fit together, assumptions that break under change, features peers skip, edge cases nobody named. Tests and review don't look for these. The risk builds up wherever a session reasons out a design, and `mine-sketch` is where that design gets written down as a ledger for critics to test. Once a ledger exists, the critics run on it at sketch time and again on the built change, without asking. Offering to skip them to save friction is the failure to avoid. Outside a sketch, don't start one on your own initiative: a design you reasoned out that needs critics belongs in a ledger, so route it to sketch (`sketch-before-building.md`). A user asking for critics, or a skill that calls `/mine-challenge`, is not that case.
 
-The failure mode to watch for: offering the user a "skip the challenge" option to reduce friction, or treating a green code review plus a green test suite as sufficient and advancing to the next phase without it. Do not present challenge as a choice. If you are about to ask whether to run it, run it instead.
+The inline path in `sketch-before-building.md` has no challenge on purpose. Its decisions are independent, local, and cheap to reverse, so a misjudged interaction between them costs a quick fix later, not a rewrite.
 
 ## Issue Creation Conventions
 

@@ -187,7 +187,7 @@ Read the findings file. Announce: "Specialists selected: [names from triage]" an
 
 **If `--mode=passthrough`**: present a one-paragraph summary (count by severity, likely-invalid count, top takeaway). Return. Do not execute anything.
 
-**If standalone mode** (direct user invocation, mine-grill, or any caller not passing --mode=passthrough — includes orchestration callers driven via challenge-gate.md):
+**If standalone mode** (direct user invocation, mine-grill, mine-sketch via challenge-gate.md, or any caller not passing --mode=passthrough):
 
 Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. K accepted as known limitations. M skipped. L flagged as likely invalid." List critic report paths and findings file path.
 
@@ -209,7 +209,7 @@ Passthrough callers (pass `--mode=passthrough`):
 Standalone callers (full inline resolution flow):
 - `skills/mine-grill/SKILL.md`
 
-Mandatory caller (via challenge-gate.md):
+Gate caller (via challenge-gate.md):
 - `skills/mine-sketch/SKILL.md` (Phase 4 — sketch-time challenge with --critics=2; Build Mode Step 3 — ship-time challenge against the ledger)
 
 To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/ --include='*.md' -l`

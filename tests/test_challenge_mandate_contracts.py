@@ -1,6 +1,6 @@
-"""Contract guards for the mandatory challenge invocations.
+"""Contract guards for the challenge that runs on every mine-sketch ledger.
 
-Guards mine-sketch's two mandatory challenge call sites (sketch time and
+Guards mine-sketch's two challenge call sites (sketch time and
 build-mode ship time), the shared challenge-gate.md recipe, the
 `blocking`/`minor` key names it emits, and the challenge phase's position
 between ratification and the comb.
@@ -49,10 +49,11 @@ SKETCH_GATE_HEADING = "## Phase 6:"
                 ("gate recipe heading", r"^# Challenge Gate$"),
                 ("gate parameters section", r"^## Parameters the caller supplies$"),
                 ("gate sequence section", r"^## The sequence$"),
-                # FR#24, FR#8: the literal, non-declinable /mine-challenge
-                # invocation itself. Both call sites delegate to this one
-                # line rather than repeating the invocation, so this is the
-                # only place a "silently deleted the mandatory call" mutation
+                # FR#24, FR#8: the literal /mine-challenge invocation itself,
+                # which runs without asking once a ledger exists. Both call
+                # sites delegate to this one line rather than repeating the
+                # invocation, so this is the
+                # only place a "silently deleted the challenge call" mutation
                 # can be caught.
                 ("challenge invocation command", r"Invoke `/mine-challenge"),
                 # The durable findings record, written after resolution
