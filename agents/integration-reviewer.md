@@ -192,9 +192,11 @@ After all findings, print a summary table:
 `N` = total count of all findings listed in the dimension table above. `C`, `H`, `M`, `L` = per-severity counts. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
 
 **Verdict criteria:**
-- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, UNHANDLED_VARIANT, or FIELD_PROPAGATION finding
-- **WARN**: INCONSISTENT, NAMING, COUPLED, ORPHANED, or ABSTRACTION_DRIFT findings
+- **FAIL**: Any CRITICAL or HIGH finding
+- **WARN**: MEDIUM or LOW findings only
 - **PASS**: No findings across all dimensions
+
+A finding's severity is its dimension's severity in the table above unless you state otherwise for that finding, so the verdict and the severity counts always agree.
 
 </output_format>
 

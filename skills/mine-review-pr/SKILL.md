@@ -49,10 +49,10 @@ Run from a review worktree. Confirm `git status --porcelain` is clean, fetch the
 
 ## Dispatch reviewers and write the overview
 
-If every changed file is `.md`, it is **instruction mode**, otherwise **code mode**. In one message dispatch three parallel `Agent` calls, each given:
+Split the changed files by kind: `.md` files are instruction files, everything else is code. Each kind goes to its own reviewers, so a PR with both runs both sets, each with its own diff (`git diff 'origin/<target>...HEAD' -- <that set's files> > <tmpdir>/<code|instruction>.patch`); code reviewers would otherwise judge a skill as code and its instruction quality would go unreviewed. In one message dispatch all the reviewers that apply (three or six parallel `Agent` calls), each given:
 
 ```
-Review changes. Diff at <tmpdir>/diff.patch (HEAD: <sha>). PR context (description,
+Review changes. Diff at <tmpdir>/<its patch> (HEAD: <sha>). PR context (description,
 linked work items, CI status, existing threads) at <tmpdir>/context.md. Read changed
 files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.
 This is PR review of someone else's branch. You are reviewing, not fixing.
@@ -60,8 +60,8 @@ For each finding, name the command that would confirm or refute it (a test to ru
 a query, a grep for consumers, a log to read, a file to check on the target branch).
 ```
 
-- Code mode: `code-reviewer`, `integration-reviewer`, `wtf-reviewer`
-- Instruction mode: `fine-toothed-comb`, `instruction-quality-reviewer`, `writing-quality-reviewer` (they report blocking/minor; treat blocking as High and minor as Low)
+- Code files: `code-reviewer`, `integration-reviewer`, `wtf-reviewer`
+- Instruction files: `fine-toothed-comb`, `instruction-quality-reviewer`, `writing-quality-reviewer` (they report blocking/minor; treat blocking as High and minor as Low)
 
 Pass only the gathered context, never your own hypotheses about the PR: a hypothesis anchors reviewers into confirming it instead of reading the code fresh.
 

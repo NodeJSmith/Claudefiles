@@ -6,7 +6,7 @@ user-invocable: true
 
 # Technical Review
 
-Get an independent read on the user's changes (or a directory) before they ship, from three reviewers working in parallel, and hand back one prioritized report the user can act on. Code gets correctness, integration fit, and readability reviewers; instruction files (`.md`) get consistency, instruction-quality, and writing-quality reviewers.
+Get an independent read on the user's changes (or a directory) before they ship, from reviewers working in parallel, and hand back one prioritized report the user can act on. Code gets correctness, integration fit, and readability reviewers; instruction files (`.md`) get consistency, instruction-quality, and writing-quality reviewers. Every file in scope reaches the reviewers for its kind, so a change that touches both gets both sets.
 
 Done looks like: each real problem appears once with the specific edit that would fix it, ordered by how much it matters, with weak findings separated out so the user isn't asked to act on them.
 
@@ -22,25 +22,25 @@ Read and follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detect
 
 The reviewers each carry their own checklist and output format, so give them the scope and nothing else: no hypotheses about what is wrong, which would anchor them.
 
-In diff mode, write the diff to a file first so all three read the same one: `mktemp -d <scratchpad>/mine-review-XXXXXX` for `<tmpdir>`, `git rev-parse HEAD` for `<sha>`, then `<diff command> > <tmpdir>/diff.patch`.
+Split the files in scope by kind: `.md` files are instruction files, everything else is code. Only code means **code mode**, only instruction files means **instruction mode**, and both means **mixed mode**, which runs both reviewer sets, each scoped to its own files. Code reviewers given a skill alongside a script would judge the skill as code, and instruction-quality review of it would never happen.
 
-If every file in scope is `.md`, it is **instruction mode**; otherwise **code mode**.
+In diff mode, write each set's diff to a file first so its reviewers all read the same one: `mktemp -d <scratchpad>/mine-review-XXXXXX` for `<tmpdir>`, `git rev-parse HEAD` for `<sha>`, then `<diff command> -- <that set's files> > <tmpdir>/<code|instruction>.patch`.
 
 Scope line:
-- **Diff mode**: `Diff at <tmpdir>/diff.patch (HEAD: <sha>). Read changed files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.`
+- **Diff mode**: `Diff at <tmpdir>/<its patch> (HEAD: <sha>). Read changed files for surrounding context. Before relying on the diff, verify HEAD matches <sha>.`
 - **Path mode**: `Review these existing files (not a diff): <file list>`
-- **Diff mode in instruction mode**: also append `Read every changed file in full, not just diff hunks.`
+- **Diff mode, instruction reviewers**: also append `Read every changed file in full, not just diff hunks.`
 
-Dispatch all three agents in one message:
+Dispatch every agent for the mode in one message (six in mixed mode):
 
-- Code mode: `code-reviewer`, `integration-reviewer`, `wtf-reviewer`, each with `Review changes. <scope line>`
-- Instruction mode: `fine-toothed-comb` with `Review these instruction files for consistency, accuracy, and completeness. <scope line>. Read sibling files for cross-reference context.`; `instruction-quality-reviewer` and `writing-quality-reviewer` with `Review these instruction files. <scope line>`
+- Code files: `code-reviewer`, `integration-reviewer`, `wtf-reviewer`, each with `Review changes. <scope line>`
+- Instruction files: `fine-toothed-comb` with `Review these instruction files for consistency, accuracy, and completeness. <scope line>. Read sibling files for cross-reference context.`; `instruction-quality-reviewer` and `writing-quality-reviewer` with `Review these instruction files. <scope line>`
 
 ## Consolidate and present
 
 Merge duplicate findings into one entry that notes the cross-signal (`flagged by code-review + readability pass`). Judge validity with `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default, and calling one likely invalid needs a concrete evidence trail.
 
-Organize the report by severity, not by reviewer, under `## [Technical|Instruction] Review: [branch name or target path]`. Open with the scope (files and line counts), each reviewer's verdict or finding counts, and the likely-invalid count. Label sources `Code`, `Integration`, `Readability` (code mode) or `Consistency`, `Instruction`, `Writing` (instruction mode). Every finding carries the proposed fix, the specific edit, because the user decides from seeing both the problem and the edit. Likely-invalid findings go in their own section with Claimed / Actually / Why-invalid.
+Organize the report by severity, not by reviewer, under `## [Technical|Instruction|Technical + Instruction] Review: [branch name or target path]`. Open with the scope (files and line counts), each reviewer's verdict or finding counts, and the likely-invalid count. Label sources `Code`, `Integration`, `Readability` for the code reviewers and `Consistency`, `Instruction`, `Writing` for the instruction reviewers. Every finding carries the proposed fix, the specific edit, because the user decides from seeing both the problem and the edit. Likely-invalid findings go in their own section with Claimed / Actually / Why-invalid.
 
 ## Next steps
 
