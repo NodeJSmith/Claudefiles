@@ -12,13 +12,13 @@ Write a handoff that lets someone with zero context resume this work tomorrow, w
 
 ## What it should say
 
-Gather git state (branch, status, recent log, uncommitted diff stat), any tracked tasks in this session, and the tmux session if in one (`claude-tmux current`). Combine that with the conversation. When the conversation is thin, lean on git state and any design ledger (`design/specs/*/design.md`).
+Gather git state (branch, status, recent log, uncommitted diff stat, and the branch's open PR if any), any tracked tasks in this session, and the tmux session if in one (`claude-tmux current`). Combine that with the conversation. When the conversation is thin, lean on git state and any design ledger (`design/specs/*/design.md`).
 
 Write for a colleague who has never seen this session: no shorthand, no "what we discussed." Say why, not just what: the goal, the reasoning behind the approach, and what any uncommitted work is for. Use file paths. The first next step should be immediately actionable.
 
 ## Format
 
-`mine-good-morning` reads this file and relies on the **Date:** and **Branch:** header fields and the `Uncommitted Changes`, `Open Questions`, and `Next Steps` sections, so keep those. `Uncommitted Changes` is always present; omit any other section with nothing to say. The rest is the default shape.
+`mine-good-morning` reads this file and relies on the **Date:**, **Branch:** and **PR:** header fields and the `Uncommitted Changes`, `Open Questions`, and `Next Steps` sections, so keep those. `Uncommitted Changes` is always present; omit any other section with nothing to say. The rest is the default shape.
 
 ```markdown
 # Handoff: <short description>
@@ -27,6 +27,7 @@ Write for a colleague who has never seen this session: no shorthand, no "what we
 **Project:** <basename of toplevel>
 **Directory:** <full toplevel path>
 **Branch:** <branch name>
+**PR:** <open PR number or URL, or none>
 **Tmux:** <session name, or omit if not in tmux>
 
 ## What We Were Working On
