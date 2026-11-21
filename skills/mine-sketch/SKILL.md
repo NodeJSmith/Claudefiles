@@ -265,7 +265,7 @@ Set `**Status:** ratified` in `design.md`.
 
 At `build` altitude, tell the user: "Ledger ratified at `<feature_dir>/design.md`. Start a fresh session and run `/mine-sketch <feature_dir>` to build it." Stop. The build always runs in a fresh session, so this session never continues into build mode.
 
-At `milestone` altitude there is no build and no new session. Filing the Breakdown is the rest of this one. Resolve the tracker the way the `## Create` section of `skills/mine-create-issue/worker.md` does: `$ISSUE_TRACKER` unset or empty means GitHub, and a tracker you have no tools for means leaving the Breakdown unfiled, saying why, and stopping without the question below rather than guessing at a tool. Filing is outward-facing, so ask before doing it:
+At `milestone` altitude there is no build and no new session. Filing the Breakdown is the rest of this one. Resolve the tracker: `$ISSUE_TRACKER` unset or empty means GitHub, and a tracker you have no tools for means leaving the Breakdown unfiled, saying why, and stopping without the question below rather than guessing at a tool. Filing is outward-facing, so ask before doing it:
 
 ```
 AskUserQuestion:

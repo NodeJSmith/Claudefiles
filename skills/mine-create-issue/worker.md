@@ -20,12 +20,12 @@ Body, in this default shape:
 ## Acceptance Criteria
 
 - [ ] [Specific, testable condition]
-- [ ] [Tests pass — existing tests updated, new tests added for changed behavior]
+- [ ] [Tests pass — existing tests updated, new tests added for changed behavior; omit when the change touches no code]
 
 ## Affected Areas
 
 - `path/to/file.py` — [what changes here]
-- `tests/test_file.py` — [test updates needed]
+- `tests/test_file.py` — [test updates needed, when code changes]
 
 ## Context
 

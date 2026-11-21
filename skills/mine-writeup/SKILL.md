@@ -94,7 +94,7 @@ After applying fixes, offer a second cold read on a freshly copied document with
 
 ## Editorial Discipline
 
-Don't re-expand: content the user cut doesn't return in another section under a different framing.
+The user knows their audience: when they say cut or shorter, remove the content, don't relocate or compress it. Don't re-expand: content the user cut doesn't return in another section under a different framing.
 
 ## Handoff
 

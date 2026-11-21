@@ -35,7 +35,7 @@ Create a run directory with `mktemp -d <scratchpad>/mine-brainstorm-XXXXXX`. Eac
 
 Read all four files and merge into one list of roughly 8-15 distinct ideas. Deduplicate the same concept arriving from different lenses, keep the sharpest phrasing, and tag each idea with its origin lens(es). Convergence across lenses is a stronger signal than any single-lens idea, so make it visible. The Wildly Imaginative's ideas hold a kernel worth extracting, not jokes to discard.
 
-Present the unranked list briefly (one sentence and origin each, convergences called out), then score every idea 1-5 against what decides this choice, drawn from the user's constraints and topic, and average. For a software topic the defaults are feasibility, user impact, originality, fit to the existing codebase, and speed to ship; for a non-code topic, replace any that don't apply (there is no codebase to fit). Don't ask the user which criteria to use first; they can ask to re-rank by any one afterwards. Ideas are good or bad relative to the user's constraints, so when those stress a criterion (a deadline stresses speed to ship), flag it and show the weighted ranking beside the unweighted one.
+Present the unranked list briefly (one sentence and origin each, convergences called out), then score every idea 1-5 against what decides this choice, drawn from the user's constraints and topic, and average. For a software topic the defaults are feasibility, user impact, originality, fit to the existing codebase, and speed to ship. Don't ask the user which criteria to use first; they can ask to re-rank by any one afterwards. Ideas are good or bad relative to the user's constraints, so when those stress a criterion (a deadline stresses speed to ship), flag it and show the weighted ranking beside the unweighted one.
 
 Present the top 3 as:
 
@@ -54,11 +54,12 @@ with a compact per-criterion score table, and ideas 4 and below as one-liners (n
 
 When there's a ranked result, write it to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md` and mention the path. Include an appendix listing the four thinker file paths (`<dir>/pragmatist.md` and so on) so individual output stays reachable during the session.
 
-Ask `"What's the primary next step for the top idea?"` (header `Next step`), recommending what the ranked result calls for: challenge it first when its catch is a large risk or open question, research when feasibility is the unknown, build when the idea is clear, the catch small and no open design decisions remain (otherwise sketch it first), keep exploring when nothing survived. Name the top idea and its catch in the descriptions. Outcomes:
+Ask `"What's the primary next step for the top idea?"` (header `Next step`), recommending what the ranked result calls for: challenge it first when its catch is a large risk or open question, research when feasibility is the unknown, build when the idea is clear and the catch small, sketch it first when design decisions are still open, keep exploring when nothing survived. Name the top idea and its catch in the descriptions. Outcomes:
 
 - **Challenge the top idea first:** `/mine-challenge --mode=passthrough <brainstorm-file-path>` if saved, otherwise `/mine-challenge --mode=passthrough <text>` with the top idea's name and description block. Return to this gate afterwards.
 - **Go deeper on the top idea:** hand off to `/mine-research`.
-- **Build it:** implement the top idea now when it has no open decisions; otherwise hand off to `/mine-sketch`.
+- **Sketch it first:** hand off to `/mine-sketch`; recommended when the top idea still has open design decisions.
+- **Build it:** implement the top idea now.
 - **Keep exploring:** another round with a different framing or constraint.
 
 Filing issues is outward-facing, so do it only when the user asks (they may say so alongside the next-step answer; mention the offer in one line after the ranked list). Create one issue per idea named, in the project's issue tracker, then proceed to the next step. Title `[Brainstorm] <topic>: <concise idea name>`; body with Summary (one paragraph), Rationale, Ranking (tier and score, e.g. `Top 3`, `Score: 4.7/5`), Ranked by (the criteria used), and Suggested next step.

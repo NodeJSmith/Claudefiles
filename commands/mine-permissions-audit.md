@@ -40,6 +40,6 @@ Present a compact report with the count and pattern per entry, sorted by count: 
 
 ## Applying
 
-Ask which entries to add. The user can add any entry the report shows, grouped by section (high-confidence, moderate, drift); start with the high-confidence section when it has entries, and make the others reachable in the same run. When all are empty, say so and stop. Offer to add everything in a section (put the entry count in the description), let the user pick entries (`multiSelect: true`, four per question, as many questions as needed), or make no changes.
+Ask which entries to add. The user can add any entry the report shows (entries in a summarized tail are reachable through "add everything in a section" or by naming them), grouped by section (high-confidence, moderate, drift); start with the high-confidence section when it has entries, and make the others reachable in the same run. When all are empty, say so and stop. Offer to add everything in a section (put the entry count in the description), let the user pick entries (`multiSelect: true`, four per question, as many questions as needed), or make no changes.
 
 To apply: create `~/Claudefiles/settings.json` as `{"permissions": {"allow": []}}` if it doesn't exist, add the selected patterns to `permissions.allow` without duplicating existing ones, run `claude-merge-settings` to propagate to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json`, and confirm what was added.
