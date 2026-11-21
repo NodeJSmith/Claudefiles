@@ -6,28 +6,15 @@ user-invocable: true
 
 # Prior Art
 
-Survey best practices, reference implementations, and established patterns from the broader ecosystem. Web-first research — goes outside the codebase to find how others solve the problem, then brings findings back with relevance to your context.
+Find out how others solve a problem and bring it back with relevance to this project. Web-first: the point is to look outside the codebase, with the local code used only as comparison context. Typically invoked mid-design, when an architectural question comes up and the user wants to see how others handle it before committing.
 
-Typically invoked mid-design or mid-conversation when you hit an architectural question and want to see how others handle it before committing to an approach. The convergence gates in `/mine-challenge` and `/mine-address-pr-issues` also invoke it, to check a mechanism that keeps attracting fixes against what comparable projects do.
+A common answer is "they don't bother": peers accept the limitation, document it, or handle it far more simply than the fix on the table. That is as valuable as a pattern, and the research has to look for it on purpose, because search results favor writeups about elaborate solutions.
 
-A common answer is "they don't bother": peers accept the limitation, document it, or handle it far more simply than the fix on the table. That answer is as valuable as a pattern, and the research has to look for it on purpose, because search results favor writeups about elaborate solutions.
-
-## How This Differs From Other Skills
-
-| Skill | Question it answers |
-|-------|-------------------|
-| **`/mine-prior-art`** | **"How do others solve X? What patterns exist?"** |
-| `/mine-research` | "What would it take to do X in this codebase?" |
-| `/mine-sketch` | "How should we build X?" |
-| `/mine-eval-repo` | "Is this specific library/repo worth adopting?" |
+It answers "how do others solve X?" Use `/mine-research` for what X would take in this codebase, `/mine-sketch` for how to build it, and `/mine-eval-repo` for whether one specific library is worth adopting.
 
 ## Arguments
 
-$ARGUMENTS — the topic to investigate. Can be:
-- A pattern question: `/prior-art "skill file schema conventions in AI coding tools"`
-- A technology survey: `/prior-art "approaches to hot/cold memory in LLM agents"`
-- A problem-first query: `/prior-art "how do teams handle config drift across environments"`
-- Empty: ask the user what they want to survey
+$ARGUMENTS — the topic to survey (a pattern question, a technology survey, a problem-first query). If empty or too vague to search ("caching" versus "how teams handle cache invalidation"), ask what to survey. Ask one disambiguation question if the topic spans domains ("memory management" could be OS, LLM context, or databases); otherwise start. The user already knows what they want, so keep this fast.
 
 ## Invoking From a Convergence Gate
 
@@ -39,115 +26,25 @@ The convergence gates in `/mine-challenge` (`findings-protocol.md`) and `/mine-a
 
 **After the brief.** The gate opens its discussion with the brief's recommendation. Accepting the limitation and documenting it is a valid outcome of that discussion.
 
-## Phase 1: Scope the Search
+## Research
 
-**Keep this fast.** The user already knows what they want to look into.
+Check the project's CLAUDE.md frontmatter for a `peers` field (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/project-context.md`); those are the comparable projects to search first.
 
-If $ARGUMENTS is empty or vague (single word or very short phrase without a framing question — e.g., "caching" is vague, "how teams handle caching invalidation" is not), ask:
+Make a temp directory with `mktemp -d <scratchpad>/mine-prior-art-XXXXXX` (keep the exact path) and launch two `standard-worker` subagents in parallel.
 
-```
-AskUserQuestion:
-  question: "What topic do you want to survey? (e.g., 'approaches to hot/cold memory in LLM agents', 'how teams handle config drift across environments')"
-  header: "Prior art"
-```
+**Local context.** A lightweight look (a few file reads) at how the codebase handles the topic today, which conventions or prior decisions bear on it, and what constraints the architecture imposes. It returns a short summary as its result message, or "No relevant local implementation found." This only fills "How We Do It Today".
 
-Check the project's CLAUDE.md frontmatter for a `peers` field (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/project-context.md`). If present, those are the comparable projects to search first.
+**Web research**, the primary track. Substitute the real topic, peers, and tmpdir into the prompt. It should carry the following, with the Depth and Output bullets passed through as written, since they are what keeps the subagent from returning snippets:
 
-If the topic is clear but ambiguous across domains (e.g., "memory management" could mean OS, LLM context, or database), ask one disambiguation follow-up. Otherwise, proceed directly to Phase 2.
+- The topic, and the instruction to cite URLs where found and mark unsourced patterns `[no source found]` rather than fabricate one.
+- The peers to search first (and to say so if none of them handle the problem), or, with no peers, to first name 2-5 projects solving the same problem for a similar audience.
+- Breadth: how popular open-source projects handle it, blog posts and experience reports, official docs, RFCs, talks, documented pitfalls, and where projects deliberately don't handle it (won't-fix issues, documented limitations, FAQ entries). Accepting a limitation is a pattern; record it as one.
+- Depth, because the brief informs a design decision and a wrong claim about what a project does is worse than none. A search snippet shows a page exists, not what it says, and docs show intent where code shows behavior, including the edge cases this research exists to compare. So for each project the answer depends on, open the code that does the thing (or, if the topic isn't software behavior, the primary source: the paper, the spec, the maintainer's explanation). A changelog can date a behavior or point to the PR; follow it to the code. Read source with `gh` (tree listing, `gh search code`, raw contents), or a `git clone --depth 1` into `<tmpdir>/src/<repo>` when it needs grepping; page-fetch tools summarize and truncate, so keep those for prose. A project it didn't get to isn't a gap; read it or leave it out. A gap is something it tried and couldn't get, recorded with what it tried.
+- Output: write `<tmpdir>/web-research.md` with `## Sources Found` (per source: URL, type, **Opened** yes/no, key takeaway, relevance), `## Patterns Found`, and optional `## Anti-Patterns`, `## Emerging Trends`, `## Gaps` (omit when empty). Each pattern has **Used by**, **How it works**, **Strengths**, **Weaknesses**, **Example** (link or `[no source found]`), and **Read**: for each project in Used by, the file or page opened as a path or permalink, or `secondary:` plus what the claim rests on.
 
-## Phase 2: Research
+When both return, read `<tmpdir>/web-research.md` and confirm it has `## Patterns Found`. Missing or empty: offer to retry. Thin: proceed and flag the coverage gap when presenting. Then check the **Read** fields: if a claim the recommendation will rest on is `secondary:` and the code is publicly readable, read it yourself or send the subagent back before synthesizing. Opening it takes a minute; a recommendation resting on unopened code can be wrong.
 
-1. Run `mktemp -d <scratchpad>/mine-prior-art-XXXXXX` to get a temp directory. Note the exact path — you'll need it after subagents complete.
-2. Launch **two subagents in parallel**:
-
-### Subagent A: Local Context (`subagent_type: standard-worker`)
-
-Gather comparison context from the current codebase:
-- How does the codebase handle the topic today (if at all)?
-- What patterns, conventions, or prior decisions are relevant?
-- What constraints does the existing architecture impose?
-
-Keep this lightweight — aim for 2-3 file reads, up to 6 if conventions are split across multiple systems. If the codebase has no relevant code, return "No relevant local implementation found." The goal is a short summary of the local state — just enough to fill the "How We Do It Today" section.
-
-This subagent returns its findings as its result message (no file output needed — the main skill reads the return value).
-
-### Subagent B: Web Research (`subagent_type: standard-worker`)
-
-This is the PRIMARY phase. Replace `<topic>` with the exact topic from Phase 1 and `<tmpdir>` with the directory from step 1 before dispatching. The subagent prompt must include:
-
-```
-Cite URLs where found. If you can't find a source for a pattern, mark it with [no source found] — do not fabricate URLs.
-
-You are researching prior art and best practices for: <topic>
-
-<If peers were found: "Comparable projects: <peers>. Search these first: their source, docs, and issue trackers show what projects like this one actually do. If none of them handle the problem, say so.">
-<If peers were not found: "Before searching, name 2-5 projects that solve the same problem for a similar audience as the project described in the topic, and search those first.">
-
-Search the web to find what to read, covering:
-- How popular open-source projects handle this
-- Where projects deliberately don't handle it: issues closed as won't-fix, documented limitations, FAQ entries explaining why something isn't supported. Accepting a limitation is a pattern; record it as one.
-- Blog posts and experience reports from teams who've solved this
-- Official documentation, RFCs, or style guides if they exist
-- Conference talks or technical writeups
-- Common pitfalls and anti-patterns others have documented
-
-Then read. Searching only finds candidates, and most of your effort belongs in what comes next, because the brief will be used to make a design decision and a wrong claim about what a project does is worse than no claim.
-
-- For each project the answer depends on, open the code that does the thing. Docs say what a project intends; the code shows what it does, including the edge cases this research exists to compare. If the topic isn't about how software behaves, read the primary source instead: the paper, the spec, the thread where a maintainer explains the decision.
-- A search snippet or highlight tells you a page exists, not what it says. A changelog or release note can date a behavior or point you to the PR that introduced it; follow that to the code rather than citing the entry as how it works.
-- Read source with `gh`, or a `git clone --depth 1` into `<tmpdir>/src/<repo>` when you'll need to grep around. List the tree (`gh api 'repos/OWNER/REPO/git/trees/HEAD?recursive=1' --jq '.tree[].path' | grep -i <keyword>`) or search it (`gh search code '<term>' --repo OWNER/REPO`) rather than guessing paths, then fetch the file (`gh api repos/OWNER/REPO/contents/PATH -H 'Accept: application/vnd.github.raw'`). Page-fetch tools summarize or truncate, which loses the detail you came for, so use them for prose pages.
-- Treat a gap as something you tried and couldn't get, and record what you tried under `## Gaps`. A project you didn't get to isn't a gap; go read it, or leave it out of the answer.
-
-For each useful source, capture: URL, key takeaway, and relevance.
-
-Write your findings to: <tmpdir>/web-research.md
-
-Use this structure:
-
-## Sources Found
-
-### [Source title]
-- **URL**: [url]
-- **Type**: [reference implementation / blog post / documentation / standard]
-- **Opened**: [yes, or no if you only saw it in search results]
-- **Key takeaway**: [1-2 sentences]
-- **Relevance**: [how this applies to the topic]
-
-## Patterns Found
-
-For each distinct pattern or approach found across sources:
-
-### Pattern 1: <Name>
-
-**Used by**: [projects, companies, or communities that use this]
-**How it works**: [2-3 paragraph explanation]
-**Strengths**: [what makes this work well]
-**Weaknesses**: [known limitations or tradeoffs]
-**Example**: [link to reference implementation or documentation, or [no source found]]
-**Read**: [for each project in Used by, the file or page you opened, as a path or permalink. If you did not read its implementation or a primary source, write "secondary:" and what the claim rests on (docs, changelog, snippet)]
-
-## Anti-Patterns (Optional — omit entirely if nothing notable)
-
-[Common mistakes documented in the sources. 2-4 items with citations.]
-
-## Emerging Trends (Optional — omit entirely if nothing notable)
-
-[What's new or changing. Skip if nothing notable.]
-
-## Gaps (Optional — omit entirely if none)
-
-[What you tried and couldn't get, and how you tried.]
-```
-
-3. After both subagents complete, **verify the output**:
-   - Read `<tmpdir>/web-research.md` and check it exists and contains `## Patterns Found`
-   - If the file is completely empty or missing, offer to retry the web research subagent
-   - If the file exists but is thin (few patterns, few sources), proceed anyway — flag the coverage gap in Phase 3 rather than gating the user
-   - Check the **Read** fields. If a claim you expect the recommendation to rest on is marked `secondary:` and the code is publicly readable, read it yourself or send the subagent back before synthesizing. A recommendation shouldn't rest on code nobody opened when opening it takes a minute.
-
-4. **Synthesize** the local context (from Subagent A's return value) and web research into a single brief. Map web research patterns into the brief format below — this is a merge, not a translation (both use the same section names). Write to `<tmpdir>/brief.md`.
-
-### Prior Art Brief Format
+Merge the local summary and web research into `<tmpdir>/brief.md` (the web sections carry through as they are; 3-5 patterns, more if the space is rich):
 
 ```markdown
 ---
@@ -159,58 +56,31 @@ status: Draft
 # Prior Art: <Topic>
 
 ## The Problem
-
-[1-2 paragraphs framing the problem being surveyed — what challenge does this address, why do teams care about it]
-
 ## How We Do It Today
-
-[Brief summary of the current local approach from Subagent A. "We don't have this yet" is a valid answer. Keep this short — it is comparison context, not the subject of the brief.]
-
-## Patterns Found / Anti-Patterns / Emerging Trends / Gaps
-
-Same section schema as the subagent `web-research.md` format above — this is a merge, not a translation. Carry the patterns through (3-5 total, more if the space is rich), keep the Optional sections optional, and preserve the **Used by / How it works / Strengths / Weaknesses / Example / Read** fields per pattern.
-
+## Patterns Found
+## Anti-Patterns (optional)
+## Emerging Trends (optional)
+## Gaps (optional)
 ## Relevance to Us
-
-[How these patterns map to our specific context. Which patterns align with our existing conventions? Which would require significant changes? What's the gap between where we are and what the best practices suggest? If the topic includes fixes we're weighing, say plainly where they build more machinery than comparable projects do.]
-
 ## Recommendation
-
-[Which pattern(s) are worth considering, or "none of these fit — here's why." "Accept the limitation and document it" is a valid recommendation when that's what comparable projects do. Be honest about gaps in the research.]
-
 ## Sources
-
-[All URLs from web research, organized by category. Mark any URL whose **Opened** is no as (not opened).]
-
-### Reference implementations
-- [url] — [one-line description]
-
-### Blog posts & writeups
-- [url] — [one-line description]
-
-### Documentation & standards
-- [url] — [one-line description]
 ```
 
-## Phase 3: Present
+- **The Problem:** what the survey addresses and why teams care.
+- **How We Do It Today:** short; comparison context, not the subject. "We don't have this yet" is valid.
+- **Patterns and the optional sections:** same schema as `web-research.md`, including each pattern's Used by / How it works / Strengths / Weaknesses / Example / Read.
+- **Relevance to Us:** how the patterns map to this project's conventions, and the gap to best practice. If the topic includes fixes being weighed, say plainly where they build more machinery than comparable projects do.
+- **Recommendation:** which patterns are worth considering, or "none of these fit, and why". "Accept the limitation and document it" is valid when that's what peers do. Be honest about research gaps.
+- **Sources:** all URLs grouped as reference implementations, blog posts and writeups, documentation and standards, each with a one-line description; mark any whose **Opened** is no as `(not opened)`.
 
-Lead with the recommendation and the 1-2 most surprising or relevant patterns. Don't recap the full brief inline — the user is mid-task and wants the actionable takeaway. Surface anti-patterns and coverage gaps if notable.
+## Present
 
-If web research was thin, say so explicitly: "Coverage was limited — only N sources found. These patterns may not represent the full landscape."
+Lead with the recommendation and the one or two most surprising or relevant patterns; the user is mid-task and wants the actionable takeaway, not a recap of the brief. Surface notable anti-patterns and coverage gaps. If coverage was thin, say so ("only N sources found; this may not represent the full landscape"), since a thin area is itself information.
 
-Save the brief to `design/research/YYYY-MM-DD-<topic>/prior-art.md` (create the directory if needed, sanitize topic to lowercase-hyphenated slug, 40 chars max) and end by giving the path. Prior-art briefs are worth keeping even when the immediate question is settled, and the `prior-art.md` name lets it sit beside a `/mine-research` brief on the same topic.
+Save the brief to `design/research/YYYY-MM-DD-<topic>/prior-art.md` (topic as a lowercase hyphenated slug, 40 characters max; create the directory) and end by giving the path. The `prior-art.md` name lets it sit beside a `/mine-research` brief on the same topic, and it's worth keeping even when the immediate question is settled.
 
-## What This Skill Does NOT Do
-
-- **Research your codebase** — it looks outward at the ecosystem. Use `/mine-research` to investigate feasibility within your codebase.
-- **Evaluate a specific library** — it surveys patterns and approaches, not whether a specific repo is worth adopting. Use `/mine-eval-repo` for that.
-- **Make decisions** — it informs them. The user decides which patterns to adopt.
-- **Produce implementation plans** — it's a survey, not a blueprint.
+Then return control. This runs mid-conversation, so don't gate the user with a follow-up menu.
 
 ## Principles
 
-1. **World-first, codebase-second** — the whole point is to look outside. Codebase exploration is only for comparison context.
-2. **Wide survey, real reading** — cover several projects rather than exhausting one, and read the implementation of each one the answer depends on. A survey of snippets is a list of guesses.
-3. **Sources matter** — patterns should be backed by URLs where possible, and by what was actually opened. Unsourced patterns are marked, not fabricated.
-4. **Honest about coverage** — if the search didn't find much, say so. "This is a thin area with little documented prior art" is valuable information.
-5. **Get out of the way** — this skill is typically invoked mid-conversation during design work. Present findings and return control. Don't gate the user with follow-up menus.
+It informs decisions and produces no implementation plan; the user decides what to adopt. A survey of snippets is a list of guesses, so read the implementation of each project the answer depends on, and mark what you couldn't source.
