@@ -142,9 +142,10 @@ Event-driven scripts that run before/after tool calls.
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `project-docs-check.sh` | PostToolUse (Edit\|Write) | On the first edit to each distinct project this session (walking up from the touched file to the nearest manifest, or repo root), checks for a non-empty `docs/` — escalating deferral with suppression option, offers to run `/mine-document` if missing |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
+| `context-prefix.sh` | PreToolUse (AskUserQuestion) | Puts `[Context: N%]` at the start of the first question, using the usage in the sidecar written by `claude-context-writer`, and strips any prefix the model wrote. No sidecar means no prefix |
 | `context-tier.sh` | PreToolUse (*) | Injects context-window tier guidance (low/low-mid/moderate/high/critical) from the sidecar written by `claude-context-writer`, with a 25-call heartbeat (`CLAUDE_CONTEXT_HEARTBEAT`) |
 | `claude-status-writer` | UserPromptSubmit, PreToolUse (*), PostToolUse (*), Stop, Notification, SessionEnd | Writes/removes a per-session busy/idle status sidecar (`/tmp/claude-status-<sid>.meta`) for the remote-control orchestrator's busy/idle signal |
-| `claude-context-writer` | statusLine | Writes a per-session context-usage sidecar (`/tmp/claude-context-<sid>.meta`: pct/cwd/model), read by `context-tier.sh`, then passes the statusLine JSON through to the downstream command (`starship-claude`) |
+| `claude-context-writer` | statusLine | Writes a per-session context-usage sidecar (`/tmp/claude-context-<sid>.meta`: pct/cwd/model), read by `context-tier.sh` and `context-prefix.sh`, then passes the statusLine JSON through to the downstream command (`starship-claude`) |
 | `bash-history-capture.py` | PostToolUse (Bash), PostToolUseFailure (Bash) | Capture every Bash command (success and failure) to `~/.local/share/claudefiles/bash-history.db` (SQLite) for pattern analysis — stores command, cwd, project, description, output preview, status. Override DB path with `CLAUDE_BASH_HISTORY_DB` |
 
 The `ccrecall` plugin contributes its own SessionStart / SessionEnd / Stop memory hooks

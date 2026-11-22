@@ -46,6 +46,16 @@
         ]
       },
       {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/context-prefix.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 2000
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

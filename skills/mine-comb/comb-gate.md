@@ -27,7 +27,7 @@ Read the agent's `## Summary` line for blocking and minor counts, then scan `###
 
 A design-decision finding has no single fix, so the agent can't apply one, and a generic question would make the user re-explain what they need. The finding's own `Options` are the fix; picking one resolves it. Resolve these before the ordinary flow, but only those that would otherwise be acted on: every one in `### Blocking`, and ones in `### Minor` only when `minor_blocks` is `true` (otherwise note them for the summary and don't prompt). The tag changes the shape of a question that would be asked anyway; it never makes a minor finding actionable under `minor_blocks: false`.
 
-Ask one `AskUserQuestion` per finding, in order, never batched. It is a major gate (see `interaction.md`): run `context-pct` and prepend `[Context: N%]`. The question is `<header> found a design decision: <finding text, minus the tag>`; the options are the finding's Options A and B (labels as written, trade-offs as descriptions, `(Recommended)` appended when the finding names a lean), plus `Skip — decide later` ("Leave this open; it isn't blocking") for a Minor-list finding only, plus `Stop` ("Halt and address issues manually") always. The agent caps Options at two, so this fits the 4-option limit.
+Ask one `AskUserQuestion` per finding, in order, never batched. The question is `<header> found a design decision: <finding text, minus the tag>`; the options are the finding's Options A and B (labels as written, trade-offs as descriptions, `(Recommended)` appended when the finding names a lean), plus `Skip — decide later` ("Leave this open; it isn't blocking") for a Minor-list finding only, plus `Stop` ("Halt and address issues manually") always. The agent caps Options at two, so this fits the 4-option limit.
 
 Apply the chosen option to the artifact immediately per `<re_review_instructions>`. `Stop` halts the whole gate. `Skip` leaves the artifact untouched and carries the finding into the downstream summary; like a resolved finding it is done with this gate and is not re-prompted this run (the next comb run will find it again, since the decision is deferred, not forgotten).
 
@@ -52,7 +52,7 @@ Untagged findings should be clear corrections. If one turns out to have no singl
 
 ### When the cap is reached
 
-If run 3 or any later run still reports blocking findings, stop fixing automatically and ask. It is a major gate: prepend `[Context: N%]`. Use `<blocking_question>` if supplied, otherwise `Fine-toothed comb still reports blocking issues on run <N>: <summary>. Fix-and-re-comb cycles haven't cleared them.` Header `<header>`, options:
+If run 3 or any later run still reports blocking findings, stop fixing automatically and ask. Use `<blocking_question>` if supplied, otherwise `Fine-toothed comb still reports blocking issues on run <N>: <summary>. Fix-and-re-comb cycles haven't cleared them.` Header `<header>`, options:
 
 - `Fix and re-review`: "One more fix-and-re-comb cycle". Apply `<re_review_instructions>` to the same findings an ordinary fix pass covers, then re-run the comb from the top. If the next run still blocks, it asks again.
 - `Fix and finish`: "Fix these findings but skip the next comb". Same fixes, then proceed without re-running.
