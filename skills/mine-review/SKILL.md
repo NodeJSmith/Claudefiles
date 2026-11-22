@@ -46,7 +46,7 @@ Organize the report by severity, not by reviewer, under `## [Technical|Instructi
 
 If nothing is worth fixing (everything passed, what's left is likely-invalid, or only medium and low findings remain and aren't worth the churn), say so and stop; there is nothing to ask.
 
-Otherwise ask what to do with the findings. This is a major gate (see `interaction.md`): run `context-pct` and prepend `[Context: N%]`. Build the options from the severity mix and what you found, put finding counts in the descriptions, and recommend the one that fits. The usual outcomes are fix everything, fix only critical/high, or note and move on; drop any the findings make meaningless (no critical/high means no "critical/high only"; if medium and low aren't worth the churn, recommend critical/high only over fix-all).
+Otherwise ask what to do with the findings. Build the options from the severity mix and what you found, put finding counts in the descriptions, and recommend the one that fits. The usual outcomes are fix everything, fix only critical/high, or note and move on; drop any the findings make meaningless (no critical/high means no "critical/high only"; if medium and low aren't worth the churn, recommend critical/high only over fix-all).
 
 When fixing, edit directly, highest severity first, then re-read what you changed and say: "Fixes complete — run `/mine-commit-push` or proceed to commit when ready."
 

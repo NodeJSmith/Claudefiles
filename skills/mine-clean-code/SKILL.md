@@ -48,7 +48,7 @@ Report under `## Clean Code Review: [branch name or target path]`: the scope (fi
 
 If nothing is left but likely-invalid findings (or every checker is CLEAN), say so and stop.
 
-Otherwise this is a major gate (see `interaction.md`): run `context-pct`, prepend `[Context: N%]`, and ask what to do. Put finding counts in the descriptions and recommend from the findings (fix-all when mostly mechanical, one checker when it produced most of them, note-and-move-on when only trivial nitpicks remain). Offer the outcomes that apply:
+Otherwise ask what to do. Put finding counts in the descriptions and recommend from the findings (fix-all when mostly mechanical, one checker when it produced most of them, note-and-move-on when only trivial nitpicks remain). Offer the outcomes that apply:
 
 - **Fix all**: apply every proposed fix, in scope and (in diff mode) out of scope, taking llm-checker, then lazy-checker, then nitpicker, and re-read what changed.
 - **Fix one checker's findings**: only when more than one checker has findings. Fix all of that checker's findings, in scope and out; with more than 8, show 4 at a time so the user can steer, then offer another checker.

@@ -251,12 +251,11 @@ the user, look up the `unknown` peer cells that could change its recommendation.
 **User-directed** (`Classification: User-directed`, `disposition: pending`): Emit
 one AskUserQuestion per finding — do not batch. MEDIUM and TENSION `rare` findings
 wait for the Rare Findings batch below; a HIGH `rare` finding is asked here like any other,
-with its Accept option still recommended. This is a major gate (finding walkthrough,
-see `interaction.md`) — run `context-pct` and prepend the result to the question:
+with its Accept option still recommended. Ask:
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] Finding N/{total}: <title> (<severity>)"
+  question: "Finding N/{total}: <title> (<severity>)"
   header: "<raised-by>"
   options:
     - label: "A: <Option A text>"
@@ -318,11 +317,11 @@ convergence already superseded one, it keeps that resolution. Send a
 plain language, `When-it-bites`, and its recommended option. This list is all the
 user has to go on, and an unlisted batch is a blind accept. Mark any whose
 recommendation is a fix rather than Accept, so the code it would add doesn't pass
-unnoticed. Then ask once (a major gate, so prepend the `context-pct` result):
+unnoticed. Then ask once:
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] {count} rare-case findings: accept the recommendations?"
+  question: "{count} rare-case findings: accept the recommendations?"
   header: "Rare cases"
   options:
     - label: "Accept recommendations (Recommended)"

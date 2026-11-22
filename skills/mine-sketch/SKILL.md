@@ -243,11 +243,11 @@ Check what the challenge and comb changed by diffing `design.md` against `<tmpdi
 
 Otherwise show the gate, because ratification was per-decision and this read is the only place a cross-decision inconsistency an automatic edit introduced would show up.
 
-Send the full ledger with `SendUserMessage`, with its path, and show what changed since the last ratified decision. At `milestone` altitude, the question ends "Ratify it as the milestone plan?" and Ratify's description is "Lock the ledger; offer to file its issues". This is a completion gate (see `interaction.md`): run `context-pct` and prepend the result.
+Send the full ledger with `SendUserMessage`, with its path, and show what changed since the last ratified decision. At `milestone` altitude, the question ends "Ratify it as the milestone plan?" and Ratify's description is "Lock the ledger; offer to file its issues".
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] The ledger is ready. Ratify it for the build?"
+  question: "The ledger is ready. Ratify it for the build?"
   header: "Ledger"
   multiSelect: false
   options:
@@ -353,11 +353,11 @@ Settle `<feature_dir>/known-issues.md`'s `Status: open` entries without a per-en
 
 When an entry's `Recorded:` line names a different branch from this one, it came from an earlier build; say so in the report.
 
-Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger, the review log, and any known-issues updates. Report what was built, any build-time calls, the known issues fixed, and the known issues left open (marking any that need their own tracker issue). This is a completion gate: run `context-pct` and prepend the result.
+Then tick `Ship-time challenge`, set `**Status:** built`, and commit the ledger, the review log, and any known-issues updates. Report what was built, any build-time calls, the known issues fixed, and the known issues left open (marking any that need their own tracker issue).
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] Build complete and challenged. Ship it?"
+  question: "Build complete and challenged. Ship it?"
   header: "Ship?"
   multiSelect: false
   options:

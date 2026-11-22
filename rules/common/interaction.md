@@ -84,25 +84,10 @@ When the user's reasoning has a gap, name it directly. When a proposed approach 
 
 Do not soften corrections to preserve comfort. A clear "that won't work because X" is more respectful than a padded "that's a great idea, though one small consideration might be..."
 
-## Context Usage at Decision Gates
+## Context Usage in Questions
 
-At major decision gates, run `context-pct` and prepend `[Context: N%]` to the
-AskUserQuestion `question` text. This lets the user decide whether to continue
-or clear context and resume.
-
-**Major gates** (always show context):
-- Shipping/completion gates (mine-ship, mine-sketch build completion)
-- Known issues walkthrough and backlog gates
-- Task failure/blocked decisions (try again / stop)
-- Review and challenge finding walkthroughs
-- Clean code gate results
-- Comb pass/fix/escalate decisions
-
-**Skip** for early-workflow gates (confirm feature, dev server check, interview
-questions, complexity routing) where context is nearly always low and the
-information adds noise.
-
-If `context-pct` returns empty or fails to run, omit the prefix silently.
+The `context-prefix.sh` hook puts `[Context: N%]` at the start of every
+`AskUserQuestion`, using the measured usage. Don't write the prefix yourself.
 
 ## Permissions
 

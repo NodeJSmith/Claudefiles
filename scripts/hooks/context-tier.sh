@@ -33,25 +33,15 @@ fi
 
 input="$(cat || true)"
 
+hook_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/context-sidecar.sh
+source "$hook_dir/lib/context-sidecar.sh" || exit 0
+
 session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2> /dev/null)" || true
-case "$session_id" in '' | *[/.]*) exit 0 ;; esac
-
-# Hardcodes /tmp/ to match claude-context-writer, which runs outside Claude
-# Code's sandbox and cannot use CLAUDE_CODE_TMPDIR.
-sidecar="/tmp/claude-context-${session_id}.meta"
-[ -f "$sidecar" ] || exit 0
-
-# Pull the pct from the .meta sidecar. Anchor on the pct= line: the file also
-# carries a cwd= line whose path may itself contain '='. A missing/garbled
-# pct= falls through the numeric check below and skips silently — best-effort
-# parity with the old missing-file behavior.
-percent="$(sed -n 's/^pct=//p' "$sidecar" 2> /dev/null)" || exit 0
+percent="$(context_sidecar_pct "$session_id")"
+# A non-empty pct also means session_id passed the path-safety check, so it
+# is safe in the state-file paths below.
 [ -z "$percent" ] && exit 0
-
-# Validate numeric
-case "$percent" in
-  *[!0-9]*) exit 0 ;;
-esac
 
 if [ "$percent" -lt 25 ]; then
   tier="low"

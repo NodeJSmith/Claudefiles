@@ -21,19 +21,8 @@ case "${1:-}" in
     ;;
 esac
 
-sid="${1:-${CLAUDE_CODE_SESSION_ID:-}}"
-case "$sid" in '' | *[/.]*) exit 0 ;; esac
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=../scripts/hooks/lib/context-sidecar.sh
+source "$(dirname -- "$_self")/../scripts/hooks/lib/context-sidecar.sh"
 
-# Sidecar path and parsing mirrors scripts/hooks/context-tier.sh — keep in
-# sync if the format changes. Hardcodes /tmp/ to match claude-context-writer,
-# which runs outside Claude Code's sandbox and cannot use CLAUDE_CODE_TMPDIR.
-sidecar="/tmp/claude-context-${sid}.meta"
-
-[ -f "$sidecar" ] || exit 0
-
-pct="$(sed -n 's/^pct=//p' "$sidecar" 2> /dev/null)" || exit 0
-case "${pct:-}" in
-  '' | *[!0-9]*) exit 0 ;;
-esac
-
-printf '%s\n' "$pct"
+context_sidecar_pct "${1:-${CLAUDE_CODE_SESSION_ID:-}}"

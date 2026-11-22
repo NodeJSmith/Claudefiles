@@ -50,11 +50,11 @@ Some issues can't be deferred silently. The gate applies only to findings the us
 
 If one does and the fix is contained and verifiable, fix it now through the normal pre-commit reviewers, record nothing, and mention it in the build report. Asking permission to fix a severe issue you can fix is not a decision.
 
-Ask only when the fix needs a design decision, reaches across many files, or the risk is real but outside this change's scope. This is a major gate (see `interaction.md`): run `context-pct` and prepend the result. Recommend "Stop here" when it needs a design decision or reaches across many files, "Ship anyway" only when the risk is real but outside this change's scope.
+Ask only when the fix needs a design decision, reaches across many files, or the risk is real but outside this change's scope. Recommend "Stop here" when it needs a design decision or reaches across many files, "Ship anyway" only when the risk is real but outside this change's scope.
 
 ```
 AskUserQuestion:
-  question: "[Context: N%] This finding is too severe to defer silently: <one-line description>. <which condition it trips>. What next?"
+  question: "This finding is too severe to defer silently: <one-line description>. <which condition it trips>. What next?"
   header: "Severe issue"
   multiSelect: false
   options:
