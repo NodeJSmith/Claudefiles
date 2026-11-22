@@ -53,7 +53,7 @@ Write your research brief to: <output file path>
 
 ## How to Analyze Code
 
-Read the code and reason about it directly with Read, Grep, and Glob. Scripts (AST parsers, dependency graphers) add output you then have to verify, and the answer comes from understanding the files. Commands are for facts you can't get by reading: git history and churn, real test coverage numbers, existing linter and type-checker output, and the package manager's view of current dependencies.
+Read the code and reason about it directly with Read, Grep, and Glob (or `grep -rn` and `find` through Bash when the Grep or Glob tool isn't available). Scripts (AST parsers, dependency graphers) add output you then have to verify, and the answer comes from understanding the files. Commands are for facts you can't get by reading: git history and churn, real test coverage numbers, existing linter and type-checker output, and the package manager's view of current dependencies.
 
 ## Explore the codebase
 

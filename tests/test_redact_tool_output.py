@@ -13,6 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).parent.parent
 REDACT_HOOK = REPO_ROOT / "scripts" / "hooks" / "redact-tool-output.py"
 
@@ -24,6 +26,8 @@ def run_hook(stdin: str, extra_env: dict | None = None) -> subprocess.CompletedP
     full_env = os.environ.copy()
     # A session-wide bypass in the developer's shell would turn every test into a no-op.
     full_env.pop("REDACT_BYPASS", None)
+    # The bypass hint depends on the entrypoint; tests that care set it explicitly.
+    full_env.pop("CLAUDE_CODE_ENTRYPOINT", None)
     full_env.update(env)
     return subprocess.run(
         [sys.executable, str(REDACT_HOOK)],
@@ -256,9 +260,21 @@ class TestBypass:
         assert result.returncode == 0
         assert result.stdout == ""
 
-    def test_redacted_bash_output_carries_bypass_hint(self):
-        out = json.loads(run_hook(self._bash("cat auth.json")).stdout)
+    def test_redacted_bash_output_carries_bypass_hint_in_cli(self):
+        result = run_hook(
+            self._bash("cat auth.json"), extra_env={"CLAUDE_CODE_ENTRYPOINT": "cli"}
+        )
+        out = json.loads(result.stdout)
         assert "REDACT_BYPASS=1" in out["hookSpecificOutput"]["additionalContext"]
+
+    @pytest.mark.parametrize("entrypoint", ["sdk-py", None])
+    def test_redacted_bash_output_has_no_hint_outside_cli(self, entrypoint):
+        extra = {"CLAUDE_CODE_ENTRYPOINT": entrypoint} if entrypoint else None
+        out = json.loads(run_hook(self._bash("cat auth.json"), extra_env=extra).stdout)
+        assert (
+            self.SECRET not in out["hookSpecificOutput"]["updatedToolOutput"]["stdout"]
+        )
+        assert "additionalContext" not in out["hookSpecificOutput"]
 
     def test_unredacted_output_carries_no_hint(self):
         out = json.loads(run_hook(_bash_payload("hello world")).stdout)

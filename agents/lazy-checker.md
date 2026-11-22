@@ -34,7 +34,7 @@ When invoked:
 
 ## How to Analyze Code
 
-**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Don't write or run analysis scripts (AST parsers, custom linters, sed pipelines, xargs constructions). Hand-written scripts and piped one-offs replace the reading and judgment this review exists to provide with tool output, and they trigger permission prompts. Bash is for `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
+**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Don't write or run analysis scripts (AST parsers, custom linters, sed pipelines, xargs constructions). Hand-written scripts and piped one-offs replace the reading and judgment this review exists to provide with tool output, and they trigger permission prompts. Bash is for `git` (diff, log, etc.), repo-provided helper CLIs (`git-branch-base`, `git-default-branch`), and `grep -rn` and `find` when the Grep or Glob tool isn't available.
 
 ## Scope for Duplication and Hardcoded Shortcuts
 

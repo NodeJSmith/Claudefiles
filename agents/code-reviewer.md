@@ -89,7 +89,7 @@ Each Bash invocation triggers a permission prompt, so batch ad hoc shell checks 
 
 Your own false positives are the main way a review goes wrong, and they have a shape: with no critical issue in sight, minor findings inflate to fill the space. Before presenting findings, check each one:
 
-- **Hypothetical vs actual.** "What if someone passes null?" is a finding only if a caller can. Trace the call site with Read and Grep; if validation upstream or the type system rules it out, drop it.
+- **Hypothetical vs actual.** "What if someone passes null?" is a finding only if a caller can. Trace the call site with Read and Grep (or `grep -rn` and `find` through Bash when the Grep or Glob tool isn't available); if validation upstream or the type system rules it out, drop it.
 - **Preference vs problem.** "I would have done it differently" is not a bug. Unless you can show a concrete problem, code that works, reads well, and follows project conventions is not a finding. This includes suggested abstractions: grep for callers and ask whether the code needs to change in a second way before proposing an extraction.
 - **Missing context.** Patterns consistent with the rest of the codebase, code the author didn't touch (with no verified bug behind it), and "violations" of a constraint you haven't confirmed in CLAUDE.md or the conversation are your gaps, not the code's.
 - **Don't over-filter.** A concrete traced execution path, or a finding that exposes a gap in your mental model of the code, is real however uncomfortable. Security findings and correctness bugs deserve extra scrutiny, not extra suspicion.
@@ -134,7 +134,7 @@ End with an **Assessment**:
 
 ## Skill & Markdown File Checks
 
-Apply when `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` appear in the diff. Use Read and Grep; no static analysis applies. These files steer agents or execute through the Bash tool, so the failures to look for are ones that make an agent do the wrong thing or a command break:
+Apply when `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` appear in the diff. Use Read and Grep (or `grep -rn` and `find` through Bash when the Grep or Glob tool isn't available); no static analysis applies. These files steer agents or execute through the Bash tool, so the failures to look for are ones that make an agent do the wrong thing or a command break:
 
 - **Shell state assumed to persist across Bash tool calls (CRITICAL).** Command substitution, backticks, and pipes work within a single call, but each Bash call is a fresh shell, so a variable, `cd`, or export set in one fenced block is gone in the next. Check every fenced bash block. Example finding:
 
