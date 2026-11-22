@@ -25,8 +25,11 @@ to be read from the command text, because an assignment inside the agent's
 command never reaches this hook's own environment. REDACT_BYPASS=1 in the
 environment Claude Code was launched from turns redaction off for the whole
 session, for every tool. Unlike REDACT_DISABLE, which names individual rules to
-switch off, the bypass is all or nothing. When a call does get redacted, the
-hook tells the agent about the prefix. This is a convenience switch, not a
+switch off, the bypass is all or nothing. When a call does get redacted in an
+interactive session (CLAUDE_CODE_ENTRYPOINT=cli), the hook tells the agent about
+the prefix. Other entrypoints, such as SDK sessions (sdk-py), get no hint:
+nobody is watching to judge the unredacted output, and auto mode's classifier
+denies the rerun as a safety bypass. This is a convenience switch, not a
 security boundary: an agent determined to read a secret can already route
 around redaction (base64, splitting the value).
 
@@ -617,11 +620,14 @@ _SKIP_TOOLS = frozenset(
 
 _BYPASS_PREFIX = re.compile(r"^\s*REDACT_BYPASS=1\s")
 
+# CLAUDE_CODE_ENTRYPOINT for an interactive terminal session; SDK sessions report sdk-py.
+_INTERACTIVE_ENTRYPOINT = "cli"
+
 
 _BYPASS_HINT = (
     "Some of this output was redacted. If a [REDACTED:<rule>] marker hides "
-    "something that is not a secret, rerun the Bash command prefixed with "
-    "REDACT_BYPASS=1 to see it unredacted."
+    "something that is not a secret, rerun the Bash command with "
+    "REDACT_BYPASS=1 as its first word to see it unredacted."
 )
 
 
@@ -878,7 +884,11 @@ def main() -> None:
     updated = build_updated_response(data, active_rules(config), allow_patterns(config))
     output = {"hookEventName": event_name, "updatedToolOutput": updated}
     original = data.get("error", "") if event_name == "PostToolUseFailure" else resp
-    if data.get("tool_name") == "Bash" and updated != original:
+    if (
+        data.get("tool_name") == "Bash"
+        and updated != original
+        and os.environ.get("CLAUDE_CODE_ENTRYPOINT") == _INTERACTIVE_ENTRYPOINT
+    ):
         output["additionalContext"] = _BYPASS_HINT
     print(json.dumps({"hookSpecificOutput": output}))
 
