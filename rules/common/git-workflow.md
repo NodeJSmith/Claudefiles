@@ -42,7 +42,7 @@ A green code review does not mean challenge is unnecessary. A green test suite i
 
 Challenge exists to catch what a design reasoned out in one session misses: decisions that don't fit together, assumptions that break under change, features peers skip, edge cases nobody named. Tests and review don't look for these. The risk builds up wherever a session reasons out a design, and `mine-sketch` is where that design gets written down as a ledger for critics to test. Once a ledger exists, the critics run on it at sketch time and again on the built change, without asking. Offering to skip them to save friction is the failure to avoid. Outside a sketch, don't start one on your own initiative: a design you reasoned out that needs critics belongs in a ledger, so route it to sketch (`sketch-before-building.md`). A user asking for critics, or a skill that calls `/mine-challenge`, is not that case.
 
-The inline path in `sketch-before-building.md` has no challenge on purpose. Its decisions are independent, local, and cheap to reverse, so a misjudged interaction between them costs a quick fix later, not a rewrite.
+The inline path in `sketch-before-building.md` has no challenge on purpose. Its decisions are independent and cheap to reverse, so a misjudged interaction between them costs a quick fix later, not a rewrite. In a personal-tool repo that holds for data and module reshapes too, since the user is the only consumer; that is why the rule keeps them inline there.
 
 ## Issue Creation Conventions
 
