@@ -1,16 +1,56 @@
-"""Output formatting helpers — JSON and human-readable TSV tables."""
+"""Output formatting helpers — JSON, and tables that align in a terminal and tab-separate when piped."""
 
 import json
+import re
 import sys
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
+from whenever import SYSTEM_TZ, Instant
+
+_SNAKE_KEY = re.compile(r"[a-z][a-z0-9]*(_[a-z0-9]+)+")
+
+
+class Record(BaseModel):
+    """Base for records the CLI builds itself; ``--json`` writes their fields in camelCase, as ADO does."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
 
 def json_output(data: Any) -> None:
-    """Print *data* as indented JSON to stdout."""
-    json.dump(data, sys.stdout, indent=2, default=str)
+    """Print *data* as indented JSON to stdout; :class:`Record` models are written by their camelCase aliases.
+
+    Dicts are written as they are, so raw ADO objects keep ADO's keys, including data keys
+    such as pipeline parameter names. Pass dicts the CLI builds through :func:`camel_keys`.
+    """
+    json.dump(_jsonable(data), sys.stdout, indent=2, default=str)
     sys.stdout.write("\n")
+
+
+def camel_keys(record: dict[str, Any]) -> dict[str, Any]:
+    """Return *record* with its own snake_case keys in camelCase; nested values are left alone.
+
+    For dicts the CLI builds (``build_id`` → ``buildId``), never for raw ADO objects.
+    """
+    return {to_camel(k) if _SNAKE_KEY.fullmatch(k) else k: v for k, v in record.items()}
+
+
+def _jsonable(data: Any) -> Any:
+    if isinstance(data, BaseModel):
+        return data.model_dump(mode="json", by_alias=True)
+    if isinstance(data, dict):
+        return {k: _jsonable(v) for k, v in data.items()}
+    if isinstance(data, list | tuple):
+        return [_jsonable(v) for v in data]
+    return data
+
+
+def print_result(line: str, *, as_json: bool) -> None:
+    """Print a per-item result line: stdout normally, stderr under ``--json`` so stdout stays JSON."""
+    print(line, file=sys.stderr if as_json else sys.stdout)
 
 
 def osc8(url: str, label: str) -> str:
@@ -23,21 +63,30 @@ def osc8(url: str, label: str) -> str:
     return f"\x1b]8;;{url}\x1b\\{label}\x1b]8;;\x1b\\"
 
 
-def aligned_table(
+def print_table(
     rows: Sequence[Sequence[str]],
     *,
     headers: Sequence[str],
     links: Sequence[dict[int, str]] | None = None,
+    empty: str | None = None,
 ) -> None:
-    """Print a column-aligned table with *headers* and a separator rule.
+    """Print *rows* under *headers*: aligned columns in a terminal, tab-separated when piped.
 
-    *links* is an optional parallel sequence (one dict per row) mapping column
-    index to a URL.  Linked cells are wrapped in OSC 8 escapes but padded to the
-    same visual width as the plain label.
-
-    Use this for human-facing output where columns should line up; use
-    :func:`tsv_table` when the output is meant to be piped into ``cut``/``awk``.
+    Piped output is for ``cut``/``awk``, so it gets plain TSV with no padding or links.
+    *links* is an optional parallel sequence (one dict per row) mapping column index to a
+    URL; in a terminal those cells become OSC 8 hyperlinks. With no rows, *empty* (if
+    given) goes to stderr and stdout stays empty.
     """
+    if not rows:
+        if empty:
+            print(empty, file=sys.stderr)
+        return
+    if not sys.stdout.isatty():
+        print("\t".join(headers))
+        for row in rows:
+            print("\t".join(str(cell) for cell in row))
+        return
+
     all_rows = [tuple(headers), *(tuple(r) for r in rows)]
     col_widths = [max(len(row[i]) for row in all_rows) for i in range(len(headers))]
 
@@ -48,7 +97,7 @@ def aligned_table(
             if row_links and i in row_links:
                 padded = osc8(row_links[i], cell) + " " * (width - len(cell))
             parts.append(padded)
-        return "  ".join(parts)
+        return "  ".join(parts).rstrip()
 
     print(fmt_row(headers))
     print("  ".join("-" * w for w in col_widths))
@@ -56,45 +105,20 @@ def aligned_table(
         print(fmt_row(row, links[idx] if links else None))
 
 
-def truncate(text: str, max_len: int) -> str:
-    """Truncate *text* to *max_len*, adding an ellipsis if truncated."""
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 3] + "..."
-
-
-def tsv_table(rows: Sequence[Sequence[str]], headers: Sequence[str]) -> None:
-    """Print a tab-separated table with *headers* and *rows* to stdout.
-
-    This produces a simple, grep-friendly format. Each column is separated by
-    a tab character.  An empty *rows* sequence prints only the header line.
-    """
-    print("\t".join(headers))
-    for row in rows:
-        print("\t".join(str(cell) for cell in row))
-
-
-def parse_iso_timestamp(iso_timestamp: str) -> datetime:
-    """Parse an ADO ``Z``-suffixed ISO-8601 timestamp into an aware datetime."""
+def parse_ado_timestamp(iso_timestamp: str):
+    """An aware datetime from ADO's ISO-8601 timestamps, which end in ``Z``."""
     return datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
 
 
-def split_duration_seconds(total_seconds: int) -> tuple[int, int, int]:
-    """Split a non-negative second count into ``(hours, minutes, seconds)``."""
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return hours, minutes, seconds
+def format_local_time(iso_timestamp: str | None) -> str:
+    """A UTC ISO-8601 timestamp as this machine's local time with its zone, e.g. ``2026-11-23 10:32 CST``.
 
-
-def summarize_counts(labeled_counts: Sequence[tuple[str, int]]) -> str:
-    """Join non-zero ``(label, count)`` pairs into a ``"Label: N, Label: N"`` summary.
-
-    Pairs with a zero count are omitted. Returns an empty string if every count
-    is zero — callers that always have at least one non-zero count can print
-    unconditionally; others should guard on a non-empty result before printing.
+    For table cells only: ``--json`` keeps the UTC timestamp, so scripts don't depend on the reader's zone.
     """
-    parts = [f"{label}: {count}" for label, count in labeled_counts if count]
-    return ", ".join(parts)
+    if not iso_timestamp:
+        return "-"
+    local = Instant.parse_iso(iso_timestamp).to_tz(SYSTEM_TZ)
+    return f"{local.format('YYYY-MM-DD HH:mm')} {local.tz_abbrev()}"
 
 
 def format_duration(start_iso: str | None, finish_iso: str | None) -> str:
@@ -106,14 +130,15 @@ def format_duration(start_iso: str | None, finish_iso: str | None) -> str:
     if start_iso is None or finish_iso is None:
         return "-"
 
-    start = parse_iso_timestamp(start_iso)
-    finish = parse_iso_timestamp(finish_iso)
+    start = parse_ado_timestamp(start_iso)
+    finish = parse_ado_timestamp(finish_iso)
     total_seconds = int((finish - start).total_seconds())
 
     if total_seconds < 0:
         return "-"
 
-    hours, minutes, seconds = split_duration_seconds(total_seconds)
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
 
     if hours > 0:
         return f"{hours}h{minutes}m"

@@ -12,6 +12,7 @@ dependencies = [
     "cyclopts>=4.16",
     "pydantic>=2.0,<3",
     "tenacity>=9.0,<10",
+    "whenever>=0.11",
 ]
 
 [project.scripts]
@@ -36,4 +37,6 @@ testpaths = ["tests"]
 
 [tool.ruff]
 # Own ruff config root so the target version comes from requires-python above,
-# not the repo-root pyproject.toml.
+# not the repo-root pyproject.toml. Upstream's line length, so ruff format
+# leaves vendored code as upstream wrote it.
+line-length = 120

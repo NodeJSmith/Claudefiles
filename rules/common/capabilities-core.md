@@ -33,6 +33,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "retry the prod stage", "re-run a build stage", "requeue a failed stage" | `ado-api builds retry-stage` |
 | "find builds that missed prod", "what deployed to stage but not prod", "missed prod deploys" | `ado-api builds missed-prod` |
 | "build step timeline", "which step failed in this build", "list build run steps" | `ado-api builds steps` |
+| "wait for the build", "is the ADO build done", "poll until the pipeline finishes" | `ado-api builds wait` |
 | "register a pipeline in ADO", "create a build validation policy" | `ado-api pipeline` |
 
 ### GitHub tool reference

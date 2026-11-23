@@ -18,6 +18,7 @@ from ado_api.az_client import (
     build_auth_header,
     call_ado_api,
     call_ado_api_text,
+    find_repo_projects,
     get_aad_token,
     get_ado_config,
     get_pat,
@@ -28,9 +29,7 @@ from tenacity import wait_none
 class TestGetPat:
     """PAT resolution follows the priority order: SYSTEM_ACCESSTOKEN > ADO_PAT > file."""
 
-    def test_get_pat_from_env_system_accesstoken(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_pat_from_env_system_accesstoken(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("SYSTEM_ACCESSTOKEN", "system-token-123")
         monkeypatch.delenv("ADO_PAT", raising=False)
         assert get_pat() == "system-token-123"
@@ -40,16 +39,12 @@ class TestGetPat:
         monkeypatch.setenv("ADO_PAT", "ado-pat-456")
         assert get_pat() == "ado-pat-456"
 
-    def test_system_accesstoken_takes_priority_over_ado_pat(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_system_accesstoken_takes_priority_over_ado_pat(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("SYSTEM_ACCESSTOKEN", "system-token")
         monkeypatch.setenv("ADO_PAT", "ado-pat")
         assert get_pat() == "system-token"
 
-    def test_get_pat_from_file(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_get_pat_from_file(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.delenv("SYSTEM_ACCESSTOKEN", raising=False)
         monkeypatch.delenv("ADO_PAT", raising=False)
 
@@ -59,9 +54,7 @@ class TestGetPat:
         with patch("ado_api.az_client._PAT_FILE", pat_file):
             assert get_pat() == "file-pat-789"
 
-    def test_get_pat_missing_raises_error(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_get_pat_missing_raises_error(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.delenv("SYSTEM_ACCESSTOKEN", raising=False)
         monkeypatch.delenv("ADO_PAT", raising=False)
 
@@ -72,9 +65,7 @@ class TestGetPat:
         ):
             get_pat()
 
-    def test_get_pat_file_empty_data_raises_error(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_get_pat_file_empty_data_raises_error(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.delenv("SYSTEM_ACCESSTOKEN", raising=False)
         monkeypatch.delenv("ADO_PAT", raising=False)
 
@@ -93,9 +84,7 @@ class TestGetAadToken:
 
     @patch("ado_api.az_client.subprocess.run")
     def test_returns_token_from_az(self, mock_run: MagicMock) -> None:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="aad-token-abc\n", stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="aad-token-abc\n", stderr="")
 
         assert get_aad_token() == "aad-token-abc"
 
@@ -103,14 +92,10 @@ class TestGetAadToken:
         assert "499b84ac-1321-427f-aa17-267ca6975798" in mock_run.call_args.args[0]
 
     @patch("ado_api.az_client.subprocess.run")
-    def test_surfaces_az_failure_reason(
-        self, mock_run: MagicMock, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_surfaces_az_failure_reason(self, mock_run: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         """Every az failure returns None, so the real cause has to reach the user."""
         mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="ERROR: Could not connect to the endpoint URL\n",
+            returncode=1, stdout="", stderr="ERROR: Could not connect to the endpoint URL\n"
         )
 
         assert get_aad_token() is None
@@ -123,20 +108,13 @@ class TestGetAadToken:
         assert get_aad_token() is None
 
     @patch("ado_api.az_client.subprocess.run", side_effect=FileNotFoundError)
-    def test_returns_none_when_az_missing(
-        self, _mock_run: MagicMock, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_returns_none_when_az_missing(self, _mock_run: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         assert get_aad_token() is None
         # "run az login" would be the wrong remedy for a missing binary.
         assert "not found" in capsys.readouterr().err
 
-    @patch(
-        "ado_api.az_client.subprocess.run",
-        side_effect=subprocess.TimeoutExpired(cmd="az", timeout=30),
-    )
-    def test_returns_none_on_timeout(
-        self, _mock_run: MagicMock, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    @patch("ado_api.az_client.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="az", timeout=30))
+    def test_returns_none_on_timeout(self, _mock_run: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         assert get_aad_token() is None
         assert "did not respond" in capsys.readouterr().err
 
@@ -165,39 +143,39 @@ class TestBuildAuthHeader:
         decoded = base64.b64decode(encoded_value).decode()
         assert decoded == ":testpat"
 
-    def test_build_auth_header_bearer_token(self) -> None:
-        """An AAD access token must be sent as Bearer, not Basic-encoded like a PAT."""
-        header = build_auth_header(bearer_token="aad-access-token")
-        assert header == {"Authorization": "Bearer aad-access-token"}
+    def test_bearer_token_is_sent_as_bearer(self) -> None:
+        """An az login AAD token must not be base64-wrapped as Basic: ADO rejects that."""
+        assert build_auth_header(bearer_token="aad-token") == {"Authorization": "Bearer aad-token"}
 
-    def test_build_auth_header_bearer_takes_priority_over_pat(self) -> None:
-        header = build_auth_header("some-pat", bearer_token="aad-access-token")
-        assert header == {"Authorization": "Bearer aad-access-token"}
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_call_ado_api_sends_bearer_token(self, mock_urlopen: MagicMock) -> None:
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"{}"
+        mock_resp.__enter__ = lambda _self: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
 
-    def test_build_auth_header_requires_pat_or_bearer(self) -> None:
-        with pytest.raises(ValueError, match="requires either pat or bearer_token"):
-            build_auth_header()
+        call_ado_api("GET", "https://example.com/api", bearer_token="aad-token")
+
+        request = mock_urlopen.call_args.args[0]
+        assert request.get_header("Authorization") == "Bearer aad-token"
 
 
 class TestAdoConfig:
     """AdoConfig frozen dataclass and URL encoding."""
 
     def test_project_encoded_no_spaces(self) -> None:
-        config = AdoConfig(
-            organization="https://dev.azure.com/org", project="MyProject"
-        )
+        config = AdoConfig(organization="https://dev.azure.com/org", project="MyProject")
         assert config.project_encoded == "MyProject"
 
     def test_project_encoded_with_spaces(self) -> None:
-        config = AdoConfig(
-            organization="https://dev.azure.com/org", project="My Project Name"
-        )
+        config = AdoConfig(organization="https://dev.azure.com/org", project="My Project Name")
         assert config.project_encoded == "My%20Project%20Name"
 
     def test_frozen(self) -> None:
         config = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         with pytest.raises(AttributeError):
-            config.organization = "new"  # type: ignore[misc]
+            config.organization = "new"  # pyright: ignore[reportAttributeAccessIssue] - frozen dataclass assignment is the point of the test
 
 
 class TestGetAdoConfig:
@@ -279,7 +257,7 @@ class TestAdoContext:
         config = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         ctx = AdoContext(config=config, pat="my-pat")
         with pytest.raises(AttributeError):
-            ctx.pat = "new"  # type: ignore[misc]
+            ctx.pat = "new"  # pyright: ignore[reportAttributeAccessIssue] - frozen dataclass assignment is the point of the test
 
 
 class TestAdoContextFromEnv:
@@ -287,12 +265,8 @@ class TestAdoContextFromEnv:
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_no_overrides(
-        self, mock_config: MagicMock, _mock_pat: MagicMock
-    ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Default Project"
-        )
+    def test_from_env_no_overrides(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Default Project")
         ctx = AdoContext.from_env()
         assert ctx.config.project == "Default Project"
         assert ctx.config.organization == "https://dev.azure.com/org"
@@ -301,47 +275,31 @@ class TestAdoContextFromEnv:
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_project_override(
-        self, mock_config: MagicMock, _mock_pat: MagicMock
-    ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Default Project"
-        )
+    def test_from_env_project_override(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Default Project")
         ctx = AdoContext.from_env(project="Other Project")
         assert ctx.config.project == "Other Project"
         assert ctx.config.organization == "https://dev.azure.com/org"
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_org_override(
-        self, mock_config: MagicMock, _mock_pat: MagicMock
-    ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+    def test_from_env_org_override(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         ctx = AdoContext.from_env(org="https://dev.azure.com/other-org")
         assert ctx.config.organization == "https://dev.azure.com/other-org"
         assert ctx.config.project == "Proj"
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_with_repo(
-        self, mock_config: MagicMock, _mock_pat: MagicMock
-    ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+    def test_from_env_with_repo(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         ctx = AdoContext.from_env(repo="my-repo")
         assert ctx.repo == "my-repo"
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_both_overrides(
-        self, mock_config: MagicMock, _mock_pat: MagicMock
-    ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+    def test_from_env_both_overrides(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         ctx = AdoContext.from_env(
             project="New Project",
             org="https://dev.azure.com/new-org",
@@ -366,23 +324,13 @@ class TestCallAdoApiTimeout:
         _, kwargs = mock_urlopen.call_args
         assert kwargs.get("timeout") == 30
 
-    @patch(
-        "ado_api.az_client.urllib.request.urlopen",
-        side_effect=TimeoutError("timed out"),
-    )
-    def test_socket_timeout_raises_ado_api_error(
-        self, _mock_urlopen: MagicMock
-    ) -> None:
+    @patch("ado_api.az_client.urllib.request.urlopen", side_effect=TimeoutError("timed out"))
+    def test_socket_timeout_raises_ado_api_error(self, _mock_urlopen: MagicMock) -> None:
         with pytest.raises(AdoApiError, match="timed out"):
             call_ado_api("GET", "https://example.com/api", pat="fake")
 
-    @patch(
-        "ado_api.az_client.urllib.request.urlopen",
-        side_effect=TimeoutError("timed out"),
-    )
-    def test_socket_timeout_text_raises_ado_api_error(
-        self, _mock_urlopen: MagicMock
-    ) -> None:
+    @patch("ado_api.az_client.urllib.request.urlopen", side_effect=TimeoutError("timed out"))
+    def test_socket_timeout_text_raises_ado_api_error(self, _mock_urlopen: MagicMock) -> None:
         with pytest.raises(AdoApiError, match="timed out"):
             call_ado_api_text("GET", "https://example.com/api", pat="fake")
 
@@ -516,6 +464,29 @@ class TestCallAdoApiRetry:
         assert mock_urlopen.call_count == 3
 
     @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_post_is_not_retried(self, mock_urlopen: MagicMock) -> None:
+        """A POST that failed after landing server-side would create a duplicate PR, thread or work item."""
+        mock_urlopen.side_effect = [
+            urllib.error.HTTPError(url="https://example.com/api", code=503, msg="Unavailable", hdrs={}, fp=None)
+        ]
+
+        with pytest.raises(AdoApiError, match="503"):
+            call_ado_api("POST", "https://example.com/api", pat="fake", data={})
+
+        assert mock_urlopen.call_count == 1
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_retry_safe_false_is_not_retried(self, mock_urlopen: MagicMock) -> None:
+        mock_urlopen.side_effect = [
+            urllib.error.HTTPError(url="https://example.com/api", code=503, msg="Unavailable", hdrs={}, fp=None)
+        ]
+
+        with pytest.raises(AdoApiError, match="503"):
+            call_ado_api("PATCH", "https://example.com/api", pat="fake", data=[], retry_safe=False)
+
+        assert mock_urlopen.call_count == 1
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
     def test_call_ado_api_text_retries_on_503(self, mock_urlopen: MagicMock) -> None:
         """call_ado_api_text should also retry on transient errors."""
         mock_resp = MagicMock()
@@ -537,183 +508,43 @@ class TestCallAdoApiRetry:
         assert result == "log content"
         assert mock_urlopen.call_count == 2
 
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_call_ado_api_get_is_retried_on_503(self, mock_urlopen: MagicMock) -> None:
-        """A GET is retried on a transient error -- baseline this POST test is compared against."""
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"ok": true}'
-        mock_resp.__enter__ = lambda _self: mock_resp
-        mock_resp.__exit__ = MagicMock(return_value=False)
 
-        error_503 = urllib.error.HTTPError(
-            url="https://example.com/api",
-            code=503,
-            msg="Service Unavailable",
-            hdrs={},
-            fp=None,
-        )
-        mock_urlopen.side_effect = [error_503, mock_resp]
+class TestFindRepoProject:
+    """--repo resolves to the project ADO lists that repository under."""
 
-        result = call_ado_api("GET", "https://example.com/api", pat="fake")
-        assert result == {"ok": True}
-        assert mock_urlopen.call_count == 2
+    _ORG = AdoConfig(organization="https://dev.azure.com/org", project="Default Project")
+    _REPOS = {
+        "value": [
+            {"name": "analytics", "project": {"name": "Analytics Platform"}},
+            {"name": "RhymeApplications", "project": {"name": "V3 PriorAuthNow"}},
+        ]
+    }
 
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_call_ado_api_post_is_not_retried_on_503(
-        self, mock_urlopen: MagicMock
-    ) -> None:
-        """POST creates a resource -- a transient error must fail immediately, not
-        risk creating a duplicate PR/comment/work item by retrying.
-        """
-        error_503 = urllib.error.HTTPError(
-            url="https://example.com/api",
-            code=503,
-            msg="Service Unavailable",
-            hdrs={},
-            fp=None,
-        )
-        mock_urlopen.side_effect = [error_503]
+    @patch("ado_api.az_client.get_pat", return_value="pat")
+    @patch("ado_api.az_client.call_ado_api", return_value=_REPOS)
+    @patch("ado_api.az_client.get_ado_config", return_value=_ORG)
+    def test_matches_name_case_insensitively(self, _cfg: MagicMock, mock_api: MagicMock, _pat: MagicMock) -> None:
+        assert find_repo_projects("rhymeapplications") == {"V3 PriorAuthNow"}
+        assert mock_api.call_args.args[1].startswith("https://dev.azure.com/org/_apis/git/repositories?")
 
-        with pytest.raises(AdoApiError, match="503"):
-            call_ado_api("POST", "https://example.com/api", pat="fake", data={})
+    @patch("ado_api.az_client.get_pat", return_value="pat")
+    @patch("ado_api.az_client.call_ado_api", return_value=_REPOS)
+    @patch("ado_api.az_client.get_ado_config", return_value=_ORG)
+    def test_unknown_repo(self, *_mocks: MagicMock) -> None:
+        assert find_repo_projects("nope") == set()
 
-        assert mock_urlopen.call_count == 1
+    @patch("ado_api.az_client.get_pat", return_value="pat")
+    @patch(
+        "ado_api.az_client.call_ado_api",
+        return_value={"value": [{"name": "x", "project": {"name": "A"}}, {"name": "x", "project": {"name": "B"}}]},
+    )
+    @patch("ado_api.az_client.get_ado_config", return_value=_ORG)
+    def test_ambiguous_name_lists_every_project(self, *_mocks: MagicMock) -> None:
+        assert find_repo_projects("x") == {"A", "B"}
 
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_call_ado_api_patch_is_retried_on_503(
-        self, mock_urlopen: MagicMock
-    ) -> None:
-        """PATCH is retried by default -- every call site except
-        _unlink_work_item_from_pr sets a resource to a fixed target state, so
-        retry is safe. See test_call_ado_api_patch_with_retry_safe_false_is_not_retried_on_503
-        for the opt-out.
-        """
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"ok": true}'
-        mock_resp.__enter__ = lambda _self: mock_resp
-        mock_resp.__exit__ = MagicMock(return_value=False)
-
-        error_503 = urllib.error.HTTPError(
-            url="https://example.com/api",
-            code=503,
-            msg="Service Unavailable",
-            hdrs={},
-            fp=None,
-        )
-        mock_urlopen.side_effect = [error_503, mock_resp]
-
-        result = call_ado_api(
-            "PATCH", "https://example.com/api", pat="fake", data={"status": "x"}
-        )
-        assert result == {"ok": True}
-        assert mock_urlopen.call_count == 2
-
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_call_ado_api_patch_with_retry_safe_false_is_not_retried_on_503(
-        self, mock_urlopen: MagicMock
-    ) -> None:
-        """retry_safe=False overrides the method-based default for a PATCH whose
-        body is not actually safe to repeat -- e.g. a JSON Patch ``remove`` by
-        array index, where a retry could remove a different element than the
-        original call targeted.
-        """
-        error_503 = urllib.error.HTTPError(
-            url="https://example.com/api",
-            code=503,
-            msg="Service Unavailable",
-            hdrs={},
-            fp=None,
-        )
-        mock_urlopen.side_effect = [error_503]
-
-        with pytest.raises(AdoApiError, match="503"):
-            call_ado_api(
-                "PATCH",
-                "https://example.com/api",
-                pat="fake",
-                data=[{"op": "remove", "path": "/relations/0"}],
-                retry_safe=False,
-            )
-
-        assert mock_urlopen.call_count == 1
-
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_call_ado_api_text_with_retry_safe_false_is_not_retried_on_503(
-        self, mock_urlopen: MagicMock
-    ) -> None:
-        """call_ado_api_text's retry_safe mirrors call_ado_api's -- no current
-        caller needs it (the only call site is a GET), but the opt-out exists
-        for symmetry if a future text-response call needs it.
-        """
-        error_503 = urllib.error.HTTPError(
-            url="https://example.com/api",
-            code=503,
-            msg="Service Unavailable",
-            hdrs={},
-            fp=None,
-        )
-        mock_urlopen.side_effect = [error_503]
-
-        with pytest.raises(AdoApiError, match="503"):
-            call_ado_api_text(
-                "PATCH", "https://example.com/api", pat="fake", retry_safe=False
-            )
-
-        assert mock_urlopen.call_count == 1
-
-
-class TestCallAdoApiBearerToken:
-    """AAD-fallback calls must authenticate with Bearer, not Basic PAT auth."""
-
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_bearer_token_sends_bearer_auth_header(
-        self, mock_urlopen: MagicMock
-    ) -> None:
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"value": []}'
-        mock_resp.__enter__ = lambda _self: mock_resp
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_resp
-
-        call_ado_api("GET", "https://example.com/api", bearer_token="aad-access-token")
-
-        request = mock_urlopen.call_args[0][0]
-        assert request.get_header("Authorization") == "Bearer aad-access-token"
-
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_bearer_token_does_not_call_get_pat(
-        self, mock_urlopen: MagicMock, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Passing bearer_token must skip PAT resolution entirely."""
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"value": []}'
-        mock_resp.__enter__ = lambda _self: mock_resp
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_resp
-
-        def _fail_get_pat() -> str:
-            raise AssertionError(
-                "get_pat() should not be called when bearer_token is given"
-            )
-
-        monkeypatch.setattr("ado_api.az_client.get_pat", _fail_get_pat)
-
-        call_ado_api("GET", "https://example.com/api", bearer_token="aad-access-token")
-
-    @patch("ado_api.az_client.urllib.request.urlopen")
-    def test_bearer_token_sends_bearer_auth_header_on_text_variant(
-        self, mock_urlopen: MagicMock
-    ) -> None:
-        """call_ado_api_text mirrors call_ado_api's bearer_token support."""
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = b"plain text body"
-        mock_resp.__enter__ = lambda _self: mock_resp
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_resp
-
-        call_ado_api_text(
-            "GET", "https://example.com/api", bearer_token="aad-access-token"
-        )
-
-        request = mock_urlopen.call_args[0][0]
-        assert request.get_header("Authorization") == "Bearer aad-access-token"
+    @patch("ado_api.az_client.get_pat", return_value="pat")
+    @patch("ado_api.az_client.call_ado_api", side_effect=AdoApiError("401", status_code=401))
+    @patch("ado_api.az_client.get_ado_config", return_value=_ORG)
+    def test_lookup_failure_raises(self, *_mocks: MagicMock) -> None:
+        with pytest.raises(AdoApiError):
+            find_repo_projects("analytics")

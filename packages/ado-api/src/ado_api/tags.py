@@ -2,13 +2,12 @@
 
 These constants encode Rhyme's build-tag format (`key=value` pairs, with a handful
 of legacy hyphenated formats still recognized for older builds). `builds
-missed-prod`, `builds retry-stage`, and `builds approve`'s PR-tag lookup all
-depend on these conventions to find the builds they operate on.
+missed-prod`, `builds retry-stage`, `builds cancel-superseded`, and `builds
+approve` all depend on these conventions to find the builds they operate on.
 
-At an organization whose pipelines tag builds differently, those three commands
-will find nothing — they are not broken, they simply have no matching tags to
-match against. This is expected and is not a bug to report; making the tag
-format configurable is deferred until a non-Rhyme org is known to need it.
+At an organization whose pipelines tag builds differently, those commands will
+find nothing — they are not broken, they simply have no matching tags to match
+against.
 """
 
 import re

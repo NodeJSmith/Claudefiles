@@ -1,6 +1,10 @@
 # ado-api
 
-Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items.
+Azure DevOps CLI: builds, logs, PRs, work items, and pipelines.
+
+The code is vendored from Rhyme's analytics monorepo. Don't edit `src/` or `tests/` here:
+`revendor.py` regenerates both. [UPSTREAM.md](UPSTREAM.md) covers how to revendor and
+lists every change Claudefiles makes to the upstream code.
 
 ## Install
 
@@ -12,204 +16,89 @@ uv tool install -e packages/ado-api
 
 The PAT is resolved in order, first hit wins:
 
-1. `SYSTEM_ACCESSTOKEN` — set automatically inside Azure Pipelines CI.
-2. `ADO_PAT` — explicit override for local / manual use.
-3. `~/.azure/azuredevops/personalAccessTokens` — the `az` CLI's own cache, written when you run
-   `az login` or `az devops login`.
+1. `SYSTEM_ACCESSTOKEN`, set automatically inside Azure Pipelines CI.
+2. `ADO_PAT`, an explicit override for local use.
+3. `~/.azure/azuredevops/personalAccessTokens`, the `az` CLI's cache written by `az login` or
+   `az devops login`.
 
-Organization and project come from `az devops configure --list`. If neither is set, `ado-api setup`
-tells you what to run:
+Organization and project come from `az devops configure --list`. `ado-api setup` checks `az`, the
+`azure-devops` extension, the defaults, and the login, installs what it can, and prints the
+`az devops configure --defaults ...` command when the defaults are missing.
 
-```bash
-az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG project='Your Project'
-```
+PATs only carry the scopes they were created with. `pipeline create` lists agent queues (Agent
+Pools (Read)) and the `builds approve` list reads approver groups (Identity (Read)). Without the
+scope, both fall back to an `az login` token and say so on stderr.
 
-Run `ado-api setup` any time to check that `az`, the `azure-devops` extension, defaults, and login
-are all in place — it installs what's missing and prints `[ok]`/`[missing]` per prerequisite.
+## Repo and Project
 
-## Global Options
-
-Every command accepts these, before or after the subcommand:
-
-```bash
-ado-api --json <command>        # JSON output instead of a formatted table (most commands)
-ado-api --project <name> <command>  # target a project other than the configured default
-```
-
-`--json` has no effect on `setup`, `pipeline create`, or `pipeline build-validate` — none of the
-three have a JSON output path.
+`--repo` and `--project` work before or after the subcommand. The project is, in order: `--project`;
+the project the `--repo` repository lives in; the cwd checkout's `origin`; the az default. So a
+command run inside any checkout reaches that repo's project without flags, and `--repo NAME` works
+from anywhere. Commands that change something print `Project: <org>/<project> (from <source>)` on
+stderr.
 
 ## Commands
 
-### Builds
+| Group | Commands |
+|---|---|
+| `builds` | `list`, `steps`, `wait`, `watch`, `cancel`, `cancel-by-tag`, `cancel-superseded`, `approve`, `retry-stage`, `missed-prod`, `stage-check` |
+| `logs` | `read` |
+| `pr` | `list`, `show`, `create`, `update`, `threads`, `thread-add`, `reply`, `resolve`, `resolve-pattern`, `work-item-list`, `work-item-add`, `work-item-remove`, `work-item-create` |
+| `work-item` | `create` |
+| `pipeline` | `create`, `build-validate` |
+| `setup` | |
+
+`ado-api <group> <command> --help` is the reference for flags. Some things worth knowing up front:
+
+- **`logs read`** needs a selector (`--step`, `--failed`, `--log-id`). With no content flag it
+  prints the whole log; `--failed` alone prints the last 200 lines of each failing step.
+  `--issues`, `--tail`/`--head` and `--grep` narrow it.
+- **`builds wait`** follows whole builds to completion and names the failing steps, so there's
+  no need for a sleep loop. `builds watch` follows one stage.
+- **Text flags** (`--description`, `--body`) each have a `--description-file`/`--body-file`
+  counterpart that reads a file, or stdin with `-`. Use it for multi-line markdown, which a shell
+  argument would mangle.
+- **Rhyme-specific commands.** The release commands (`approve`, `retry-stage`, `missed-prod`,
+  `cancel-superseded`) rely on Rhyme's build tags, the `approve` list reads Rhyme's prod gate, and
+  `stage-check` reads Databricks. Elsewhere they find nothing or fail. See
+  [UPSTREAM.md](UPSTREAM.md#rhyme-specific-behavior-kept-as-is).
+
+## Conventions
+
+Every command follows these, and `src/ado_api/REVIEW.md` checks changes against them:
+
+- **stdout is the result:** a table, `--json`, or one line per item. Progress, warnings, hints,
+  "nothing found" and prompts go to stderr. An error that stops the command starts with `Error:`;
+  a failed batch item reads `Failed <thing> <id>: <error>` and the rest of the batch still runs.
+- **Tables** align in a terminal and are tab-separated when piped. Times are local, with the zone;
+  `--json` keeps UTC. Scripts should use `--json`, not column positions.
+- **`--json`** works on every command except `setup`. Keys are camelCase.
+- **Commands that change several things** show the plan, prompt, and take `--yes`/`-y` and
+  `--dry-run`. Declining exits 1 and changes nothing.
+- **Exit codes:** 0 success; 1 usage error, or the answer is no (declined prompt, refused
+  approval, failed build, timeout); 2 config; 3 auth; 4 internal error; 5 an ADO call failed,
+  including one item of a batch; 130 Ctrl-C.
+
+## Common Workflows
 
 ```bash
-ado-api builds list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N]
-ado-api builds cancel BUILD-IDS...
-ado-api builds cancel-by-tag TAG [--branch BRANCH]
-ado-api builds steps BUILD-ID [--failed] [--type TYPE]
-ado-api builds approve [IDS...] [-b/--build] [--branch BRANCH] [-y/--yes]
-ado-api builds missed-prod [--days N] [--top N] [--pipeline TEXT] [--branch BRANCH]
-ado-api builds retry-stage (--build IDS | --tag TAG | --pr PR) [--stage STAGE]
-    [--exclude IDS] [--branch BRANCH] [-y/--yes] [--dry-run] [-w/--watch]
-    [--watch-interval SECONDS] [--watch-timeout MINUTES]
-```
-
-`builds approve` with no IDs lists pending approvals. With IDs and no `-b`/`--build`, the IDs are
-treated as PR IDs and expanded to the build(s) waiting on approval for that PR; pass `-b` to treat
-them as raw build IDs instead. `--branch` scopes the *listing* only — it filters which pending
-approvals are shown, and is ignored once you're approving specific IDs.
-
-`builds retry-stage` requires exactly one of `--build`, `--tag`, or `--pr` (enforced during argument
-parsing, before any API call). It re-runs a stage — `prod` by default — on builds whose stage
-completed as `skipped` because an approval gate timed out. `--watch` polls each requeued build until
-its stage reaches a terminal state or `--watch-timeout` minutes elapse.
-
-**`missed-prod`, `retry-stage`, and `approve`'s PR-ID lookup depend on one organization's build-tag
-conventions** (`pr=`/`PR-`, `stage=`, `prod=` — see `src/ado_api/tags.py`). They find matching builds
-by parsing these tags off completed runs. At an organization whose pipelines tag builds differently,
-these three commands will find nothing to act on — they aren't broken, there's just nothing to match.
-Making the tag format configurable is deferred until a non-Rhyme org is known to need it.
-
-### Logs
-
-```bash
-ado-api logs read BUILD-ID (--step ID | --failed | --log-id ID)
-    [--issues] [--tail N | --head N] [--grep PATTERN] [--context N]
-```
-
-At least one selector (`--step`, `--failed`, `--log-id`) is required; the content flags (`--issues`,
-`--tail`/`--head`, `--grep`) are independent of the selector and combine freely with each other and
-with `--json`. With no content flag, it prints the last 100 lines of each selected step's log (JSON adds
-`log_total_lines` so a cut-off log is visible). `--failed` is the fastest path to understanding a build
-failure:
-
-```bash
+# Why did the build fail?
+ado-api builds list --pr <pr-id> --status completed
 ado-api logs read <build-id> --failed --issues
+
+# Wait for a PR's build instead of polling
+ado-api builds wait <build-id>
+
+# Post a multi-line PR comment
+ado-api pr thread-add <pr-id> --body-file comment.md
 ```
-
-### Pipelines
-
-```bash
-ado-api pipeline create NAME [--branch BRANCH] [--yml-file-name FILE]
-    [--folder FOLDER] [--queue-id ID]
-ado-api pipeline build-validate BUILDS... [--branch BRANCH]
-    [--match-kind exact|prefix] [--identifier-kind id|name]
-    [--is-enabled/--no-is-enabled] [--is-blocking/--no-is-blocking]
-    [--path-filter GLOB]
-```
-
-`pipeline create`'s branch auto-detects from git when omitted, falling back to `master` if detection
-fails. `pipeline build-validate`'s branch defaults to the repository's default branch via
-`git-default-branch`. Queue lookup for `create`
-needs the Agent Pools (Read) PAT scope; without it, the command falls back to an `az login` AAD
-token.
-
-### Pull Requests
-
-`PR-ID` is optional on most subcommands — when omitted, it's auto-detected from the current branch.
-
-```bash
-ado-api pr list [--status STATUS] [--author AUTHOR] [--top N]
-ado-api pr show [PR-ID]
-ado-api pr create TITLE [--description TEXT | --description-file FILE]
-    [--source BRANCH] [--target BRANCH] [--draft]
-ado-api pr update PR-ID [--title TEXT] [--description TEXT | --description-file FILE]
-    [--status STATUS] [--draft/--no-draft]
-ado-api pr threads [PR-ID] [--all]
-ado-api pr thread-add [PR-ID] (--body TEXT | --body-file FILE)
-ado-api pr reply PR-ID THREAD-ID (BODY | --body-file FILE) [--parent COMMENT-ID]
-ado-api pr resolve PR-ID THREAD-IDS... [--status STATUS]
-ado-api pr resolve-pattern PR-ID PATTERN [--execute] [--first-comment] [--status STATUS]
-```
-
-`pr threads` shows active threads only by default; pass `--all` to include resolved ones.
-`pr resolve-pattern` is dry-run by default — pass `--execute` to actually resolve the matches it
-finds.
-
-Every `--description`/`--body` argument above has a `--description-file`/`--body-file` counterpart
-that reads the text from a file instead of the shell argument — pass `-` to read from stdin. Supply
-exactly one of the pair; giving both, or (where the text is required) neither, is a usage error naming
-both flags. This exists for multi-line markdown that a shell argument would mangle:
-
-```bash
-printf 'line one\nline two\n' | ado-api pr thread-add <pr-id> --body-file -
-```
-
-### Work Items
-
-```bash
-ado-api pr work-item-list [PR-ID]
-ado-api pr work-item-add [PR-ID] --work-items ID...
-ado-api pr work-item-remove [PR-ID] --work-items ID...
-ado-api pr work-item-create [PR-ID] --title TEXT --type TYPE
-    [--assigned-to EMAIL] [--area PATH] [--iteration PATH]
-    [--description TEXT | --description-file FILE]
-ado-api work-item create --title TEXT --type TYPE
-    [--assigned-to EMAIL] [--area PATH] [--iteration PATH]
-    [--description TEXT | --description-file FILE] [--fields KEY=VALUE...]
-```
-
-`pr work-item-create` and `work-item create` both accept `--description-file` (with `-` for stdin),
-same rule as the PR text flags above.
-
-### Setup
-
-```bash
-ado-api setup
-```
-
-Checks `az` CLI installation, the `azure-devops` extension, `az devops configure` defaults, and an
-active `az login` session — installing what's missing where it can.
 
 ## Shell Completion
 
 ```bash
 ado-api --install-completion          # auto-detects your shell
-ado-api --install-completion --shell zsh
-ado-api --generate-completion --shell zsh > /path/to/_ado-api  # print instead of install
+ado-api --generate-completion --shell zsh > /path/to/_ado-api
 ```
 
-For zsh, the installed script goes to `~/.zsh/completions/_ado-api`. That directory needs to be on
-your `$fpath` before `compinit` runs, or the completion won't load — the command prints the exact
-lines to add if they're missing:
-
-```bash
-fpath=(~/.zsh/completions $fpath)
-autoload -Uz compinit && compinit
-```
-
-Restart your shell (or `exec zsh`) after installing.
-
-## Common Workflows
-
-**Why did the build fail?**
-
-```bash
-ado-api builds list --branch feature/jsmith/my-branch --status failed
-ado-api logs read <build-id> --failed --issues
-ado-api logs read <build-id> --failed --grep "Exception"
-```
-
-**Approve a pending release:**
-
-```bash
-ado-api builds approve              # see what's pending
-ado-api builds approve <id> -b -y   # approve by build ID, skip confirmation
-```
-
-**Recover a release whose prod approval timed out:**
-
-```bash
-ado-api builds retry-stage --pr <pr-id> --dry-run   # see what would be requeued
-ado-api builds retry-stage --pr <pr-id> --watch      # requeue and wait for completion
-```
-
-## Exit Codes
-
-A real Azure DevOps API failure (404, permission denial, rate limit) that reaches the CLI uncaught
-gets exit code 5 and a `Error: <message>` line, rather than the generic "This may be a bug"
-catch-all.
-
-See `ado-api --help` and each subcommand's `--help` for the full, current parameter list — this
-document is a guide, not a substitute for it.
+For zsh the script goes to `~/.zsh/completions/_ado-api`, which must be on `$fpath` before
+`compinit` runs. The command prints the lines to add if they're missing.

@@ -3,7 +3,34 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.git import GitError, get_current_branch, get_repo_name
+from ado_api.git import GitError, get_current_branch, get_remote_project, get_repo_name
+
+
+class TestGetRemoteProject:
+    """get_remote_project — parse the ADO project (URL-decoded) from the remote URL."""
+
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("git@ssh.dev.azure.com:v3/priorauthnow/V3%20PriorAuthNow/Environment-Infrastructure", "V3 PriorAuthNow"),
+            ("https://dev.azure.com/priorauthnow/Analytics%20Platform/_git/analytics", "Analytics Platform"),
+            (
+                "https://priorauthnow@dev.azure.com/priorauthnow/Analytics%20Platform/_git/analytics",
+                "Analytics Platform",
+            ),
+            ("git@github.com:someone/repo.git", None),
+            ("https://dev.azure.com/priorauthnow/_git/analytics", None),
+        ],
+    )
+    @patch("ado_api.git.subprocess.run")
+    def test_parses_project(self, mock_run: MagicMock, url: str, expected: str | None) -> None:
+        mock_run.return_value = MagicMock(stdout=url + "\n", returncode=0)
+        assert get_remote_project() == expected
+
+    @patch("ado_api.git.subprocess.run")
+    def test_not_a_repo(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(stdout="", returncode=128)
+        assert get_remote_project() is None
 
 
 class TestGetRepoName:

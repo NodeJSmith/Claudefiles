@@ -3,16 +3,24 @@ Usage: ado-api builds COMMAND [OPTIONS]
 Build operations
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
-│ approve        List or approve pending release approvals.                                        │
-│ cancel         Cancel one or more builds by ID.                                                  │
-│ cancel-by-tag  Cancel all in-progress builds matching a tag.                                     │
-│ list           List builds with optional tag/branch/status filters.                              │
-│ missed-prod    Find builds that deployed to stage but not prod.                                  │
-│ retry-stage    Re-run a stage (default prod) on completed builds, selected by ID or tag/PR.      │
-│ steps          List timeline steps for a specific build run.                                     │
+│ approve            List or approve pending release approvals (defaults to the prod stage).       │
+│ cancel             Cancel builds by ID.                                                          │
+│ cancel-by-tag      Cancel every in-progress build carrying a tag.                                │
+│ cancel-superseded  Cancel builds waiting at a stage's approval (default prod) that a newer build │
+│                    supersedes.                                                                   │
+│ list               List builds, newest-queued first, with optional                               │
+│                    tag/branch/PR/pipeline/commit/status filters.                                 │
+│ missed-prod        Find builds that deployed to stage but not prod.                              │
+│ retry-stage        Re-run a stage (default prod) on completed builds, selected by ID or tag/PR.  │
+│ stage-check        Check whether each release build's change has passed a Databricks stage run.  │
+│ steps              List timeline steps for a specific build run.                                 │
+│ wait               Wait for whole builds to finish, then print each result and any failing       │
+│                    steps.                                                                        │
+│ watch              Watch build stage(s) through to a terminal state (succeeded/failed/canceled). │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
-│            [default: False]                                                                      │
-│ --project                                                                                        │
+│ --json     Output as JSON. No effect on setup. [default: False]                                  │
+│ --project  ADO project. Default: --repo's project, else the cwd checkout's, else the az devops   │
+│            default.                                                                              │
+│ --repo     Repository name; also picks the project. Default: the cwd's git origin.               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

@@ -5,13 +5,10 @@ from enum import StrEnum, auto
 from typing import Any
 from urllib.parse import quote
 
-from ado_api.az_client import (
-    ADO_API_VERSION,
-    AdoApiError,
-    AdoContext,
-    call_ado_api,
-    get_aad_token,
-)
+from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api, get_aad_token
+from ado_api.exit_codes import EXIT_FAILURE
+from ado_api.formatting import json_output, print_result
+from ado_api.refs import branch_ref
 
 API_PARAMETER = f"api-version={ADO_API_VERSION}"
 
@@ -53,9 +50,7 @@ def _get_repository_id(ctx: AdoContext, repo: str) -> str:
     return response["id"]
 
 
-def _queue_error(
-    reason: str, *, remedy: str = "Pass --queue-id <id> explicitly."
-) -> AdoApiError:
+def _queue_error(reason: str, *, remedy: str = "Pass --queue-id <id> explicitly.") -> AdoApiError:
     """Build a queue-resolution error. Centralized so the three paths stay in sync."""
     return AdoApiError(f"Cannot resolve an agent queue: {reason}\n{remedy}")
 
@@ -71,10 +66,7 @@ def _pick_best_queue(queues: list[dict[str, Any]]) -> dict[str, Any] | None:
 
     for candidates in (non_legacy_hosted, hosted, queues):
         if candidates:
-            return min(
-                candidates,
-                key=lambda q: (q.get("name") != PREFERRED_QUEUE_NAME, q["id"]),
-            )
+            return min(candidates, key=lambda q: (q.get("name") != PREFERRED_QUEUE_NAME, q["id"]))
     return None
 
 
@@ -144,7 +136,7 @@ def _resolve_agent_queue_id(ctx: AdoContext) -> int:
     return chosen["id"]
 
 
-def _find_definition_by_name(ctx: AdoContext, name: str) -> dict[str, Any] | None:
+def find_definition_by_name(ctx: AdoContext, name: str) -> dict[str, Any] | None:
     """Return the build definition matching ``name`` exactly, or None if it doesn't exist.
 
     The definitions endpoint's ``name`` filter supports wildcards, so results are
@@ -165,9 +157,7 @@ def _get_build_definition_id(ctx: AdoContext, build_names: list[str]) -> list[st
     result = [r for r in response.get("value", []) if r["name"] in build_names]
     if len(result) != len(build_names):
         missing_names = set(build_names) - {r["name"] for r in result}
-        raise ValueError(
-            f"{len(result)} values received, expected {len(build_names)}. Missing {missing_names}"
-        )
+        raise ValueError(f"{len(result)} values received, expected {len(build_names)}. Missing {missing_names}")
     return [r["id"] for r in result]
 
 
@@ -179,8 +169,9 @@ def cmd_pipeline_create(
     yml_file_name: str | None,
     folder: str | None = None,
     queue_id: int | None = None,
+    as_json: bool = False,
 ) -> None:
-    """Create a YAML-backed build definition (pipeline) in ADO.
+    """Create a YAML-backed build definition (pipeline) in ADO; an existing one with *name* is left as is.
 
     The *branch* parameter sets the pipeline's ``defaultBranch`` — ADO reads the
     YAML from this branch to parse pool, triggers, etc. For new pipelines whose
@@ -193,14 +184,9 @@ def cmd_pipeline_create(
         msg = "A repository is required to create a pipeline (run from within a git repo)."
         raise ValueError(msg)
 
-    existing = _find_definition_by_name(ctx, name)
+    existing = find_definition_by_name(ctx, name)
     if existing is not None:
-        web_link = existing.get("_links", {}).get("web", {}).get("href", "")
-        print(
-            f"Pipeline '{existing.get('name', name)}' already exists (id {existing.get('id')})"
-        )
-        if web_link:
-            print(web_link)
+        _report_pipeline(existing, name, created=False, as_json=as_json)
         return
 
     url = f"{_pipeline_url(ctx)}?{API_PARAMETER}"
@@ -211,7 +197,7 @@ def cmd_pipeline_create(
         "id": _get_repository_id(ctx, ctx.repo),
         "name": ctx.repo,
         "type": "TfsGit",
-        "defaultBranch": f"refs/heads/{branch}",
+        "defaultBranch": branch_ref(branch),
     }
     process = {
         # type 2 = YAML pipeline; type 1 (classic/designer) is disabled for this org.
@@ -243,15 +229,27 @@ def cmd_pipeline_create(
         "queue": queue,
         "triggers": triggers,
     }
-    # Only include the folder path when explicitly provided — ADO's tolerance of a
-    # null path is untested, and the prior script omitted the key when unset.
+    # Only send the folder path when given: ADO's handling of a null path is untested.
     if folder:
         data["path"] = folder
     response = call_ado_api("POST", url, pat=ctx.pat, data=data)
-    web_link = response.get("_links", {}).get("web", {}).get("href", "")
-    print(f"Created pipeline '{response.get('name', name)}' (id {response.get('id')})")
-    if web_link:
-        print(web_link)
+    _report_pipeline(response, name, created=True, as_json=as_json)
+
+
+def _report_pipeline(definition: dict[str, Any], name: str, *, created: bool, as_json: bool) -> None:
+    record = {
+        "id": definition.get("id"),
+        "name": definition.get("name", name),
+        "url": definition.get("_links", {}).get("web", {}).get("href", ""),
+        "created": created,
+    }
+    if as_json:
+        json_output(record)
+        return
+    verb = "Created pipeline" if created else "Pipeline already exists:"
+    print(f"{verb} '{record['name']}' (id {record['id']})")
+    if record["url"]:
+        print(record["url"])
 
 
 def cmd_pipeline_validate(
@@ -263,12 +261,13 @@ def cmd_pipeline_validate(
     is_enabled: bool,
     is_blocking: bool,
     path_filter: list[str] | None = None,
+    as_json: bool = False,
 ) -> None:
     """Adds Build Validation Policy to a branch.
 
-    Build validation should target the default branch — it gates PRs merging
-    *into* that branch. Targeting a feature branch locks it from pushes, breaking
-    the PR workflow.
+    Build validation should target the default branch — it gates PRs
+    merging *into* that branch. Targeting a feature branch locks it from pushes,
+    breaking the PR workflow.
     """
     if not ctx.repo:
         msg = "A repository is required to add build validation (run from within a git repo)."
@@ -276,27 +275,24 @@ def cmd_pipeline_validate(
 
     if "/" in branch:
         print(
-            f"ERROR: --branch '{branch}' looks like a feature branch.\n"
-            f"Build validation policies should target the default branch.\n"
+            f"Error: --branch '{branch}' looks like a feature branch.\n"
+            f"Build validation policies should target the repo's default branch.\n"
             f"Applying to a feature branch locks it from pushes, breaking the PR workflow.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_FAILURE)
 
     url = f"{_build_validation_url(ctx)}?{API_PARAMETER}"
-    build_ids = (
-        builds
-        if identifier_kind == IdentifierKind.Id
-        else _get_build_definition_id(ctx, builds)
-    )
+    build_ids = builds if identifier_kind == IdentifierKind.Id else _get_build_definition_id(ctx, builds)
     repository_id = _get_repository_id(ctx, ctx.repo)
+    policies: list[dict[str, Any]] = []
     for bid in build_ids:
         settings: dict[str, Any] = {
             "buildDefinitionId": bid,
             "scope": [
                 {
                     "repositoryId": repository_id,
-                    "refName": f"refs/heads/{branch}",
+                    "refName": branch_ref(branch),
                     "matchKind": match_kind.value,
                 }
             ],
@@ -315,7 +311,10 @@ def cmd_pipeline_validate(
             "settings": settings,
         }
         response = call_ado_api("POST", url, pat=ctx.pat, data=data)
+        policies.append(response)
         for scope in response.get("settings", {}).get("scope", []):
             response_bid = response.get("settings", {}).get("buildDefinitionId")
-            ref_name = scope.get("refName")
-            print(f"Added Build Validation id: {response_bid} to {ref_name}")
+            line = f"Added build validation for pipeline {response_bid} on {scope.get('refName')}"
+            print_result(f"{line} (policy {response.get('id')})", as_json=as_json)
+    if as_json:
+        json_output(policies)

@@ -1,14 +1,9 @@
-"""Tests for ado_api.formatting — JSON and TSV output helpers."""
+"""Tests for ado_api.formatting — JSON and table output helpers."""
 
 import json
-import re
 
 import pytest
-from ado_api.formatting import aligned_table, json_output, osc8, truncate, tsv_table
-
-# Matches both the opening (`\x1b]8;;{url}\x1b\\`) and closing (`\x1b]8;;\x1b\\`)
-# OSC 8 escape sequences osc8() emits, so stripping this recovers the plain label.
-_OSC8_RE = re.compile(r"\x1b\]8;;[^\x1b]*\x1b\\")
+from ado_api.formatting import Record, camel_keys, format_local_time, json_output, print_table
 
 
 class TestJsonOutput:
@@ -30,95 +25,78 @@ class TestJsonOutput:
         captured = capsys.readouterr()
         assert captured.out.endswith("\n")
 
+    def test_records_are_written_in_camel_case_at_every_depth(self, capsys: pytest.CaptureFixture[str]) -> None:
+        class Step(Record):
+            log_id: int
 
-class TestTsvTable:
-    """tsv_table prints tab-separated header + rows."""
+        class Run(Record):
+            build_id: int
+            failed_steps: list[Step]
 
-    def test_basic_table(self, capsys: pytest.CaptureFixture[str]) -> None:
-        tsv_table([["a", "b"], ["c", "d"]], headers=["col1", "col2"])
+        json_output([Run(build_id=1, failed_steps=[Step(log_id=2)])])
+        assert json.loads(capsys.readouterr().out) == [{"buildId": 1, "failedSteps": [{"logId": 2}]}]
+
+    def test_camel_keys_renames_only_the_records_own_keys(self) -> None:
+        assert camel_keys({"build_id": 1, "issues": [{"data": {"log_file": "x"}}], "_links": {}}) == {
+            "buildId": 1,
+            "issues": [{"data": {"log_file": "x"}}],
+            "_links": {},
+        }
+
+    def test_raw_ado_dicts_keep_their_data_keys(self, capsys: pytest.CaptureFixture[str]) -> None:
+        raw = {"_links": {"web": {"href": "u"}}, "templateParameters": {"full_refresh": "true"}, "id": 7}
+        json_output(raw)
+        assert json.loads(capsys.readouterr().out) == raw
+
+
+class TestPrintTable:
+    """Tab-separated when piped, aligned in a terminal; empty results go to stderr."""
+
+    def test_piped_is_tsv(self, capsys: pytest.CaptureFixture[str]) -> None:
+        print_table([["a", "b"], ["c", "d"]], headers=["col1", "col2"])
+        assert capsys.readouterr().out.splitlines() == ["col1\tcol2", "a\tb", "c\td"]
+
+    def test_terminal_is_aligned(self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+        print_table([["a", "bb"], ["ccc", "d"]], headers=["H1", "H2"])
+        assert capsys.readouterr().out.splitlines() == ["H1   H2", "---  --", "a    bb", "ccc  d"]
+
+    def test_empty_rows_print_message_to_stderr_only(self, capsys: pytest.CaptureFixture[str]) -> None:
+        print_table([], headers=["h1", "h2"], empty="No things found.")
         captured = capsys.readouterr()
-        lines = captured.out.strip().split("\n")
-        assert lines[0] == "col1\tcol2"
-        assert lines[1] == "a\tb"
-        assert lines[2] == "c\td"
+        assert captured.out == ""
+        assert captured.err.strip() == "No things found."
 
-    def test_empty_rows(self, capsys: pytest.CaptureFixture[str]) -> None:
-        tsv_table([], headers=["h1", "h2"])
-        captured = capsys.readouterr()
-        lines = captured.out.strip().split("\n")
-        assert len(lines) == 1
-        assert lines[0] == "h1\th2"
+    def test_piped_output_has_no_escapes(self, capsys: pytest.CaptureFixture[str]) -> None:
+        print_table([("315633",)], headers=("BUILD",), links=[{0: "https://example.test/315633"}])
 
+        out = capsys.readouterr().out
+        assert "\x1b" not in out
+        assert "315633" in out
 
-class TestTruncate:
-    def test_short_text_unchanged(self) -> None:
-        assert truncate("hello", 60) == "hello"
+    def test_terminal_output_links(self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
 
-    def test_exact_length_unchanged(self) -> None:
-        text = "a" * 60
-        assert truncate(text, 60) == text
+        print_table([("315633",)], headers=("BUILD",), links=[{0: "https://example.test/315633"}])
 
-    def test_long_text_truncated_with_ellipsis(self) -> None:
-        text = "a" * 80
-        result = truncate(text, 60)
-        assert len(result) == 60
-        assert result.endswith("...")
-
-    def test_empty_string(self) -> None:
-        assert truncate("", 60) == ""
+        assert "\x1b]8;;https://example.test/315633" in capsys.readouterr().out
 
 
-class TestOsc8:
-    """osc8 wraps a label in OSC 8 hyperlink escape sequences."""
+class TestFormatLocalTime:
+    """Table timestamps are local time with the zone; the conftest pins the zone to America/Chicago."""
 
-    def test_contains_url_and_label(self) -> None:
-        result = osc8("https://example.com", "click me")
-        assert "https://example.com" in result
-        assert "click me" in result
+    @pytest.mark.parametrize(
+        ("utc", "local"),
+        [
+            ("2026-11-23T16:32:10.1234567Z", "2026-11-23 10:32 CST"),
+            # Either side of the 2026-03-08 spring-forward at 2:00 local.
+            ("2026-03-08T07:59:00Z", "2026-03-08 01:59 CST"),
+            ("2026-03-08T08:01:00Z", "2026-03-08 03:01 CDT"),
+        ],
+    )
+    def test_converts_utc_to_local(self, utc: str, local: str) -> None:
+        assert format_local_time(utc) == local
 
-    def test_stripping_escapes_recovers_plain_label(self) -> None:
-        result = osc8("https://example.com/path", "Build #123")
-        assert _OSC8_RE.sub("", result) == "Build #123"
-
-
-class TestAlignedTable:
-    """aligned_table prints a column-aligned table with a separator rule."""
-
-    def test_column_widths_align_for_mixed_length_cells(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        aligned_table(
-            [["a", "bbbbb"], ["ccc", "d"]],
-            headers=["ID", "NAME"],
-        )
-        captured = capsys.readouterr()
-        lines = captured.out.rstrip("\n").split("\n")
-        assert len(lines) == 4  # header, separator, 2 data rows
-        widths = {len(line) for line in lines}
-        assert len(widths) == 1  # every line lines up to the same width
-
-    def test_separator_row_matches_column_widths(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        aligned_table(
-            [["a", "bbbbb"], ["ccc", "d"]],
-            headers=["ID", "NAME"],
-        )
-        captured = capsys.readouterr()
-        lines = captured.out.rstrip("\n").split("\n")
-        assert lines[1] == "---  -----"
-
-    def test_linked_cell_rendered_width_matches_plain_label(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        aligned_table(
-            [["1234", "a-much-longer-label"], ["1", "short"]],
-            headers=["ID", "NAME"],
-            links=[None, {1: "https://example.com/1"}],
-        )
-        captured = capsys.readouterr()
-        assert "\x1b]8;;https://example.com/1\x1b\\" in captured.out  # escapes present
-        lines = captured.out.rstrip("\n").split("\n")
-        stripped_lines = [_OSC8_RE.sub("", line) for line in lines]
-        widths = {len(line) for line in stripped_lines}
-        assert len(widths) == 1  # padding accounts for the invisible escape bytes
+    @pytest.mark.parametrize("missing", [None, ""])
+    def test_missing_is_a_dash(self, missing: str | None) -> None:
+        assert format_local_time(missing) == "-"

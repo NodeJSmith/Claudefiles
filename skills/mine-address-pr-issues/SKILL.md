@@ -38,7 +38,7 @@ Create a run directory with `mktemp -d <scratchpad>/mine-address-pr-XXXXXX` (`<t
 
 **ADO**
 
-- Metadata: `ado-api pr show {PR} --json` (`pullRequestId`, `title`, `status`, `author` (the PR author's `uniqueName`), `sourceRefName`, `targetRefName`, `repository.webUrl`; URL is `repository.webUrl + "/pullrequest/" + pullRequestId`). `mergeStatus` appears only after a merge attempt.
+- Metadata: `ado-api pr show {PR} --json` (`id`, `title`, `status`, `author` (the PR author's `uniqueName`), `source` and `target` (branch names), `url`, `sourceCommit`). `mergeStatus` is null until ADO has attempted the merge.
 - Feedback: `ado-api pr threads {PR} --json --all > <tmpdir>/feedback.json`. One list of threads (`status` `active` or `pending` is open) that includes general conversation; there is no `isOutdated`.
 - CI: `az repos pr policy list --id {PR_ID} -o json`, filtered to `rejected` or `broken`; logs via `ado-api logs read <build-id> --failed --issues`.
 

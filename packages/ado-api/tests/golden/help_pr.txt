@@ -4,21 +4,22 @@ Pull request operations
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
 │ create            Create a pull request.                                                         │
-│ list              List pull requests.                                                            │
+│ list              List pull requests, optionally by author or source/target branch.              │
 │ reply             Reply to a PR thread.                                                          │
-│ resolve           Resolve one or more threads on a pull request.                                 │
-│ resolve-pattern   Resolve threads whose content matches a regex pattern (dry-run by default).    │
+│ resolve           Resolve threads by ID, skipping ones no longer active.                         │
+│ resolve-pattern   Resolve the active threads whose comments match a regex (case-insensitive).    │
 │ show              Show PR details (auto-detects from branch if omitted).                         │
 │ thread-add        Add a new comment thread on a pull request.                                    │
 │ threads           List PR threads (auto-detects PR from branch if omitted).                      │
-│ update            Update a pull request.                                                         │
+│ update            Update a pull request (auto-detects from branch if omitted).                   │
 │ work-item-add     Link work items to a pull request.                                             │
 │ work-item-create  Create a work item and link it to a pull request.                              │
 │ work-item-list    List work items linked to a pull request.                                      │
 │ work-item-remove  Unlink work items from a pull request.                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
-│            [default: False]                                                                      │
-│ --project                                                                                        │
+│ --json     Output as JSON. No effect on setup. [default: False]                                  │
+│ --project  ADO project. Default: --repo's project, else the cwd checkout's, else the az devops   │
+│            default.                                                                              │
+│ --repo     Repository name; also picks the project. Default: the cwd's git origin.               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

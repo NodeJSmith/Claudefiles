@@ -1,8 +1,12 @@
 STDOUT:
-Approved: Build 1001 — deploy-prod
-
-Approved: 1, Failed: 1
+BUILD	PIPELINE
+1001	deploy-prod
+1002	deploy-stage
+Approved build 1001 (deploy-prod)
 
 STDERR:
+Project: https://dev.azure.com/org/Proj (from az devops default)
 Fetching pending approvals...
-Failed: Build 1002 — deploy-stage: 403 Forbidden: Not authorized
+Failed build 1002 (deploy-stage): 403 Forbidden: Not authorized
+
+Approved: 1, Failed: 1

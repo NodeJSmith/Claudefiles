@@ -19,7 +19,8 @@ from ado_api.cli.commands.builds import cli_builds_missed_prod
 from ado_api.cli.context import AdoCliContext
 from ado_api.cli.limits import MAX_VARIADIC_ITEMS
 from ado_api.commands.pipeline import IdentifierKind
-from tests.conftest import FAKE_CLI_CONFIG as _FAKE_CONFIG
+
+_FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/testorg", project="TestProject")
 
 
 class TestBuildsRetryStageSelectionGroup:
@@ -44,26 +45,20 @@ class TestBuildsRetryStageSelectionGroup:
 
     def test_whitespace_only_tag_raises_validation_error(self) -> None:
         with pytest.raises(cyclopts.ValidationError):
-            app.parse_args(
-                ["builds", "retry-stage", "--tag", "   "], exit_on_error=False
-            )
+            app.parse_args(["builds", "retry-stage", "--tag", "   "], exit_on_error=False)
 
     def test_empty_pr_raises_validation_error(self) -> None:
         with pytest.raises(cyclopts.ValidationError):
             app.parse_args(["builds", "retry-stage", "--pr", ""], exit_on_error=False)
 
     def test_single_valid_tag_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "retry-stage", "--tag", "pr=49846"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "retry-stage", "--tag", "pr=49846"], exit_on_error=False)
         assert bound.arguments["tag"] == "pr=49846"
         assert bound.arguments.get("build") is None
         assert bound.arguments.get("pr") is None
 
     def test_single_build_id_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "retry-stage", "--build", "1001"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "retry-stage", "--build", "1001"], exit_on_error=False)
         assert bound.arguments["build"] == [1001]
 
     def test_main_retry_stage_two_selectors_exits_one(self) -> None:
@@ -91,9 +86,7 @@ class TestBuildsApproveNoLongerHasPFlag:
         assert exc_info.value.code == 1
 
     def test_build_flag_still_works(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "approve", "-b", "1001", "-y"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "approve", "-b", "1001", "-y"], exit_on_error=False)
         assert bound.arguments["ids"] == ["1001"]
         assert bound.arguments["build"] is True
         assert bound.arguments["yes"] is True
@@ -107,9 +100,7 @@ class TestBuildsApproveNoLongerHasPFlag:
 
     def test_ids_without_build_flag_defaults_to_pr_mode(self) -> None:
         """PR-ID mode is the unconditional default when -b/--build is absent."""
-        _command, bound, _ = app.parse_args(
-            ["builds", "approve", "49846"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "approve", "49846"], exit_on_error=False)
         bound.apply_defaults()
         assert bound.arguments["ids"] == ["49846"]
         assert bound.arguments["build"] is False
@@ -119,16 +110,12 @@ class TestBuildsStepsWiring:
     """``builds steps`` replaces ``logs list``."""
 
     def test_failed_flag_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "steps", "12345", "--failed"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "steps", "12345", "--failed"], exit_on_error=False)
         assert bound.arguments["build_id"] == 12345
         assert bound.arguments["failed"] is True
 
     def test_type_flag_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "steps", "12345", "--type", "Task"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "steps", "12345", "--type", "Task"], exit_on_error=False)
         assert bound.arguments["type"] == "Task"
 
 
@@ -143,21 +130,10 @@ class TestBuildsFlagCasing:
 class TestBuildsListWiring:
     def test_top_default_and_filters_parse(self) -> None:
         _command, bound, _ = app.parse_args(
-            [
-                "builds",
-                "list",
-                "--tags",
-                "abc123",
-                "--branch",
-                "master",
-                "--status",
-                "inProgress",
-                "--top",
-                "10",
-            ],
+            ["builds", "list", "--tag", "abc123", "--branch", "master", "--status", "inProgress", "--top", "10"],
             exit_on_error=False,
         )
-        assert bound.arguments["tags"] == "abc123"
+        assert bound.arguments["tag"] == "abc123"
         assert bound.arguments["branch"] == "master"
         assert bound.arguments["status"] == "inProgress"
         assert bound.arguments["top"] == 10
@@ -170,17 +146,13 @@ class TestBuildsCancelVariadicLimit:
             app.parse_args(["builds", "cancel", *ids], exit_on_error=False)
 
     def test_within_limit_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "cancel", "1", "2", "3"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "cancel", "1", "2", "3"], exit_on_error=False)
         assert bound.arguments["build_ids"] == [1, 2, 3]
 
 
 class TestBuildsMissedProdWiring:
     def test_defaults(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["builds", "missed-prod"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["builds", "missed-prod"], exit_on_error=False)
         bound.apply_defaults()
         assert bound.arguments.get("days") == 14
         assert bound.arguments.get("top") == 500
@@ -188,7 +160,7 @@ class TestBuildsMissedProdWiring:
     def test_git_repo_is_auto_detected_not_hardcoded_none(self) -> None:
         """Regression: the CLI-layer wiring must forward auto-detected repo to AdoContext.
 
-        The legacy ``cli_models/missed_prod.py`` called ``_get_repo_or_none()`` so PR links
+        The legacy ``cli_models/missed_prod.py`` called ``get_repo_or_none()`` so PR links
         and descriptions render when run inside a git repo. A prior draft of the cyclopts
         port hardcoded ``repo=None`` unconditionally, silently degrading that output even
         inside a repo.
@@ -196,9 +168,7 @@ class TestBuildsMissedProdWiring:
         with (
             patch("ado_api.az_client.get_pat", return_value="fake-pat"),
             patch("ado_api.az_client.get_ado_config", return_value=_FAKE_CONFIG),
-            patch(
-                "ado_api.cli.commands.builds._get_repo_or_none", return_value="my-repo"
-            ),
+            patch("ado_api.cli.commands.builds.get_repo_or_none", return_value="my-repo"),
             patch("ado_api.cli.commands.builds.cmd_builds_missed_prod") as mock_cmd,
         ):
             cli_builds_missed_prod(ctx=AdoCliContext())
@@ -219,30 +189,23 @@ class TestLogsReadSelectorGroup:
         assert exc_info.value.code == 1
 
     def test_failed_alone_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--failed"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["logs", "read", "123", "--failed"], exit_on_error=False)
         assert bound.arguments["build_id"] == 123
         assert bound.arguments["failed"] is True
 
     def test_log_id_alone_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--log-id", "5"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["logs", "read", "123", "--log-id", "5"], exit_on_error=False)
         assert bound.arguments["log_id"] == 5
 
     def test_step_repeated_parses_as_list(self) -> None:
         _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--step", "build", "--step", "test"],
-            exit_on_error=False,
+            ["logs", "read", "123", "--step", "build", "--step", "test"], exit_on_error=False
         )
         assert bound.arguments["step"] == ["build", "test"]
 
     def test_step_and_failed_combine(self) -> None:
         """Selectors combine by union, not mutual exclusion — more than one may be given."""
-        _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--step", "build", "--failed"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["logs", "read", "123", "--step", "build", "--failed"], exit_on_error=False)
         assert bound.arguments["step"] == ["build"]
         assert bound.arguments["failed"] is True
 
@@ -263,15 +226,11 @@ class TestLogsReadTailHeadGroup:
         assert exc_info.value.code == 1
 
     def test_tail_alone_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--failed", "--tail", "10"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["logs", "read", "123", "--failed", "--tail", "10"], exit_on_error=False)
         assert bound.arguments["tail"] == 10
 
     def test_head_alone_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--failed", "--head", "10"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["logs", "read", "123", "--failed", "--head", "10"], exit_on_error=False)
         assert bound.arguments["head"] == 10
 
 
@@ -280,8 +239,7 @@ class TestLogsReadGrepLeadingHyphen:
 
     def test_grep_value_starting_with_hyphen_parses_as_literal(self) -> None:
         _command, bound, _ = app.parse_args(
-            ["logs", "read", "123", "--step", "X", "--grep", "--foo"],
-            exit_on_error=False,
+            ["logs", "read", "123", "--step", "X", "--grep", "--foo"], exit_on_error=False
         )
         assert bound.arguments["grep"] == "--foo"
 
@@ -291,15 +249,7 @@ class TestPipelineFlagCasing:
 
     def test_create_kebab_flags_parse(self) -> None:
         _command, bound, _ = app.parse_args(
-            [
-                "pipeline",
-                "create",
-                "my-pipeline",
-                "--yml-file-name",
-                "azure-pipelines.yml",
-                "--queue-id",
-                "521",
-            ],
+            ["pipeline", "create", "my-pipeline", "--yml-file-name", "azure-pipelines.yml", "--queue-id", "521"],
             exit_on_error=False,
         )
         assert bound.arguments["name"] == "my-pipeline"
@@ -330,10 +280,7 @@ class TestPipelineFlagCasing:
         assert bound.arguments["identifier_kind"].value == "name"
         assert bound.arguments["is_enabled"] is True
         assert bound.arguments["is_blocking"] is True
-        assert bound.arguments["path_filter"] == [
-            "*/my_pipeline/*",
-            "*/packages/my_package/*",
-        ]
+        assert bound.arguments["path_filter"] == ["*/my_pipeline/*", "*/packages/my_package/*"]
 
     def test_identifier_kind_defaults_to_id(self) -> None:
         """Without --identifier-kind, identifier_kind defaults to IdentifierKind.Id."""
@@ -373,9 +320,7 @@ class TestPrReplyLeadingHyphenBody:
     """A reply body that looks like a flag must parse as literal text."""
 
     def test_body_starting_with_dashes_parses_as_literal(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "reply", "1", "2", "--project Foo"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "reply", "1", "2", "--project Foo"], exit_on_error=False)
         assert bound.arguments["pr_id"] == 1
         assert bound.arguments["thread_id"] == 2
         assert bound.arguments["body"] == "--project Foo"
@@ -386,9 +331,7 @@ class TestPrReplyLeadingHyphenBody:
             patch("ado_api.az_client.get_pat", return_value="fake-pat"),
             patch(
                 "ado_api.az_client.get_ado_config",
-                return_value=AdoConfig(
-                    organization="https://dev.azure.com/testorg", project="TestProject"
-                ),
+                return_value=AdoConfig(organization="https://dev.azure.com/testorg", project="TestProject"),
             ),
             patch("ado_api.commands.pr.call_ado_api") as mock_api,
         ):
@@ -401,8 +344,7 @@ class TestPrReplyLeadingHyphenBody:
 class TestPrThreadAddLeadingHyphenBody:
     def test_body_starting_with_dashes_parses_as_literal(self) -> None:
         _command, bound, _ = app.parse_args(
-            ["pr", "thread-add", "42", "--body", "--not-a-real-flag"],
-            exit_on_error=False,
+            ["pr", "thread-add", "42", "--body", "--not-a-real-flag"], exit_on_error=False
         )
         assert bound.arguments["body"] == "--not-a-real-flag"
 
@@ -410,8 +352,7 @@ class TestPrThreadAddLeadingHyphenBody:
 class TestPrCreateLeadingHyphenDescription:
     def test_description_starting_with_dashes_parses_as_literal(self) -> None:
         _command, bound, _ = app.parse_args(
-            ["pr", "create", "Title", "--description", "--looks-like-a-flag"],
-            exit_on_error=False,
+            ["pr", "create", "Title", "--description", "--looks-like-a-flag"], exit_on_error=False
         )
         assert bound.arguments["description"] == "--looks-like-a-flag"
 
@@ -420,54 +361,41 @@ class TestPrCreateSourceTargetAliases:
     """Both the plain and ``_branch``-suffixed flag spellings resolve to the same field."""
 
     def test_source_alias(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "create", "Title", "--source", "feature/x"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "create", "Title", "--source", "feature/x"], exit_on_error=False)
         assert bound.arguments["source"] == "feature/x"
 
     def test_source_branch_alias(self) -> None:
         _command, bound, _ = app.parse_args(
-            ["pr", "create", "Title", "--source-branch", "feature/x"],
-            exit_on_error=False,
+            ["pr", "create", "Title", "--source-branch", "feature/x"], exit_on_error=False
         )
         assert bound.arguments["source"] == "feature/x"
 
     def test_target_alias(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "create", "Title", "--target", "master"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "create", "Title", "--target", "master"], exit_on_error=False)
         assert bound.arguments["target"] == "master"
 
     def test_target_branch_alias(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "create", "Title", "--target-branch", "master"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "create", "Title", "--target-branch", "master"], exit_on_error=False)
         assert bound.arguments["target"] == "master"
 
 
 class TestPrListStatusValidation:
-    def test_invalid_status_raises_validation_error(self) -> None:
-        with pytest.raises(cyclopts.ValidationError):
+    def test_invalid_status_is_rejected(self) -> None:
+        with pytest.raises(cyclopts.CoercionError):
             app.parse_args(["pr", "list", "--status", "bogus"], exit_on_error=False)
 
     def test_valid_status_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "list", "--status", "all"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "list", "--status", "all"], exit_on_error=False)
         assert bound.arguments["status"] == "all"
 
 
 class TestPrUpdateStatusValidation:
-    def test_invalid_status_raises_validation_error(self) -> None:
-        with pytest.raises(cyclopts.ValidationError):
-            app.parse_args(
-                ["pr", "update", "42", "--status", "bogus"], exit_on_error=False
-            )
+    def test_invalid_status_is_rejected(self) -> None:
+        with pytest.raises(cyclopts.CoercionError):
+            app.parse_args(["pr", "update", "42", "--status", "bogus"], exit_on_error=False)
 
     def test_valid_status_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "update", "42", "--status", "abandoned"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "update", "42", "--status", "abandoned"], exit_on_error=False)
         assert bound.arguments["status"] == "abandoned"
 
 
@@ -492,9 +420,7 @@ class TestPrResolveVariadicLimit:
             app.parse_args(["pr", "resolve", "42", *ids], exit_on_error=False)
 
     def test_within_limit_parses(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "resolve", "42", "1", "2", "3"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "resolve", "42", "1", "2", "3"], exit_on_error=False)
         assert bound.arguments["thread_ids"] == [1, 2, 3]
 
 
@@ -543,21 +469,15 @@ class TestPrHyphenatedCommandAliases:
     """Hyphenated subcommand names route to the correct handler."""
 
     def test_thread_add_registered(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "thread-add", "42", "--body", "hello"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "thread-add", "42", "--body", "hello"], exit_on_error=False)
         assert bound.arguments["body"] == "hello"
 
     def test_resolve_pattern_registered(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "resolve-pattern", "42", "some-pattern"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "resolve-pattern", "42", "some-pattern"], exit_on_error=False)
         assert bound.arguments["pattern"] == "some-pattern"
 
     def test_work_item_list_registered(self) -> None:
-        _command, bound, _ = app.parse_args(
-            ["pr", "work-item-list", "42"], exit_on_error=False
-        )
+        _command, bound, _ = app.parse_args(["pr", "work-item-list", "42"], exit_on_error=False)
         assert bound.arguments["pr_id"] == 42
 
     def test_work_item_create_registered(self) -> None:
@@ -574,16 +494,7 @@ class TestWorkItemCreateLeadingHyphenFields:
 
     def test_fields_starting_with_dashes_parses_as_literal(self) -> None:
         _command, bound, _ = app.parse_args(
-            [
-                "work-item",
-                "create",
-                "--title",
-                "T",
-                "--type",
-                "Task",
-                "--fields",
-                "--weird=value",
-            ],
+            ["work-item", "create", "--title", "T", "--type", "Task", "--fields", "--weird=value"],
             exit_on_error=False,
         )
         assert bound.arguments["fields"] == ["--weird=value"]

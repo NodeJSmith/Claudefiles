@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import sys
 
+from ado_api.exit_codes import EXIT_CONFIG
+
 _MISE_AZ_SPEC = '"pipx:azure-cli" = { version = "2.84.0", uvx_args = "--prerelease=allow --python 3.12" }'
 
 
@@ -65,9 +67,7 @@ def cmd_setup() -> None:
         print(f"    {_MISE_AZ_SPEC}")
         print("    Then run: mise install")
         print()
-        print(
-            "  Or install manually: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli"
-        )
+        print("  Or install manually: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli")
         print()
 
     # Step 2: azure-devops extension
@@ -87,9 +87,7 @@ def cmd_setup() -> None:
         else:
             all_ok = False
             print("  [missing] az devops defaults not configured")
-            print(
-                "    Run: az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG project='Your Project'"
-            )
+            print("    Run: az devops configure --defaults organization=https://dev.azure.com/ORG project=PROJECT")
             print()
 
     # Step 4: login check
@@ -109,4 +107,4 @@ def cmd_setup() -> None:
     else:
         print()
         print("Fix the items above, then run 'ado-api setup' again to verify.")
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
