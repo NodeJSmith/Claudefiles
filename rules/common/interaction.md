@@ -84,6 +84,12 @@ When the user's reasoning has a gap, name it directly. When a proposed approach 
 
 Do not soften corrections to preserve comfort. A clear "that won't work because X" is more respectful than a padded "that's a great idea, though one small consideration might be..."
 
+## Times
+
+When you tell the user a time, give it in the machine's local zone, as `date` reports it, with the zone abbreviation: `10:45 CST`, not `16:45Z`. A UTC time makes the user convert in their head while reading. Tool output often arrives in UTC (CLI tables, `--json` payloads, epoch milliseconds, SQL results, CI logs), so convert before writing the reply. Times you work out yourself, such as an estimated finish, get the same treatment. Add the UTC value alongside only when the user will need it, such as to match a log line or bound a UTC-keyed query.
+
+This is about what you write to the user. It doesn't change machine-readable output, which follows `references/common/cli-output.md`.
+
 ## Context Usage in Questions
 
 The `context-prefix.sh` hook puts `[Context: N%]` at the start of every
