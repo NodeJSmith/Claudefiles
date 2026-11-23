@@ -138,7 +138,7 @@ After a `/clear` (e.g. to drop a huge uncached context the morning after a long 
 claude --worktree <branch>  → start a fresh Claude session in an isolated branch
 ```
 
-Each worktree gets its own context, isolated from the main working tree.
+Each worktree gets its own context, isolated from the main working tree. When they pile up, `/mine-worktree-cleanup` checks each one's PR and leftover files, tells you what anything unfinished holds, and removes the ones you approve.
 
 **Research before committing to a direction:**
 
