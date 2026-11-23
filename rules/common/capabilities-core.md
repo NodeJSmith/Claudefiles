@@ -21,6 +21,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "how far ahead am I", "commits not on main", "commits ahead of main" | `git-branch-ahead` |
 | "am I behind main", "did I forget to pull", "is my branch stale", "behind default branch" | `git-branch-behind` |
 | "detect git platform", "github or ado" | `git-platform` |
+| "is this worktree finished", "worktree PR status" (to clean up, use `/mine-worktree-cleanup`) | `git-worktree-audit` |
 | "validate agent files", "check skill schema" | `lint-agent-files` |
 | "stale review questions", "REVIEW.md staleness", "review questions affected by this branch" | `check-review-questions` |
 | "missing review questions", "REVIEW.md coverage", "modules without review questions" | `check-review-coverage` |
