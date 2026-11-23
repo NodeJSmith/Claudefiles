@@ -14,7 +14,7 @@ A user or repo rule that changes the flow wins over this skill. If one says the 
 
 ## Before opening
 
-First, run `git-platform` (`github` → `gh`, `ado` → `ado-api pr`; on `unknown`, read stderr: if it says the directory is wrong, rerun from the repo root or with `-C <repo>`; if the remote isn't recognized, stop). Then check no PR already exists for the branch: `gh pr list --head <branch>` on GitHub, or `ado-api pr show --json` with no id on Azure DevOps, which looks up the active PR for the current branch (`ado-api pr list` has no branch filter and caps at 50, so it can miss it). A PR is returned as JSON; when none exists it exits 1 with `No active PR found for branch ...` on stderr, which is the clear-to-open outcome, while any other error means the check didn't happen. If a PR exists, report its URL and stop, before anything below pushes to it. Also confirm the branch has no unpushed commits of the user's own (`git status -sb`, or `git log @{u}..`); if it does, stop and say so now, because the review-question steps below push and would publish them. Commits made below are yours to push.
+First, run `git-platform` (`github` → `gh`, `ado` → `ado-api pr`; on `unknown`, read stderr: if it says the directory is wrong, rerun from the repo root or with `-C <repo>`; if the remote isn't recognized, stop). Then check no PR already exists for the branch: `gh pr list --head <branch>` on GitHub, or `ado-api pr list --source <branch> --json` on Azure DevOps, which lists the branch's active PRs. An empty list (`[]`) is the clear-to-open outcome; a non-zero exit means the check didn't happen. If a PR exists, report its URL and stop, before anything below pushes to it. Also confirm the branch has no unpushed commits of the user's own (`git status -sb`, or `git log @{u}..`); if it does, stop and say so now, because the review-question steps below push and would publish them. Commits made below are yours to push.
 
 Run the pre-flight scripts, but treat their output as leads, not verdicts. Decide whether each finding matters for this branch; say in one line when you set one aside, and only stop or ask when a real decision is left.
 
@@ -47,6 +47,6 @@ Judge the full branch diff (`git diff origin/<base>...HEAD`), not individual com
 Make a directory with `mktemp -d <scratchpad>/mine-create-pr-XXXXXX` and write the body to `<dir>/body.md`.
 
 - **GitHub:** `gh pr create --title "..." --body-file <dir>/body.md`
-- **Azure DevOps:** `ado-api pr create --title "..." --description-file <dir>/body.md --source-branch <branch> --target-branch <default-branch>` (never put the body in a shell argument; backticks in it would execute). It prints the new PR's id but no URL, so build the URL from the id and the remote (`git remote get-url origin`): `https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{id}`.
+- **Azure DevOps:** `ado-api pr create --title "..." --description-file <dir>/body.md --source-branch <branch> --target-branch <default-branch> --json` (never put the body in a shell argument; backticks in it would execute). The JSON carries the new PR's `id` and `url`.
 
 Finish by giving the PR URL on its own line, preceded by any notes (e.g. no changelog found). If something failed, say which step and why instead of a URL.

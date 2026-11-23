@@ -35,7 +35,7 @@ Run `git-platform` for `github` or `ado`. If it prints `unknown`, its stderr say
 | List threads | `gh-pr-threads <id> --json --all` | `ado-api pr threads <id> --json --all` |
 | Post thread | `gh pr comment <id> --body-file <file>` | `ado-api pr thread-add <id> --body-file <file>` |
 
-A branch name resolves through `gh pr list --head <branch> --json number` or `ado-api pr list --json` (match on source).
+A branch name resolves through `gh pr list --head <branch> --json number` or `ado-api pr list --source <branch> --json`.
 
 A URL also names a repository, and commenting on the wrong remote's PR #N is the failure to prevent. Normalize it and `git remote get-url origin` to bare `owner/repo` (or `org/project/repo`), stripping protocol, host, and `.git`, and compare case-insensitively. A mismatch means stop and tell the user (a fresh worktree against the right remote is the fix). If `origin` is missing or errors, treat it as unknown and ask the user to confirm the repo.
 
