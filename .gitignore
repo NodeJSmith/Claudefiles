@@ -12,3 +12,6 @@ CLAUDE.bak
 # (reviewer agent memory lives under ~/.claude/projects/<encoded-root>/agent-memory/, not here — see bin/resolve-agent-memory-path)
 .claude/
 
+
+# Swap dirs left by an interrupted packages/ado-api/revendor.py run
+packages/ado-api/.*.revendor-*/

@@ -1,6 +1,6 @@
 Usage: ado-api COMMAND [OPTIONS]
 
-Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items
+Azure DevOps CLI — builds, logs, PRs, work items, and pipelines
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
 │ builds                 Build operations                                                          │
@@ -15,7 +15,8 @@ Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items
 │ --version              Display application version.                                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
-│            [default: False]                                                                      │
-│ --project                                                                                        │
+│ --json     Output as JSON. No effect on setup. [default: False]                                  │
+│ --project  ADO project. Default: --repo's project, else the cwd checkout's, else the az devops   │
+│            default.                                                                              │
+│ --repo     Repository name; also picks the project. Default: the cwd's git origin.               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

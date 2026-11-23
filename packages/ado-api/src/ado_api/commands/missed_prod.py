@@ -1,14 +1,12 @@
 """Detect builds that deployed to stage but never made it to prod.
 
-Relies on Rhyme's build-tag conventions (``stage=<timestamp>``,
-``prod=<timestamp>``, plus the legacy hyphenated ``stage-<ts>``/``prod-<ts>``
-format for builds tagged before the migration — see ``ado_api.tags``). A
-build is "missed" if it has a stage tag but no prod tag. At an organization
-whose pipelines tag builds differently, this command is inert: it finds
-nothing rather than erroring, and prints a warning to that effect.
+Uses build tags (``stage=<timestamp>``, ``prod=<timestamp>``) set by
+``tag_pipeline_run.py`` during each deployment stage. A build is "missed"
+if it has a stage tag but no prod tag. Also accepts the legacy hyphenated
+format (``stage-<ts>``, ``prod-<ts>``) which older builds carry.
 
 Missed builds are classified as:
-- **ACTIONABLE** — no later build for the same pipeline reached prod,
+- **actionable** — no later build for the same pipeline reached prod,
   so the latest stage-deployed code is NOT in production.
 - **superseded** — a later build for the same pipeline did reach prod,
   so the missed build's changes are already in production via that later build.
@@ -16,29 +14,30 @@ Missed builds are classified as:
 
 import sys
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any
 from urllib.parse import quote
 
-from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
-from ado_api.commands.builds import _get_default_branch
-from ado_api.formatting import aligned_table, json_output, truncate
 from ado_api.tags import DEPLOYMENT_TAG_PREFIXES, TAG_PR_RE, TAG_PROD_RE, TAG_STAGE_RE
 
-_HEADERS = (
-    "STATUS",
-    "PIPELINE",
-    "BUILD",
-    "STAGE_DEPLOYED",
-    "PR",
-    "DESCRIPTION",
-    "COMMIT",
-)
+from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
+from ado_api.commands.builds import SHORT_SHA_LEN, resolve_definition_id
+from ado_api.formatting import camel_keys, json_output, print_table
+from ado_api.git import get_default_branch
+from ado_api.refs import branch_ref, branch_ref_query
+
+_HEADERS = ("STATUS", "PIPELINE", "BUILD", "STAGE_DEPLOYED", "PR", "DESCRIPTION", "COMMIT")
 
 _DEFAULT_DAYS = 14
 _DEFAULT_TOP = 500
 
 
 _MAX_DESCRIPTION_LEN = 60
+
+
+class MissedStatus(StrEnum):
+    ACTIONABLE = "actionable"
+    SUPERSEDED = "superseded"
 
 
 def _builds_url(
@@ -48,15 +47,10 @@ def _builds_url(
     branch: str = "refs/heads/master",
     top: int = _DEFAULT_TOP,
 ) -> str:
-    """Build the builds-list query URL.
-
-    Unlike sibling modules, *branch* here already carries the ``refs/heads/``
-    prefix (see the default above) -- it is not prepended separately.
-    """
     return (
         f"{ctx.config.base_url}/_apis/build/builds"
         f"?api-version={ADO_API_VERSION}"
-        f"&branchName={quote(branch, safe='/')}"
+        f"&branchName={branch_ref_query(branch)}"
         f"&statusFilter=completed"
         f"&$top={top}"
         f"&minTime={min_time}"
@@ -95,7 +89,7 @@ def _classify_builds(
                 "build_number": b.get("buildNumber"),
                 "pipeline_name": definition.get("name", ""),
                 "pipeline_id": definition.get("id"),
-                "source_version": (b.get("sourceVersion") or "")[:8],
+                "source_version": b.get("sourceVersion") or "",
                 "finish_time": b.get("finishTime"),
                 **tag_info,
             }
@@ -123,11 +117,7 @@ def _classify_builds(
         pipeline_builds.sort(key=lambda x: x["build_id"])
 
         # Collect builds that reached stage but not prod
-        stage_no_prod = [
-            pb
-            for pb in pipeline_builds
-            if pb["stage_time"] is not None and pb["prod_time"] is None
-        ]
+        stage_no_prod = [pb for pb in pipeline_builds if pb["stage_time"] is not None and pb["prod_time"] is None]
         if not stage_no_prod:
             continue
 
@@ -141,17 +131,12 @@ def _classify_builds(
         # Everything else is superseded (by a prod build or by a newer stage build).
         latest = stage_no_prod[-1]
         for pb in stage_no_prod:
-            status = (
-                "ACTIONABLE"
-                if pb is latest and pb["build_id"] > latest_prod_build_id
-                else "superseded"
-            )
+            actionable = pb is latest and pb["build_id"] > latest_prod_build_id
+            status = MissedStatus.ACTIONABLE if actionable else MissedStatus.SUPERSEDED
             missed.append({**pb, "status": status})
 
     # Actionable first, then by pipeline name, then build id
-    missed.sort(
-        key=lambda x: (x["status"] != "ACTIONABLE", x["pipeline_name"], x["build_id"])
-    )
+    missed.sort(key=lambda x: (x["status"] != MissedStatus.ACTIONABLE, x["pipeline_name"], x["build_id"]))
     return missed
 
 
@@ -185,6 +170,13 @@ def _fetch_pr_titles(
     return titles
 
 
+def _truncate(text: str, max_len: int = _MAX_DESCRIPTION_LEN) -> str:
+    """Truncate text to max_len, adding ellipsis if truncated."""
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
 def cmd_builds_missed_prod(
     ctx: AdoContext,
     *,
@@ -195,9 +187,7 @@ def cmd_builds_missed_prod(
     as_json: bool = False,
 ) -> None:
     """Find builds that deployed to stage but not prod."""
-    resolved_branch = (
-        f"refs/heads/{branch}" if branch else f"refs/heads/{_get_default_branch()}"
-    )
+    resolved_branch = branch_ref(branch or get_default_branch())
     min_time = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     url = _builds_url(ctx, min_time=min_time, branch=resolved_branch, top=top)
     data = call_ado_api("GET", url, pat=ctx.pat)
@@ -211,24 +201,18 @@ def cmd_builds_missed_prod(
         )
 
     # Sanity check: warn if builds exist but none have stage/prod tags
-    if builds and not any(
-        tag.startswith(DEPLOYMENT_TAG_PREFIXES)
-        for b in builds
-        for tag in b.get("tags", [])
-    ):
+    if builds and not any(tag.startswith(DEPLOYMENT_TAG_PREFIXES) for b in builds for tag in b.get("tags", [])):
         print(
-            "Warning: no builds have stage/prod tags. This command depends on Rhyme's"
-            " `stage=`/`prod=` build-tag convention — it will find nothing at an org"
-            " that tags builds differently.",
+            "Warning: no builds have stage/prod tags. Check that tag_pipeline_run.py is running in CI.",
             file=sys.stderr,
         )
 
     missed = _classify_builds(builds)
 
-    # Optional pipeline name filter
+    # Optional pipeline filter (ID or exact name)
     if pipeline:
-        pipeline_lower = pipeline.lower()
-        missed = [m for m in missed if pipeline_lower in m["pipeline_name"].lower()]
+        pipeline_id = resolve_definition_id(ctx, pipeline)
+        missed = [m for m in missed if m["pipeline_id"] == pipeline_id]
 
     # Warn early if repo is missing (before fetch attempt)
     if not ctx.repo and any(m["pr_id"] for m in missed):
@@ -250,23 +234,21 @@ def cmd_builds_missed_prod(
         m["pr_title"] = pr_titles.get(m["pr_id"], "") if m["pr_id"] else ""
 
     if as_json:
-        json_output(missed)
+        json_output([camel_keys(m) for m in missed])
         return
 
     if not missed:
-        print(f"No missed prod releases found in the last {days} days.")
+        print(f"No missed prod releases found in the last {days} days.", file=sys.stderr)
         return
 
-    actionable = [m for m in missed if m["status"] == "ACTIONABLE"]
-    superseded = [m for m in missed if m["status"] == "superseded"]
+    actionable = [m for m in missed if m["status"] == MissedStatus.ACTIONABLE]
+    superseded = [m for m in missed if m["status"] == MissedStatus.SUPERSEDED]
 
     rows: list[tuple[str, ...]] = []
     links: list[dict[int, str]] = []
     for m in missed:
         pr_label = f"PR-{m['pr_id']}" if m["pr_id"] else "-"
-        description = (
-            truncate(m["pr_title"], _MAX_DESCRIPTION_LEN) if m["pr_title"] else "-"
-        )
+        description = _truncate(m["pr_title"]) if m["pr_title"] else "-"
         rows.append(
             (
                 m["status"],
@@ -275,7 +257,7 @@ def cmd_builds_missed_prod(
                 m["stage_time"] or "-",
                 pr_label,
                 description,
-                m["source_version"] or "-",
+                m["source_version"][:SHORT_SHA_LEN] or "-",
             )
         )
         row_links: dict[int, str] = {
@@ -283,12 +265,8 @@ def cmd_builds_missed_prod(
             1: f"{ctx.config.base_url}/_build/results?buildId={m['build_id']}",
         }
         if m["pr_id"] and ctx.repo:
-            row_links[4] = (
-                f"{ctx.config.base_url}/_git/{quote(ctx.repo, safe='')}/pullrequest/{m['pr_id']}"
-            )
+            row_links[4] = f"{ctx.config.base_url}/_git/{ctx.repo}/pullrequest/{m['pr_id']}"
         links.append(row_links)
 
-    aligned_table(rows, headers=_HEADERS, links=links)
-    print(
-        f"\n{len(actionable)} actionable, {len(superseded)} superseded (last {days} days)"
-    )
+    print_table(rows, headers=_HEADERS, links=links)
+    print(f"\n{len(actionable)} actionable, {len(superseded)} superseded (last {days} days)", file=sys.stderr)

@@ -1,7 +1,8 @@
 STDOUT:
-Thread #400: resolved as 'fixed'
-
-Resolved: 1, Failed: 1
+Resolved thread 400: fixed
 
 STDERR:
-Thread #300: failed — 403 Forbidden: Not authorized
+Project: https://dev.azure.com/org/Proj (from az devops default)
+Failed thread 300: 403 Forbidden: Not authorized
+
+Resolved: 1, Failed: 1

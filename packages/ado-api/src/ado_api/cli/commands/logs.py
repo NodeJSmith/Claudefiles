@@ -10,11 +10,7 @@ from typing import Annotated
 import cyclopts.validators
 from cyclopts import Group, Parameter
 
-from ado_api.cli.context import (
-    DEFAULT_CLI_CONTEXT,
-    AdoCliContextParam,
-    make_ado_context,
-)
+from ado_api.cli.context import DEFAULT_CLI_CONTEXT, AdoCliContextParam, make_ado_context
 from ado_api.commands.logs import cmd_logs_read
 
 # At least one of --step/--failed/--log-id must be given — there is no default
@@ -36,26 +32,25 @@ def cli_logs_read(
     build_id: int,
     *,
     step: Annotated[
-        list[str] | None, Parameter(name="--step", group=selector_group)
+        list[str] | None, Parameter(name="--step", group=selector_group, help="Steps whose name contains this.")
     ] = None,
-    failed: Annotated[bool, Parameter(group=selector_group)] = False,
-    log_id: Annotated[
-        int | None, Parameter(name="--log-id", group=selector_group)
-    ] = None,
-    issues: bool = False,
-    tail: Annotated[int | None, Parameter(name="--tail", group=tail_head_group)] = None,
-    head: Annotated[int | None, Parameter(name="--head", group=tail_head_group)] = None,
+    failed: Annotated[bool, Parameter(group=selector_group, negative=[], help="The failing steps.")] = False,
+    log_id: Annotated[int | None, Parameter(name="--log-id", group=selector_group, help="One log by ID.")] = None,
+    issues: Annotated[bool, Parameter(negative=[], help="Print each step's errors and warnings.")] = False,
+    tail: Annotated[int | None, Parameter(name="--tail", group=tail_head_group, help="Last N lines.")] = None,
+    head: Annotated[int | None, Parameter(name="--head", group=tail_head_group, help="First N lines.")] = None,
     grep: Annotated[
-        str | None, Parameter(name="--grep", allow_leading_hyphen=True)
+        str | None, Parameter(name="--grep", allow_leading_hyphen=True, help="Lines matching this regex.")
     ] = None,
-    context: int = 0,
+    context: Annotated[int, Parameter(help="Lines of context around each --grep match.")] = 0,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Read log content for steps selected by --step/--failed/--log-id.
 
-    At least one selector is required. Content flags (--issues, --tail/--head, --grep)
-    are independent of the selector and may combine freely with each other. With no
-    content flag, prints the last 100 lines of each selected step's log.
+    At least one selector is required. With no content flag, each selected step's whole
+    log is printed; --issues, --tail/--head and --grep narrow that and combine freely.
+    --failed picks the failing steps themselves (not the jobs and stages they fail) and
+    always includes their issues; on its own it prints only the last 200 lines of each log.
     """
     ado_ctx = make_ado_context(ctx)
     cmd_logs_read(

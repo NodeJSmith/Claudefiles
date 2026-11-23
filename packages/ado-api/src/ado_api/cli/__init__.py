@@ -15,10 +15,14 @@ from ado_api.cli.commands.builds import (
     cli_builds_approve,
     cli_builds_cancel,
     cli_builds_cancel_by_tag,
+    cli_builds_cancel_superseded,
     cli_builds_list,
     cli_builds_missed_prod,
     cli_builds_retry_stage,
+    cli_builds_stage_check,
     cli_builds_steps,
+    cli_builds_wait,
+    cli_builds_watch,
 )
 from ado_api.cli.commands.logs import cli_logs_read
 from ado_api.cli.commands.pipeline import cli_pipeline_create, cli_pipeline_validate
@@ -40,19 +44,11 @@ from ado_api.cli.commands.pr import (
 from ado_api.cli.commands.work_item import cli_work_item_create
 from ado_api.cli.context import AdoCliContext
 from ado_api.commands.setup import cmd_setup
-
-# Usage errors (bad flags, failed group validators) exit 1 implicitly via cyclopts' own
-# error handling — no `sys.exit(_EXIT_CODE_USAGE)` call in this module produces it. The
-# constant exists so tests can name that exit code instead of hardcoding the literal `1`.
-_EXIT_CODE_USAGE = 1
-_EXIT_CODE_CONFIG = 2
-_EXIT_CODE_AUTH = 3
-_EXIT_CODE_INTERNAL = 4
-_EXIT_CODE_API_ERROR = 5
+from ado_api.exit_codes import EXIT_API_ERROR, EXIT_AUTH, EXIT_CONFIG, EXIT_FAILURE, EXIT_INTERNAL, EXIT_INTERRUPTED
 
 app = App(
     name="ado-api",
-    help="Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items",
+    help="Azure DevOps CLI — builds, logs, PRs, work items, and pipelines",
 )
 
 builds_app = App(name="builds", help="Build operations")
@@ -70,7 +66,11 @@ builds_app.command(cli_builds_cancel_by_tag, name="cancel-by-tag")
 builds_app.command(cli_builds_steps, name="steps")
 builds_app.command(cli_builds_approve, name="approve")
 builds_app.command(cli_builds_missed_prod, name="missed-prod")
+builds_app.command(cli_builds_stage_check, name="stage-check")
 builds_app.command(cli_builds_retry_stage, name="retry-stage")
+builds_app.command(cli_builds_watch, name="watch")
+builds_app.command(cli_builds_wait, name="wait")
+builds_app.command(cli_builds_cancel_superseded, name="cancel-superseded")
 
 logs_app.command(cli_logs_read, name="read")
 
@@ -132,8 +132,8 @@ def install_completion(
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / f"{prog_name}.fish"
     else:
-        print(f"Unsupported shell: {resolved_shell}", file=sys.stderr)
-        sys.exit(1)
+        print(f"Error: unsupported shell: {resolved_shell}", file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
 
     target.write_text(script)
     print(f"Completion script installed to {target}", file=sys.stderr)
@@ -152,7 +152,7 @@ def _prog_name() -> str:
     return app.name[0] if isinstance(app.name, tuple) else app.name
 
 
-def _generate_normalized_completion(shell: str | None = None) -> str:
+def _generate_normalized_completion(shell: Literal["zsh", "bash", "fish"] | None = None) -> str:
     """Generate completion script, normalizing the _cyclopts_ prefix for zsh."""
     resolved_shell = shell or detect_shell()
     script = app.generate_completion(shell=resolved_shell)
@@ -190,15 +190,25 @@ def launcher(
         Parameter(
             name="--json",
             negative=[],
-            help="Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.",
+            help="Output as JSON. No effect on setup.",
         ),
     ] = False,
-    project: Annotated[str | None, Parameter(name="--project")] = None,
+    project: Annotated[
+        str | None,
+        Parameter(
+            name="--project",
+            help="ADO project. Default: --repo's project, else the cwd checkout's, else the az devops default.",
+        ),
+    ] = None,
+    repo: Annotated[
+        str | None,
+        Parameter(name="--repo", help="Repository name; also picks the project. Default: the cwd's git origin."),
+    ] = None,
 ) -> None:
     # Commands are invoked directly (not via App.__call__), so async commands and
     # int-return exit codes (cyclopts conventions) are NOT supported. All commands
     # must be synchronous and return None.
-    ctx = AdoCliContext(json_mode=json, project=project)
+    ctx = AdoCliContext(json_mode=json, project=project, repo=repo)
     try:
         command, bound, _ = app.parse_args(tokens)
         sig = inspect.signature(command)
@@ -206,10 +216,7 @@ def launcher(
             param = sig.parameters["ctx"]
             ann = param.annotation
             base_type = get_args(ann)[0] if get_origin(ann) is Annotated else ann
-            if (
-                base_type is not AdoCliContext
-                and base_type is not inspect.Parameter.empty
-            ):
+            if base_type is not AdoCliContext and base_type is not inspect.Parameter.empty:
                 raise TypeError(
                     f"{command.__name__}() has a 'ctx' parameter with annotation "
                     f"{ann!r} — expected AdoCliContextParam. "
@@ -220,25 +227,25 @@ def launcher(
     except SystemExit:
         raise
     except KeyboardInterrupt:
-        sys.exit(130)
+        sys.exit(EXIT_INTERRUPTED)
     except AdoConfigError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         print("Hint: Run 'ado-api setup' to check all prerequisites.", file=sys.stderr)
-        sys.exit(_EXIT_CODE_CONFIG)
+        sys.exit(EXIT_CONFIG)
     except AdoAuthError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         print("Hint: Run 'ado-api setup' to check all prerequisites.", file=sys.stderr)
-        sys.exit(_EXIT_CODE_AUTH)
+        sys.exit(EXIT_AUTH)
     except AdoApiError as exc:
         print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(_EXIT_CODE_API_ERROR)
+        sys.exit(EXIT_API_ERROR)
     except Exception as exc:
         print(f"Unexpected error: {exc}", file=sys.stderr)
         if os.environ.get("ADO_API_DEBUG"):
             traceback.print_exc(file=sys.stderr)
         else:
             print("Set ADO_API_DEBUG=1 for full traceback.", file=sys.stderr)
-        sys.exit(_EXIT_CODE_INTERNAL)
+        sys.exit(EXIT_INTERNAL)
 
 
 @app.command(name="setup")

@@ -1,8 +1,8 @@
 """Framework-agnostic entrypoint pin — drives ``main(argv)`` end to end.
 
 This is the port's regression guard for the CLI framework migration described in
-the source package's CLI-framework-migration design doc (Test Strategy tier 3).
-It must land and pass against the CURRENT CLI implementation
+the ``041`` CLI-framework-migration design doc (see ``design/specs/`` in this repo,
+Test Strategy tier 3). It must land and pass against the CURRENT CLI implementation
 before any of the new framework's code is written, and it must keep passing
 unchanged after the port — ``main``'s signature does not change across the
 migration.
@@ -35,8 +35,10 @@ shape exists (a later task in this migration).
 from unittest.mock import MagicMock, patch
 
 import pytest
+from ado_api.az_client import AdoConfig
 from ado_api.cli import main
-from tests.conftest import FAKE_CLI_CONFIG as _FAKE_CONFIG
+
+_FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/testorg", project="TestProject")
 
 
 def _dispatch(argv: list[str]) -> None:
@@ -64,20 +66,7 @@ class TestBuildsListDispatch:
     ) -> None:
         mock_api.return_value = {"value": []}
 
-        _dispatch(
-            [
-                "builds",
-                "list",
-                "--tags",
-                "abc123",
-                "--branch",
-                "master",
-                "--status",
-                "inProgress",
-                "--top",
-                "10",
-            ]
-        )
+        _dispatch(["builds", "list", "--tag", "abc123", "--branch", "master", "--status", "inProgress", "--top", "10"])
 
         assert mock_api.call_count == 1
         _method, url = mock_api.call_args[0]
@@ -89,9 +78,7 @@ class TestBuildsListDispatch:
     @patch("ado_api.commands.builds.call_ado_api")
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch("ado_api.az_client.get_ado_config", return_value=_FAKE_CONFIG)
-    def test_builds_list_json_flag(
-        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock
-    ) -> None:
+    def test_builds_list_json_flag(self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock) -> None:
         mock_api.return_value = {"value": [{"id": 1}]}
 
         _dispatch(["builds", "list", "--json"])
@@ -110,12 +97,12 @@ class TestBuildsCancelDispatch:
     ) -> None:
         mock_api.side_effect = [
             {"id": 1001, "status": "inProgress"},
-            None,
             {"id": 1002, "status": "inProgress"},
+            None,
             None,
         ]
 
-        _dispatch(["builds", "cancel", "1001", "1002"])
+        _dispatch(["builds", "cancel", "1001", "1002", "--yes"])
 
         urls = [call.args[1] for call in mock_api.call_args_list]
         assert any("/1001?" in u for u in urls)
@@ -169,6 +156,7 @@ class TestBuildsApproveDispatch:
         assert method == "GET"
         assert "/pipelines/approvals" in url
 
+    @patch("ado_api.commands.builds.call_ado_api", return_value={"value": []})
     @patch("ado_api.commands.approve.call_ado_api")
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch("ado_api.az_client.get_ado_config", return_value=_FAKE_CONFIG)
@@ -177,6 +165,7 @@ class TestBuildsApproveDispatch:
         _mock_config: MagicMock,
         _mock_pat: MagicMock,
         mock_api: MagicMock,
+        _mock_history: MagicMock,
     ) -> None:
         pending = {
             "value": [
@@ -185,21 +174,21 @@ class TestBuildsApproveDispatch:
                     "pipeline": {
                         "name": "deploy",
                         "owner": {
-                            "_links": {
-                                "self": {
-                                    "href": "https://dev.azure.com/org/Proj/_apis/build/builds/1001"
-                                }
-                            }
+                            "_links": {"self": {"href": "https://dev.azure.com/org/Proj/_apis/build/builds/1001"}}
                         },
                     },
                 },
             ]
         }
 
-        def side_effect(method: str, _url: str, **_kwargs: object) -> dict:
-            if method == "GET":
-                return pending
-            return {}
+        def side_effect(method: str, url: str, **_kwargs: object) -> dict:
+            if method != "GET":
+                return {}
+            if "buildIds=" in url:
+                return {"value": [{"id": 1001, "definition": {"id": 1, "name": "deploy"}, "sourceVersion": "aaa"}]}
+            if "/build/builds" in url:
+                return {"value": []}
+            return pending
 
         mock_api.side_effect = side_effect
 
@@ -207,9 +196,7 @@ class TestBuildsApproveDispatch:
 
         patch_calls = [c for c in mock_api.call_args_list if c.args[0] == "PATCH"]
         assert len(patch_calls) == 1
-        assert patch_calls[0].kwargs["data"] == [
-            {"status": "approved", "approvalId": "approval-1"}
-        ]
+        assert patch_calls[0].kwargs["data"] == [{"status": "approved", "approvalId": "approval-1"}]
 
 
 class TestBuildsMissedProdDispatch:
@@ -221,7 +208,6 @@ class TestBuildsMissedProdDispatch:
     no-op here — verified live. Neither assertion below depends on the resolved repo name.
     """
 
-    @patch("ado_api.commands.missed_prod._get_default_branch", return_value="master")
     @patch("ado_api.commands.missed_prod.call_ado_api")
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch("ado_api.az_client.get_ado_config", return_value=_FAKE_CONFIG)
@@ -230,11 +216,11 @@ class TestBuildsMissedProdDispatch:
         _mock_config: MagicMock,
         _mock_pat: MagicMock,
         mock_api: MagicMock,
-        _mock_default_branch: MagicMock,
     ) -> None:
         mock_api.return_value = {"value": []}
 
-        _dispatch(["builds", "missed-prod"])
+        with patch("ado_api.commands.missed_prod.get_default_branch", return_value="master"):
+            _dispatch(["builds", "missed-prod"])
 
         assert mock_api.call_count == 1
         _method, url = mock_api.call_args[0]
@@ -263,18 +249,7 @@ class TestBuildsMissedProdDispatch:
             ]
         }
 
-        _dispatch(
-            [
-                "builds",
-                "missed-prod",
-                "--days",
-                "7",
-                "--pipeline",
-                "deploy-prod",
-                "--branch",
-                "release",
-            ]
-        )
+        _dispatch(["builds", "missed-prod", "--days", "7", "--pipeline", "1", "--branch", "release"])
 
         assert mock_api.call_count == 1
         _method, url = mock_api.call_args[0]
@@ -300,16 +275,7 @@ class TestBuildsRetryStageDispatch:
     ) -> None:
         def side_effect(method: str, url: str, **_kwargs: object) -> dict:
             if "timeline" in url:
-                return {
-                    "records": [
-                        {
-                            "type": "Stage",
-                            "identifier": "prod",
-                            "state": "completed",
-                            "result": "skipped",
-                        }
-                    ]
-                }
+                return {"records": [{"type": "Stage", "identifier": "prod", "state": "completed", "result": "skipped"}]}
             if method == "GET":
                 return {"id": 1001, "definition": {"name": "deploy-prod"}}
             return {}
@@ -326,7 +292,7 @@ class TestBuildsRetryStageDispatch:
 class TestPrShowDispatch:
     """``ado-api pr show <id>`` — exercises repo detection via ``_make_ctx``.
 
-    Repo detection (``_get_repo_or_exit`` -> ``cli_context.get_repo_name``) is not
+    Repo detection (``get_repo_or_exit`` -> ``cli_context.get_repo_name``) is not
     mocked here: ``cli_context.py`` binds ``get_repo_name`` via a top-level
     ``from ado_api.git import get_repo_name``, so patching ``ado_api.git.get_repo_name``
     does not reach that already-bound reference — and ``cli_context.py`` itself is
@@ -370,10 +336,7 @@ class TestWorkItemCreateDispatch:
     def test_work_item_create_passes_title_and_type(
         self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock
     ) -> None:
-        mock_api.return_value = {
-            "id": 5,
-            "fields": {"System.WorkItemType": "Task", "System.Title": "Fix bug"},
-        }
+        mock_api.return_value = {"id": 5, "fields": {"System.WorkItemType": "Task", "System.Title": "Fix bug"}}
 
         _dispatch(["work-item", "create", "--title", "Fix bug", "--type", "Task"])
 
@@ -412,15 +375,7 @@ class TestPipelineCreateDispatch:
             if "repositories" in url:
                 return {"id": "repo-guid"}
             if "queues" in url:
-                return {
-                    "value": [
-                        {
-                            "id": 7,
-                            "name": "Azure Pipelines",
-                            "pool": {"isHosted": True, "isLegacy": False},
-                        }
-                    ]
-                }
+                return {"value": [{"id": 7, "name": "Azure Pipelines", "pool": {"isHosted": True, "isLegacy": False}}]}
             if method == "POST":
                 return {"name": "my-pipe", "id": 42, "_links": {}}
             return {}
@@ -459,12 +414,7 @@ class TestPipelineBuildValidateDispatch:
                 return {"id": "repo-guid"}
             if method == "POST":
                 bid = kwargs["data"]["settings"]["buildDefinitionId"]
-                return {
-                    "settings": {
-                        "buildDefinitionId": bid,
-                        "scope": [{"refName": "refs/heads/master"}],
-                    }
-                }
+                return {"settings": {"buildDefinitionId": bid, "scope": [{"refName": "refs/heads/master"}]}}
             return {}
 
         mock_api.side_effect = side_effect
@@ -472,10 +422,27 @@ class TestPipelineBuildValidateDispatch:
         _dispatch(["pipeline", "build-validate", "99", "100"])
 
         post_calls = [c for c in mock_api.call_args_list if c.args[0] == "POST"]
-        posted_ids = [
-            c.kwargs["data"]["settings"]["buildDefinitionId"] for c in post_calls
-        ]
+        posted_ids = [c.kwargs["data"]["settings"]["buildDefinitionId"] for c in post_calls]
         assert posted_ids == ["99", "100"]
+
+    @patch("ado_api.cli.commands.pipeline.get_default_branch", return_value="main")
+    @patch("ado_api.commands.pipeline.call_ado_api")
+    @patch("ado_api.az_client.get_pat", return_value="fake-pat")
+    @patch("ado_api.az_client.get_ado_config", return_value=_FAKE_CONFIG)
+    def test_branch_defaults_to_the_repos_default_branch(
+        self,
+        _mock_config: MagicMock,
+        _mock_pat: MagicMock,
+        mock_api: MagicMock,
+        _mock_default: MagicMock,
+    ) -> None:
+        """A repo whose default isn't master gets its policy on its own default branch."""
+        mock_api.side_effect = lambda _method, url, **_kwargs: {"id": "repo-guid"} if "repositories" in url else {}
+
+        _dispatch(["pipeline", "build-validate", "99"])
+
+        post = next(c for c in mock_api.call_args_list if c.args[0] == "POST")
+        assert post.kwargs["data"]["settings"]["scope"][0]["refName"] == "refs/heads/main"
 
 
 class TestSetupDispatch:
@@ -485,24 +452,18 @@ class TestSetupDispatch:
     behavior of the command, not a test bug, so a passing ``az devops configure
     --list`` response is stubbed to keep this test on the "all prerequisites met"
     happy path and avoid asserting on a ``SystemExit`` that would otherwise depend
-    on unrelated environment state. For the same reason ``shutil.which`` is stubbed,
-    so the test doesn't require ``az`` to be installed on the machine running it.
+    on unrelated environment state.
     """
 
-    @patch("ado_api.commands.setup.shutil.which", return_value="/usr/bin/az")
     @patch("ado_api.commands.setup.subprocess.run")
-    def test_setup_shells_out_to_az(
-        self, mock_run: MagicMock, _mock_which: MagicMock
-    ) -> None:
+    def test_setup_shells_out_to_az(self, mock_run: MagicMock) -> None:
         def side_effect(cmd: list[str], **_kwargs: object) -> MagicMock:
             result = MagicMock()
             result.returncode = 0
             if cmd == ["az", "version"]:
                 result.stdout = '{"azure-cli": "2.84.0"}'
             elif cmd == ["az", "devops", "configure", "--list"]:
-                result.stdout = (
-                    "organization = https://dev.azure.com/org\nproject = Proj\n"
-                )
+                result.stdout = "organization = https://dev.azure.com/org\nproject = Proj\n"
             else:
                 result.stdout = ""
             return result

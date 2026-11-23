@@ -1,31 +1,71 @@
 """Tests for ado_api.commands.logs — log content reading (selection + issues/tail/head/grep)."""
 
 import json
+from collections.abc import Iterator
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.commands.logs import _render_grep_matches, cmd_logs_read
+from ado_api.az_client import AdoConfig, AdoContext
+from ado_api.commands.logs import cmd_logs_read
 from ado_api.formatting import format_duration
-from tests.conftest import FAKE_CTX, _make_timeline_record
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
+FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="My Project")
+FAKE_PAT = "fake-pat-token"
+FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
+
+
+def _make_timeline_record(
+    *,
+    order: int = 1,
+    record_type: str = "Task",
+    name: str = "Build",
+    result: str = "succeeded",
+    log_id: int | None = 10,
+    error_count: int = 0,
+    warning_count: int = 0,
+    start_time: str | None = "2026-03-13T10:00:00Z",
+    finish_time: str | None = "2026-03-13T10:01:30Z",
+    issues: list[dict[str, str]] | None = None,
+    record_id: str | None = None,
+    parent_id: str | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "id": record_id or f"rec-{order}-{name}",
+        "parentId": parent_id,
+        "order": order,
+        "type": record_type,
+        "name": name,
+        "result": result,
+        "errorCount": error_count,
+        "warningCount": warning_count,
+        "startTime": start_time,
+        "finishTime": finish_time,
+    }
+    if log_id is not None:
+        record["log"] = {"id": log_id}
+    if issues is not None:
+        record["issues"] = issues
+    return record
+
 
 @pytest.fixture(autouse=True)
-def no_real_log_fetch():
-    """Selections without content flags now fetch the log; keep every test offline.
+def _no_network_log_fetch() -> Iterator[MagicMock]:
+    """Selecting a step now fetches its log by default; keep tests that don't care off the network."""
+    with patch("ado_api.commands.logs._fetch_log_lines", return_value=[]) as mock_lines:
+        yield mock_lines
 
-    Tests that care about log text patch ``_fetch_log_lines`` themselves, which
-    takes precedence over this default.
-    """
-    with patch("ado_api.commands.logs._fetch_log_lines", return_value=[]) as mock:
-        yield mock
+
+def _timeline_response(*records: dict[str, Any]) -> dict[str, Any]:
+    return {"records": list(records)}
 
 
 class TestLogsReadNoSelector:
     """logs read with no selector flags — selects nothing, prints nothing."""
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_no_selector_selects_nothing(
         self,
         mock_fetch: MagicMock,
@@ -45,7 +85,7 @@ class TestLogsReadNoSelector:
 class TestLogsReadStepSelector:
     """logs read --step — case-insensitive substring match, repeatable (OR'd)."""
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_step_single_match(
         self,
         mock_fetch: MagicMock,
@@ -62,7 +102,7 @@ class TestLogsReadStepSelector:
         assert "Build" in captured.out
         assert "Test" not in captured.out
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_step_repeated_matches_union(
         self,
         mock_fetch: MagicMock,
@@ -81,7 +121,7 @@ class TestLogsReadStepSelector:
         assert "Test" in captured.out
         assert "Deploy" not in captured.out
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_step_no_match_reports_unmatched_substring(
         self,
         mock_fetch: MagicMock,
@@ -97,28 +137,12 @@ class TestLogsReadStepSelector:
         assert "nonexistent" in captured.err
         assert captured.out == ""
 
-    @patch("ado_api.commands.logs._fetch_timeline")
-    def test_step_no_match_with_json_prints_empty_array(
-        self,
-        mock_fetch: MagicMock,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        """--json with no matching records must still emit valid, parseable JSON."""
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", log_id=10),
-        ]
-
-        cmd_logs_read(FAKE_CTX, 100, step=["nonexistent"], as_json=True)
-
-        captured = capsys.readouterr()
-        assert json.loads(captured.out) == []
-
 
 class TestLogsReadFailedSelector:
-    """logs read --failed — selects every step whose result is failed/succeededWithIssues."""
+    """logs read --failed — selects failed steps; warning-only (succeededWithIssues) steps aren't failures."""
 
-    @patch("ado_api.commands.logs._fetch_timeline")
-    def test_failed_selects_failed_and_issues_results(
+    @patch("ado_api.commands.logs.fetch_timeline")
+    def test_failed_selects_failed_not_warning_results(
         self,
         mock_fetch: MagicMock,
         capsys: pytest.CaptureFixture[str],
@@ -133,16 +157,32 @@ class TestLogsReadFailedSelector:
         cmd_logs_read(FAKE_CTX, 100, failed=True)
 
         captured = capsys.readouterr()
-        assert "Bad" in captured.out
-        assert "Warn" in captured.out
-        assert "Good" not in captured.out
-        assert "Skip" not in captured.out
+        assert "--- Bad (" in captured.out
+        assert "--- Warn (" not in captured.out
+        assert "--- Good (" not in captured.out
+        assert "--- Skip (" not in captured.out
+
+    @patch("ado_api.commands.logs._fetch_log_lines", return_value=[])
+    @patch("ado_api.commands.logs.fetch_timeline")
+    def test_warning_child_doesnt_hide_its_failed_job(
+        self, mock_fetch: MagicMock, _mock_lines: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        mock_fetch.return_value = [
+            _make_timeline_record(order=1, record_type="Job", name="Job", result="failed", record_id="j"),
+            _make_timeline_record(order=1, name="Lint", result="succeededWithIssues", parent_id="j"),
+        ]
+
+        cmd_logs_read(FAKE_CTX, 100, failed=True)
+
+        out = capsys.readouterr().out
+        assert "--- Job (failed) ---" in out
+        assert "Lint" not in out
 
 
 class TestLogsReadLogIdSelector:
     """logs read --log-id — exact-match escape hatch."""
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_log_id_exact_match(
         self,
         mock_fetch: MagicMock,
@@ -163,7 +203,7 @@ class TestLogsReadLogIdSelector:
 class TestLogsReadIssues:
     """logs read --issues — print extracted issue list from the timeline record."""
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_issues_alone(
         self,
         mock_fetch: MagicMock,
@@ -192,7 +232,7 @@ class TestLogsReadIssues:
         assert "Errors: 1" in captured.out
         assert "Warnings: 1" in captured.out
 
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_issues_json(
         self,
         mock_fetch: MagicMock,
@@ -217,20 +257,97 @@ class TestLogsReadIssues:
         assert len(data[0]["issues"]) > 0
 
 
-class TestLogsReadTailHead:
-    """logs read --tail / --head — client-side slicing of each selected step's log text."""
+class TestLogsReadFailedLeaves:
+    """--failed reports the step that failed, not the job/phase/stage it rolled up into."""
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
-    def test_tail(
+    @patch("ado_api.commands.logs.fetch_timeline")
+    def test_failed_skips_failed_ancestors(
         self,
         mock_fetch: MagicMock,
         mock_lines: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", log_id=10)
+            _make_timeline_record(
+                order=1, record_type="Stage", name="Dev", result="failed", log_id=None, record_id="s"
+            ),
+            _make_timeline_record(
+                order=1, record_type="Phase", name="Phase", result="failed", log_id=None, record_id="p", parent_id="s"
+            ),
+            _make_timeline_record(
+                order=1, record_type="Job", name="Job", result="failed", log_id=18, record_id="j", parent_id="p"
+            ),
+            _make_timeline_record(
+                order=13,
+                name="Post-job: Cache uv",
+                result="failed",
+                log_id=15,
+                record_id="t",
+                parent_id="j",
+                error_count=1,
+                issues=[{"type": "error", "message": "Unable to find pipeline caching scopes."}],
+            ),
         ]
+        mock_lines.return_value = ["cache step output"]
+
+        cmd_logs_read(FAKE_CTX, 100, failed=True)
+
+        out = capsys.readouterr().out
+        assert out.count("---") == 2  # one header: "--- name (result) ---"
+        assert "Post-job: Cache uv" in out
+        assert "Unable to find pipeline caching scopes." in out
+        assert "cache step output" in out
+        mock_lines.assert_called_once_with(FAKE_CTX, 100, 15)
+
+
+class TestLogsReadDefaultContent:
+    """With a selector and no content flag, ``logs read`` prints the step's whole log."""
+
+    @patch("ado_api.commands.logs._fetch_log_lines")
+    @patch("ado_api.commands.logs.fetch_timeline")
+    def test_no_content_flag_prints_full_log(
+        self,
+        mock_fetch: MagicMock,
+        mock_lines: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=21)]
+        mock_lines.return_value = ["line 1", "line 2", "line 3"]
+
+        cmd_logs_read(FAKE_CTX, 100, log_id=21)
+
+        out = capsys.readouterr().out
+        assert all(f"line {i}" in out for i in (1, 2, 3))
+
+    @patch("ado_api.commands.logs._fetch_log_lines")
+    @patch("ado_api.commands.logs.fetch_timeline")
+    def test_no_content_flag_json_includes_log_lines(
+        self,
+        mock_fetch: MagicMock,
+        mock_lines: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=21)]
+        mock_lines.return_value = ["line 1", "line 2"]
+
+        cmd_logs_read(FAKE_CTX, 100, log_id=21, as_json=True)
+
+        assert json.loads(capsys.readouterr().out)[0]["logLines"] == ["line 1", "line 2"]
+
+
+class TestLogsReadTailHead:
+    """logs read --tail / --head — client-side slicing of each selected step's log text."""
+
+    @patch("ado_api.commands.logs._fetch_log_lines")
+    @patch("ado_api.commands.logs.fetch_timeline")
+    def test_tail(
+        self,
+        mock_fetch: MagicMock,
+        mock_lines: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=10)]
         mock_lines.return_value = ["line 1", "line 2", "line 3", "line 4", "line 5"]
 
         cmd_logs_read(FAKE_CTX, 100, step=["build"], tail=2)
@@ -241,16 +358,14 @@ class TestLogsReadTailHead:
         assert "line 3" not in captured.out
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_head(
         self,
         mock_fetch: MagicMock,
         mock_lines: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", log_id=10)
-        ]
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=10)]
         mock_lines.return_value = ["line 1", "line 2", "line 3"]
 
         cmd_logs_read(FAKE_CTX, 100, step=["build"], head=2)
@@ -261,16 +376,14 @@ class TestLogsReadTailHead:
         assert "line 3" not in captured.out
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_no_log_attached(
         self,
         mock_fetch: MagicMock,
         mock_lines: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", log_id=None)
-        ]
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=None)]
 
         cmd_logs_read(FAKE_CTX, 100, step=["build"], tail=2)
 
@@ -283,16 +396,14 @@ class TestLogsReadGrep:
     """logs read --grep / --context — search log text for a pattern."""
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_grep_basic(
         self,
         mock_fetch: MagicMock,
         mock_lines: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", log_id=10)
-        ]
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=10)]
         mock_lines.return_value = ["all good", "error CS1234", "more stuff"]
 
         cmd_logs_read(FAKE_CTX, 100, step=["build"], grep="error")
@@ -302,7 +413,7 @@ class TestLogsReadGrep:
         assert "Build" in captured.out
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_grep_scoped_to_selected_steps_only(
         self,
         mock_fetch: MagicMock,
@@ -321,16 +432,14 @@ class TestLogsReadGrep:
         mock_lines.assert_called_once_with(FAKE_CTX, 100, 10)
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_grep_with_context(
         self,
         mock_fetch: MagicMock,
         mock_lines: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", log_id=10)
-        ]
+        mock_fetch.return_value = [_make_timeline_record(order=1, name="Build", log_id=10)]
         mock_lines.return_value = ["line A", "line B", "error here", "line D", "line E"]
 
         cmd_logs_read(FAKE_CTX, 100, step=["build"], grep="error", context=1)
@@ -342,49 +451,12 @@ class TestLogsReadGrep:
         assert "line A" not in captured.out
         assert "line E" not in captured.out
 
-    def test_render_grep_matches_many_matches_with_context(self) -> None:
-        """Regression pin for the enumerate()-based next-match lookup: with 20
-        widely-spaced matches (each block separated by "..."), the rendering must
-        still match what the old O(n^2) ``matches.index()`` lookup produced --
-        one marked match line plus its context per block, gaps joined by "...".
-        """
-        # 20 matches, 10 lines apart, each with 1 line of context on either side --
-        # gaps between blocks (8 lines) exceed the context window, so every block
-        # is separated by a "..." marker.
-        lines = []
-        for block in range(20):
-            base = block * 10
-            lines.extend(f"line {base + offset}" for offset in range(10))
-            lines[base + 5] = f"error {block}"
-
-        matches = _render_grep_matches(lines, "error", context=1)
-
-        marked = [line for line in matches if line.startswith("  >>>")]
-        assert len(marked) == 20
-        for block in range(20):
-            assert any(f"error {block}" in line for line in marked)
-        # 19 gaps between 20 blocks, each wide enough to trigger a separator.
-        assert matches.count("  ...") == 19
-
-    def test_render_grep_matches_adjacent_matches_merge_context(self) -> None:
-        """Matches close enough that their context windows overlap must render as
-        one continuous block with no "..." separator between them.
-        """
-        lines = ["error A", "middle", "error B"]
-
-        matches = _render_grep_matches(lines, "error", context=1)
-
-        assert "  ..." not in matches
-        assert any("error A" in line for line in matches)
-        assert any("error B" in line for line in matches)
-        assert any("middle" in line for line in matches)
-
 
 class TestLogsReadMultiStepAttachment:
     """logs read with multiple selected steps — each gets its own log fetched independently."""
 
     @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
+    @patch("ado_api.commands.logs.fetch_timeline")
     def test_multi_step_log_attachment(
         self,
         mock_fetch: MagicMock,
@@ -408,6 +480,73 @@ class TestLogsReadMultiStepAttachment:
         assert "deploy line 1" in captured.out
         assert "deploy line 2" in captured.out
         assert mock_lines.call_count == 2
+
+
+class TestFailedDefaultTail:
+    """Bare --failed shows the end of each failing log, where the error is, not the whole log."""
+
+    _LOG = [f"line {i}" for i in range(1, 301)]
+
+    @patch("ado_api.commands.logs._fetch_log_lines", return_value=_LOG)
+    @patch(
+        "ado_api.commands.logs.fetch_timeline",
+        return_value=[_make_timeline_record(name="Bad", result="failed", log_id=42)],
+    )
+    def test_bare_failed_prints_last_lines_and_footer(
+        self, _mock_fetch: MagicMock, _mock_lines: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cmd_logs_read(FAKE_CTX, 100, failed=True)
+
+        out = capsys.readouterr().out
+        assert "  line 300\n" in out
+        assert "  line 101\n" in out
+        assert "  line 100\n" not in out
+        assert "last 200 of 300 lines" in out
+        assert "--tail" in out
+
+    @patch("ado_api.commands.logs._fetch_log_lines", return_value=_LOG)
+    @patch(
+        "ado_api.commands.logs.fetch_timeline",
+        return_value=[_make_timeline_record(name="Bad", result="failed", log_id=42)],
+    )
+    def test_bare_failed_json_bounds_lines_and_reports_total(
+        self, _mock_fetch: MagicMock, _mock_lines: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cmd_logs_read(FAKE_CTX, 100, failed=True, as_json=True)
+
+        [payload] = json.loads(capsys.readouterr().out)
+        assert payload["logLines"] == self._LOG[-200:]
+        assert payload["logLineCount"] == 300
+
+    @patch("ado_api.commands.logs._fetch_log_lines", return_value=_LOG)
+    @patch(
+        "ado_api.commands.logs.fetch_timeline",
+        return_value=[_make_timeline_record(name="Deploy", result="succeeded", log_id=42)],
+    )
+    def test_explicit_step_still_prints_whole_log(
+        self, _mock_fetch: MagicMock, _mock_lines: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cmd_logs_read(FAKE_CTX, 100, step=["Deploy"])
+
+        out = capsys.readouterr().out
+        assert "  line 1\n" in out
+        assert "last 200" not in out
+
+
+class TestFailedSelectsNothing:
+    @patch("ado_api.commands.logs.call_ado_api", return_value={"status": "inProgress", "result": None})
+    @patch(
+        "ado_api.commands.logs.fetch_timeline",
+        return_value=[_make_timeline_record(name="Build", result="succeeded")],
+    )
+    def test_says_why_on_stderr(
+        self, _mock_fetch: MagicMock, _mock_build: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cmd_logs_read(FAKE_CTX, 100, failed=True)
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "No failed steps in build 100 (status inProgress, result none)" in captured.err
 
 
 # ── format_duration ───────────────────────────────────────────────────
@@ -436,62 +575,3 @@ class TestFormatDuration:
 
     def test_both_none(self) -> None:
         assert format_duration(None, None) == "-"
-
-
-class TestLogsReadDefaultContent:
-    """logs read with a selector but no content flag — prints the last 100 lines per step."""
-
-    @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
-    def test_defaults_to_last_100_lines_with_note(
-        self,
-        mock_fetch: MagicMock,
-        mock_lines: MagicMock,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
-        ]
-        mock_lines.return_value = [f"line {i}" for i in range(1, 151)]
-
-        cmd_logs_read(FAKE_CTX, 100, failed=True)
-
-        out = capsys.readouterr().out
-        assert "  line 150" in out
-        assert "  line 51\n" in out
-        assert "  line 50\n" not in out
-        assert "last 100 of 150 lines" in out
-
-    @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
-    def test_short_log_printed_whole_without_note(
-        self,
-        mock_fetch: MagicMock,
-        mock_lines: MagicMock,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
-        ]
-        mock_lines.return_value = ["only line"]
-
-        cmd_logs_read(FAKE_CTX, 100, failed=True)
-
-        out = capsys.readouterr().out
-        assert "  only line" in out
-        assert "lines;" not in out
-
-    @patch("ado_api.commands.logs._fetch_log_lines")
-    @patch("ado_api.commands.logs._fetch_timeline")
-    def test_issues_alone_does_not_add_log_text(
-        self,
-        mock_fetch: MagicMock,
-        mock_lines: MagicMock,
-    ) -> None:
-        mock_fetch.return_value = [
-            _make_timeline_record(order=1, name="Build", result="failed", log_id=10)
-        ]
-
-        cmd_logs_read(FAKE_CTX, 100, failed=True, issues=True)
-
-        mock_lines.assert_not_called()

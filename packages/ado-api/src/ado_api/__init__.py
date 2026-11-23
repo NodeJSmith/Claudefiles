@@ -1,1 +1,1 @@
-"""Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items."""
+"""ado-api — Azure DevOps CLI for builds, logs, and PR management."""

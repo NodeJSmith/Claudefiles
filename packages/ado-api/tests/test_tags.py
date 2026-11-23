@@ -50,9 +50,7 @@ class TestParseTagsToDict:
         assert parse_tags_to_dict(["PR-49730"]) == {"pr": "49730"}
 
     def test_legacy_env_timestamp_format(self):
-        result = parse_tags_to_dict(
-            ["dev-2026-07-24T15:09:07", "stage-2026-07-24T15:09:12"]
-        )
+        result = parse_tags_to_dict(["dev-2026-07-24T15:09:07", "stage-2026-07-24T15:09:12"])
         assert result == {"dev": "2026-07-24T15:09:07", "stage": "2026-07-24T15:09:12"}
 
     def test_bare_commit_hash(self):
@@ -117,10 +115,7 @@ class TestFormatTagFunctions:
         commit_tag = format_commit_tag("27eba981")
         pr_tag = format_pr_tag(49846)
 
-        assert parse_tags_to_dict([commit_tag, pr_tag]) == {
-            "commit": "27eba981",
-            "pr": "49846",
-        }
+        assert parse_tags_to_dict([commit_tag, pr_tag]) == {"commit": "27eba981", "pr": "49846"}
         assert TAG_PR_RE.match(pr_tag)
 
 

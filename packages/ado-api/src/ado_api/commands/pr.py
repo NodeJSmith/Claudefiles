@@ -2,56 +2,44 @@
 
 import re
 import sys
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.work_item import _create_work_item
-from ado_api.formatting import json_output, summarize_counts, truncate, tsv_table
-from ado_api.git import GitError, get_current_branch
+from ado_api.exit_codes import EXIT_API_ERROR, EXIT_FAILURE
+from ado_api.formatting import Record, json_output, print_result, print_table
+from ado_api.git import GitError, get_current_branch, get_default_branch
+from ado_api.prompt import confirm_or_exit
+from ado_api.refs import branch_ref, branch_ref_query
 
-VALID_THREAD_STATUSES = frozenset(
-    {"active", "byDesign", "closed", "fixed", "pending", "wontFix"}
-)
+ThreadStatus = Literal["active", "byDesign", "closed", "fixed", "pending", "wontFix"]
+PrStatus = Literal["active", "abandoned", "completed"]
+PrListStatus = Literal["active", "abandoned", "completed", "all"]
+
+_RESOLUTION_LABELS = {"resolved": "Resolved", "skipped": "Skipped", "failed": "Failed"}
 
 _LIST_HEADERS = ("ID", "TITLE", "SOURCE", "TARGET", "STATUS", "AUTHOR")
 
 _DEFAULT_TOP = 50
 
-# ADO's PR list API has no server-side filter for a display-name/uniqueName
-# substring (only `searchCriteria.creatorId`, a GUID), so an `--author` search has
-# to page through results and filter client-side. These bound how much a single
-# `--author` search will scan: page size per request, and a hard cap on pages so a
-# repo with no matches for the given author can't turn into an unbounded scan.
-_AUTHOR_SEARCH_PAGE_SIZE = 100
-_AUTHOR_SEARCH_MAX_PAGES = 20
+# ADO rejects longer PR descriptions with a bare 400.
+MAX_DESCRIPTION_CHARS = 4000
 
 
 _THREAD_HEADERS = ("ID", "STATUS", "AUTHOR", "CONTENT")
 
 
 def _pr_base_url(ctx: AdoContext) -> str:
-    """Build the base URL for PR REST API calls scoped to a specific repository.
-
-    Requires a resolved ``ctx.repo`` — every ``pr`` subcommand except ``pr list``
-    gets one via ``_get_repo_or_exit()`` before reaching this function. ``pr list``
-    uses :func:`_pr_list_base_url` instead so it can fall back to a project-wide
-    listing when there is no repo.
-    """
+    """Build the base URL for PR REST API calls on ``ctx.repo``, which every PR command but ``pr list`` requires."""
     if ctx.repo is None:
-        msg = "_pr_base_url requires ctx.repo to be set for this operation."
+        msg = "This PR operation needs a repository."
         raise ValueError(msg)
     return f"{ctx.config.base_url}/_apis/git/repositories/{quote(ctx.repo, safe='')}/pullrequests"
 
 
 def _pr_list_base_url(ctx: AdoContext) -> str:
-    """Build the base URL for listing PRs.
-
-    Repository-scoped when ``ctx.repo`` is set. Falls back to ADO's project-wide
-    "Get Pull Requests By Project" endpoint when it isn't, since ``pr list`` is the
-    one ``pr`` subcommand that supports running outside a git repository (see
-    ``cli/commands/pr.py``'s ``cli_pr_list``, which uses ``_get_repo_or_none()``).
-    """
+    """The repo's PRs, or every repo's in the project when ``pr list`` runs outside a checkout without ``--repo``."""
     if ctx.repo is None:
         return f"{ctx.config.base_url}/_apis/git/pullrequests"
     return _pr_base_url(ctx)
@@ -80,7 +68,7 @@ def detect_pr_id(ctx: AdoContext) -> int:
     branch = get_current_branch()
     url = (
         f"{_pr_base_url(ctx)}"
-        f"?searchCriteria.sourceRefName=refs/heads/{quote(branch, safe='/')}"
+        f"?searchCriteria.sourceRefName={branch_ref_query(branch)}"
         f"&searchCriteria.status=active"
         f"&api-version={ADO_API_VERSION}"
     )
@@ -88,11 +76,8 @@ def detect_pr_id(ctx: AdoContext) -> int:
     prs: list[dict[str, Any]] = data.get("value", [])
 
     if len(prs) == 0:
-        print(
-            f"No active PR found for branch '{branch}' in repo '{ctx.repo}'.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        print(f"Error: no active PR for branch '{branch}' in repo '{ctx.repo}'. Pass a PR ID.", file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
 
     if len(prs) == 1:
         pr = prs[0]
@@ -105,7 +90,7 @@ def detect_pr_id(ctx: AdoContext) -> int:
 
     # Multiple PRs — disambiguate
     print(
-        f"Multiple active PRs found for branch '{branch}' in repo '{ctx.repo}':",
+        f"Error: several active PRs for branch '{branch}' in repo '{ctx.repo}'. Pass a PR ID:",
         file=sys.stderr,
     )
     for pr in prs:
@@ -113,20 +98,13 @@ def detect_pr_id(ctx: AdoContext) -> int:
         title = pr.get("title", "")
         pr_id = pr["pullRequestId"]
         print(f"  #{pr_id}  -> {target}  {title}", file=sys.stderr)
-    print("Specify a PR ID explicitly.", file=sys.stderr)
-    sys.exit(1)
-
-
-def _short_refs(pr: dict[str, Any]) -> tuple[str, str]:
-    """Return a PR's (source, target) branch names with ``refs/heads/`` stripped."""
-    source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
-    target = pr.get("targetRefName", "").removeprefix("refs/heads/")
-    return source, target
+    sys.exit(EXIT_FAILURE)
 
 
 def _pr_to_row(pr: dict[str, Any]) -> tuple[str, ...]:
     """Convert a PR API response to a TSV row."""
-    source, target = _short_refs(pr)
+    source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
+    target = pr.get("targetRefName", "").removeprefix("refs/heads/")
     author = pr.get("createdBy", {}).get("uniqueName", "")
     return (
         str(pr.get("pullRequestId", "")),
@@ -138,9 +116,24 @@ def _pr_to_row(pr: dict[str, Any]) -> tuple[str, ...]:
     )
 
 
-def _pr_to_dict(pr: dict[str, Any]) -> dict[str, Any]:
-    """Convert a PR API response to a simplified dict for JSON output."""
-    source, target = _short_refs(pr)
+def _commit_id(pr: dict[str, Any], key: str) -> str | None:
+    commit = pr.get(key)
+    return commit.get("commitId") if isinstance(commit, dict) else None
+
+
+def _pr_web_url(ctx: AdoContext, pr: dict[str, Any]) -> str:
+    repo = (pr.get("repository") or {}).get("name") or ctx.repo
+    return f"{ctx.config.base_url}/_git/{repo}/pullrequest/{pr.get('pullRequestId')}"
+
+
+def _pr_to_dict(ctx: AdoContext, pr: dict[str, Any]) -> dict[str, Any]:
+    """Convert a PR API response to a simplified dict for JSON output.
+
+    ``sourceCommit`` is the PR head and ``mergeCommit`` the trial merge ADO builds
+    against; ``mergeStatus`` is only populated after ADO has attempted that merge.
+    """
+    source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
+    target = pr.get("targetRefName", "").removeprefix("refs/heads/")
     return {
         "id": pr.get("pullRequestId"),
         "title": pr.get("title"),
@@ -150,11 +143,13 @@ def _pr_to_dict(pr: dict[str, Any]) -> dict[str, Any]:
         "author": pr.get("createdBy", {}).get("uniqueName"),
         "isDraft": pr.get("isDraft"),
         "creationDate": pr.get("creationDate"),
+        "sourceCommit": _commit_id(pr, "lastMergeSourceCommit"),
+        "targetCommit": _commit_id(pr, "lastMergeTargetCommit"),
+        "mergeCommit": _commit_id(pr, "lastMergeCommit"),
+        "mergeStatus": pr.get("mergeStatus"),
+        "url": _pr_web_url(ctx, pr),
         "description": pr.get("description"),
     }
-
-
-# ── Public command handlers ───────────────────────────────────────────
 
 
 def _matches_author(pr: dict[str, Any], author: str) -> bool:
@@ -166,65 +161,34 @@ def _matches_author(pr: dict[str, Any], author: str) -> bool:
     return author_lower in unique_name or author_lower in display_name
 
 
-def _fetch_prs_matching_author(
-    ctx: AdoContext, *, status: str, author: str, top: int
-) -> list[dict[str, Any]]:
-    """Page through PRs, applying the author filter before truncating to *top*.
-
-    Filtering the ``--top`` page instead of the full result set can silently drop
-    an author's PRs when other authors' PRs fill the first page. Paging server-side
-    ``$top``/``$skip`` and filtering as pages arrive fixes that without requiring a
-    server-side author filter this API doesn't offer for a substring match.
-    """
-    matches: list[dict[str, Any]] = []
-    skip = 0
-    pages_fetched = 0
-    for _ in range(_AUTHOR_SEARCH_MAX_PAGES):
-        url = (
-            f"{_pr_list_base_url(ctx)}?searchCriteria.status={status}"
-            f"&$top={_AUTHOR_SEARCH_PAGE_SIZE}&$skip={skip}"
-            f"&api-version={ADO_API_VERSION}"
-        )
-        data = call_ado_api("GET", url, pat=ctx.pat)
-        page: list[dict[str, Any]] = data.get("value", [])
-        pages_fetched += 1
-        if not page:
-            break
-        matches.extend(pr for pr in page if _matches_author(pr, author))
-        if len(matches) >= top or len(page) < _AUTHOR_SEARCH_PAGE_SIZE:
-            break
-        skip += _AUTHOR_SEARCH_PAGE_SIZE
-    else:
-        print(
-            f"Warning: stopped after {_AUTHOR_SEARCH_MAX_PAGES} pages "
-            f"({pages_fetched * _AUTHOR_SEARCH_PAGE_SIZE} PRs); more PRs may exist for "
-            "this author. Narrow --status or increase the search window.",
-            file=sys.stderr,
-        )
-    return matches[:top]
-
-
 def cmd_pr_list(
     ctx: AdoContext,
     *,
     status: str = "active",
     author: str | None = None,
+    source: str | None = None,
+    target: str | None = None,
     top: int = _DEFAULT_TOP,
     as_json: bool = False,
 ) -> None:
-    """List pull requests for the repository."""
+    """List pull requests for the repository (or the whole project with no repo), optionally by source/target branch."""
+    url = f"{_pr_list_base_url(ctx)}?searchCriteria.status={status}&$top={top}&api-version={ADO_API_VERSION}"
+    if source:
+        url += f"&searchCriteria.sourceRefName={branch_ref_query(source)}"
+    if target:
+        url += f"&searchCriteria.targetRefName={branch_ref_query(target)}"
+
+    data = call_ado_api("GET", url, pat=ctx.pat)
+    prs: list[dict[str, Any]] = data.get("value", [])
+
     if author is not None:
-        prs = _fetch_prs_matching_author(ctx, status=status, author=author, top=top)
-    else:
-        url = f"{_pr_list_base_url(ctx)}?searchCriteria.status={status}&$top={top}&api-version={ADO_API_VERSION}"
-        data = call_ado_api("GET", url, pat=ctx.pat)
-        prs = data.get("value", [])
+        prs = [pr for pr in prs if _matches_author(pr, author)]
 
     if as_json:
-        json_output([_pr_to_dict(pr) for pr in prs])
+        json_output([_pr_to_dict(ctx, pr) for pr in prs])
     else:
         rows = [_pr_to_row(pr) for pr in prs]
-        tsv_table(rows, headers=_LIST_HEADERS)
+        print_table(rows, headers=_LIST_HEADERS, empty="No pull requests found.")
 
 
 def cmd_pr_show(
@@ -244,9 +208,10 @@ def cmd_pr_show(
     pr = call_ado_api("GET", url, pat=ctx.pat)
 
     if as_json:
-        json_output(_pr_to_dict(pr))
+        json_output(_pr_to_dict(ctx, pr))
     else:
-        source, target = _short_refs(pr)
+        source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
+        target = pr.get("targetRefName", "").removeprefix("refs/heads/")
         author = pr.get("createdBy", {}).get("uniqueName", "")
         draft = " [DRAFT]" if pr.get("isDraft") else ""
         print(f"#{pr.get('pullRequestId')}  {pr.get('title')}{draft}")
@@ -255,6 +220,16 @@ def cmd_pr_show(
         description = pr.get("description")
         if description:
             print(f"\n{description}")
+
+
+def _check_description_length(description: str | None) -> None:
+    """Exit with a clear error before ADO rejects an over-long description with a bare 400."""
+    if description is not None and len(description) > MAX_DESCRIPTION_CHARS:
+        print(
+            f"Error: description is {len(description)} characters; ADO's limit is {MAX_DESCRIPTION_CHARS}.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_FAILURE)
 
 
 def cmd_pr_create(
@@ -269,26 +244,23 @@ def cmd_pr_create(
 ) -> None:
     """Create a new pull request.
 
-    If *source* is ``None``, uses the current branch.
-    If *target* is ``None``, the ADO API default target is used.
+    If *source* is ``None``, uses the current branch; if *target* is ``None``, the repo's
+    default branch (ADO requires both).
     """
+    _check_description_length(description)
     if source is None:
         try:
             source = get_current_branch()
         except GitError as exc:
-            print(
-                f"Cannot detect source branch: {exc}. Use --source to specify explicitly.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            print(f"Error: cannot detect the source branch: {exc}. Pass --source.", file=sys.stderr)
+            sys.exit(EXIT_FAILURE)
 
     body: dict[str, Any] = {
-        "sourceRefName": f"refs/heads/{source}",
+        "sourceRefName": branch_ref(source),
+        "targetRefName": branch_ref(target or get_default_branch()),
         "title": title,
         "isDraft": draft,
     }
-    if target is not None:
-        body["targetRefName"] = f"refs/heads/{target}"
     if description is not None:
         body["description"] = description
 
@@ -296,7 +268,7 @@ def cmd_pr_create(
     pr = call_ado_api("POST", url, pat=ctx.pat, data=body)
 
     if as_json:
-        json_output(_pr_to_dict(pr))
+        json_output(_pr_to_dict(ctx, pr))
     else:
         pr_id = pr.get("pullRequestId")
         pr_target = pr.get("targetRefName", "").removeprefix("refs/heads/")
@@ -308,7 +280,7 @@ def cmd_pr_create(
 
 def cmd_pr_update(
     ctx: AdoContext,
-    pr_id: int,
+    pr_id: int | None = None,
     *,
     title: str | None = None,
     description: str | None = None,
@@ -318,8 +290,10 @@ def cmd_pr_update(
 ) -> None:
     """Update fields on an existing pull request.
 
-    Only provided fields are sent in the PATCH body.
+    Only provided fields are sent in the PATCH body. If *pr_id* is ``None``, auto-detects
+    from the current branch.
     """
+    _check_description_length(description)
     body: dict[str, Any] = {}
     if title is not None:
         body["title"] = title
@@ -331,20 +305,19 @@ def cmd_pr_update(
         body["isDraft"] = draft
 
     if not body:
-        print("Nothing to update — provide at least one field.", file=sys.stderr)
-        sys.exit(1)
+        print("Error: nothing to update. Pass --title, --description, --status or --draft.", file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+    if pr_id is None:
+        pr_id = detect_pr_id(ctx)
 
     url = f"{_pr_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
     pr = call_ado_api("PATCH", url, pat=ctx.pat, data=body)
 
     if as_json:
-        json_output(_pr_to_dict(pr))
+        json_output(_pr_to_dict(ctx, pr))
     else:
         print(f"Updated PR #{pr.get('pullRequestId')}: {pr.get('title')}")
         print(f"  Status: {pr.get('status')}")
-
-
-# ── Thread helpers ────────────────────────────────────────────────────
 
 
 def _threads_url(ctx: AdoContext, pr_id: int) -> str:
@@ -357,21 +330,17 @@ def _thread_url(ctx: AdoContext, pr_id: int, thread_id: int) -> str:
     return f"{_threads_url(ctx, pr_id)}/{thread_id}"
 
 
-def _validate_thread_status(status: str) -> None:
-    """Validate that *status* is a known thread status; exit on invalid."""
-    if status not in VALID_THREAD_STATUSES:
-        print(
-            f"Invalid thread status '{status}'. Valid values: {', '.join(sorted(VALID_THREAD_STATUSES))}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+def _is_system_thread(thread: dict[str, Any]) -> bool:
+    """True for ADO's own event threads (policy updates, pushes, votes), which carry no review content."""
+    comments = thread.get("comments") or []
+    return bool(comments) and comments[0].get("commentType") == "system"
 
 
 def _comment_to_dict(comment: dict[str, Any]) -> dict[str, Any]:
     """Convert a single comment API response to a simplified dict."""
     return {
         "id": comment.get("id"),
-        "author": comment.get("author", {}).get("uniqueName"),
+        "author": (comment.get("author") or {}).get("uniqueName"),
         "content": comment.get("content"),
         "publishedDate": comment.get("publishedDate"),
         "parentCommentId": comment.get("parentCommentId", 0),
@@ -381,11 +350,14 @@ def _comment_to_dict(comment: dict[str, Any]) -> dict[str, Any]:
 def _thread_to_dict(thread: dict[str, Any]) -> dict[str, Any]:
     """Convert a thread API response to a simplified dict with all comments."""
     comments = thread.get("comments", [])
+    context = thread.get("threadContext") or {}
+    start = context.get("rightFileStart") or context.get("leftFileStart") or {}
     return {
         "id": thread.get("id"),
         "status": thread.get("status"),
         "publishedDate": thread.get("publishedDate"),
-        "isDeleted": thread.get("isDeleted", False),
+        "filePath": context.get("filePath"),
+        "line": start.get("line"),
         "comments": [_comment_to_dict(c) for c in comments],
     }
 
@@ -399,16 +371,14 @@ def _thread_to_row(thread: dict[str, Any]) -> tuple[str, ...]:
     content = content.replace("\n", " ").replace("\r", "")
     # Truncate long content for table display (CHECK BEFORE MERGE threads are
     # ~300 chars with the pipeline name at the end — preserve enough to identify them)
-    content = truncate(content, 350)
+    if len(content) > 350:
+        content = content[:347] + "..."
     return (
         str(thread.get("id", "")),
         str(thread.get("status", "")),
-        first_comment.get("author", {}).get("uniqueName", ""),
+        (first_comment.get("author") or {}).get("uniqueName", ""),
         content,
     )
-
-
-# ── Thread command handlers ───────────────────────────────────────────
 
 
 def cmd_pr_threads(
@@ -430,16 +400,16 @@ def cmd_pr_threads(
     data = call_ado_api("GET", url, pat=ctx.pat)
     threads: list[dict[str, Any]] = data.get("value", [])
 
+    threads = [t for t in threads if not t.get("isDeleted") and not _is_system_thread(t)]
     if not show_all:
         threads = [t for t in threads if t.get("status") == "active"]
-
-    print(f"PR #{pr_id} — {len(threads)} thread(s)", file=sys.stderr)
 
     if as_json:
         json_output([_thread_to_dict(t) for t in threads])
     else:
+        print(f"PR #{pr_id} — {len(threads)} thread(s)", file=sys.stderr)
         rows = [_thread_to_row(t) for t in threads]
-        tsv_table(rows, headers=_THREAD_HEADERS)
+        print_table(rows, headers=_THREAD_HEADERS)
 
 
 def cmd_pr_thread_add(
@@ -486,14 +456,12 @@ def cmd_pr_reply(
     """
     if parent_id is None:
         # Fetch thread to get last comment ID
-        thread_url = (
-            f"{_thread_url(ctx, pr_id, thread_id)}?api-version={ADO_API_VERSION}"
-        )
+        thread_url = f"{_thread_url(ctx, pr_id, thread_id)}?api-version={ADO_API_VERSION}"
         thread = call_ado_api("GET", thread_url, pat=ctx.pat)
         comments = thread.get("comments", [])
         if not comments:
-            print(f"Thread #{thread_id} has no comments to reply to.", file=sys.stderr)
-            sys.exit(1)
+            print(f"Error: thread {thread_id} has no comments to reply to.", file=sys.stderr)
+            sys.exit(EXIT_FAILURE)
         parent_id = comments[-1]["id"]
 
     url = f"{_thread_url(ctx, pr_id, thread_id)}/comments?api-version={ADO_API_VERSION}"
@@ -515,9 +483,24 @@ def cmd_pr_reply(
             }
         )
     else:
-        print(
-            f"Replied to thread #{thread_id} on PR #{pr_id} (comment #{comment.get('id')})"
-        )
+        print(f"Replied to thread #{thread_id} on PR #{pr_id} (comment #{comment.get('id')})")
+
+
+class ThreadResolution(Record):
+    """One thread a resolve command considered.
+
+    ``skipped`` threads were no longer active. ``planned`` threads become ``resolved`` or
+    ``failed`` once run; ``failed`` also covers a thread whose lookup failed. *thread_status*
+    is the status set (or to be set) on the thread; *preview* is the start of its first
+    comment, filled in by ``resolve-pattern``.
+    """
+
+    thread_id: int
+    status: Literal["planned", "skipped", "resolved", "failed"]
+    thread_status: ThreadStatus | None = None
+    preview: str = ""
+    reason: str | None = None
+    error: str | None = None
 
 
 def cmd_pr_resolve(
@@ -525,51 +508,26 @@ def cmd_pr_resolve(
     pr_id: int,
     thread_ids: list[int],
     *,
-    status: str = "fixed",
+    status: ThreadStatus = "fixed",
+    as_json: bool = False,
 ) -> None:
-    """Resolve one or more threads on a pull request.
-
-    For each thread, checks whether it is already resolved before patching.
-    Continues processing remaining threads if one fails.
-    """
-    _validate_thread_status(status)
-
-    resolved = 0
-    skipped = 0
-    failed = 0
-
+    """Set threads to *status*, skipping ones that are no longer active. Continues past failures."""
+    records: list[ThreadResolution] = []
     for tid in thread_ids:
         try:
-            # Fetch thread to check current status
             thread_url = f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
-            thread = call_ado_api("GET", thread_url, pat=ctx.pat)
-            current_status = thread.get("status")
-
-            if current_status != "active":
-                print(
-                    f"Thread #{tid}: already '{current_status}' — skipped",
-                    file=sys.stderr,
-                )
-                skipped += 1
-                continue
-
-            patch_url = f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
-            call_ado_api("PATCH", patch_url, pat=ctx.pat, data={"status": status})
-            print(f"Thread #{tid}: resolved as '{status}'")
-            resolved += 1
+            current_status = call_ado_api("GET", thread_url, pat=ctx.pat).get("status")
         except AdoApiError as exc:
-            failed += 1
-            print(f"Thread #{tid}: failed — {exc}", file=sys.stderr)
-
-    # Summary
-    summary = summarize_counts(
-        [("Resolved", resolved), ("Skipped", skipped), ("Failed", failed)]
-    )
-    if summary:
-        print(f"\n{summary}")
-
-    if failed:
-        sys.exit(1)
+            print(f"Failed thread {tid}: {exc}", file=sys.stderr)
+            records.append(ThreadResolution(thread_id=tid, status="failed", error=str(exc)))
+            continue
+        if current_status != "active":
+            print_result(f"Skipped thread {tid}: already {current_status}", as_json=as_json)
+            records.append(ThreadResolution(thread_id=tid, status="skipped", reason=f"already {current_status}"))
+            continue
+        planned = ThreadResolution(thread_id=tid, status="planned", thread_status=status)
+        records.append(_resolve_one(ctx, pr_id, planned, as_json=as_json))
+    _report_resolutions(records, as_json=as_json)
 
 
 def cmd_pr_resolve_pattern(
@@ -577,57 +535,69 @@ def cmd_pr_resolve_pattern(
     pr_id: int,
     pattern: str,
     *,
-    status: str = "fixed",
-    execute: bool = False,
+    status: ThreadStatus = "fixed",
     first_comment: bool = False,
+    yes: bool = False,
+    dry_run: bool = False,
+    as_json: bool = False,
 ) -> None:
-    """Resolve threads whose content matches a regex pattern.
+    """Set every active thread whose content matches *pattern* (case-insensitive) to *status*.
 
-    Defaults to dry-run mode. Set *execute* to ``True`` to apply changes.
-    When *first_comment* is ``True``, only the first comment in each thread
-    is checked against the pattern.
+    Shows the matches and prompts first; *dry_run* only lists them. With *first_comment*,
+    only each thread's first comment is matched.
     """
-    _validate_thread_status(status)
-
     url = f"{_threads_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
-    data = call_ado_api("GET", url, pat=ctx.pat)
-    threads: list[dict[str, Any]] = data.get("value", [])
+    threads: list[dict[str, Any]] = call_ado_api("GET", url, pat=ctx.pat).get("value", [])
 
-    # Filter to active threads only
-    active_threads = [t for t in threads if t.get("status") == "active"]
-
-    matches: list[dict[str, Any]] = []
-    for thread in active_threads:
-        comments = thread.get("comments", [])
-        search_comments = comments[:1] if first_comment else comments
-        for comment in search_comments:
-            content = comment.get("content") or ""
-            if re.search(pattern, content, re.IGNORECASE):
-                matches.append(thread)
-                break
-
-    if not matches:
-        print(f"No active threads matching /{pattern}/ on PR #{pr_id}", file=sys.stderr)
-        return
-
-    mode = "EXECUTE" if execute else "DRY RUN"
-    print(f"[{mode}] {len(matches)} thread(s) matching /{pattern}/ on PR #{pr_id}:")
-
-    for thread in matches:
-        tid: int | None = thread.get("id")
-        if tid is None:
+    planned: list[ThreadResolution] = []
+    for thread in threads:
+        if thread.get("status") != "active" or thread.get("id") is None:
             continue
-        first = (thread.get("comments") or [{}])[0]
-        content_preview = (first.get("content") or "")[:60].replace("\n", " ")
-        print(f"  #{tid}: {content_preview}")
+        comments = thread.get("comments") or []
+        searched = comments[:1] if first_comment else comments
+        if any(re.search(pattern, c.get("content") or "", re.IGNORECASE) for c in searched):
+            preview = ((comments or [{}])[0].get("content") or "")[:60].replace("\n", " ")
+            planned.append(
+                ThreadResolution(thread_id=thread["id"], status="planned", thread_status=status, preview=preview)
+            )
 
-        if execute:
-            patch_url = f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
-            call_ado_api("PATCH", patch_url, pat=ctx.pat, data={"status": status})
-            print(f"    -> resolved as '{status}'")
+    if not planned:
+        print(f"No active threads matching /{pattern}/ on PR #{pr_id}", file=sys.stderr)
+        if as_json:
+            json_output([])
+        return
+    if not as_json:
+        print_table([(str(r.thread_id), r.preview) for r in planned], headers=("THREAD", "PREVIEW"))
+    if dry_run:
+        print(f"\nDry run: would resolve {len(planned)} thread(s) as {status}.", file=sys.stderr)
+        if as_json:
+            json_output(planned)
+        return
+    confirm_or_exit(f"Resolve {len(planned)} thread(s) as {status}?", yes=yes)
+    _report_resolutions([_resolve_one(ctx, pr_id, r, as_json=as_json) for r in planned], as_json=as_json)
 
 
-# ── Work item helpers and commands ────────────────────────────────────
+def _resolve_one(ctx: AdoContext, pr_id: int, record: ThreadResolution, *, as_json: bool) -> ThreadResolution:
+    """Set a planned thread to its *thread_status*."""
+    patch_url = f"{_thread_url(ctx, pr_id, record.thread_id)}?api-version={ADO_API_VERSION}"
+    try:
+        call_ado_api("PATCH", patch_url, pat=ctx.pat, data={"status": record.thread_status})
+    except AdoApiError as exc:
+        print(f"Failed thread {record.thread_id}: {exc}", file=sys.stderr)
+        return record.model_copy(update={"status": "failed", "error": str(exc)})
+    print_result(f"Resolved thread {record.thread_id}: {record.thread_status}", as_json=as_json)
+    return record.model_copy(update={"status": "resolved"})
+
+
+def _report_resolutions(records: list[ThreadResolution], *, as_json: bool) -> None:
+    counts = {label: sum(r.status == key for r in records) for key, label in _RESOLUTION_LABELS.items()}
+    summary = ", ".join(f"{label}: {n}" for label, n in counts.items() if n)
+    if summary:
+        print(f"\n{summary}", file=sys.stderr)
+    if as_json:
+        json_output(records)
+    if any(r.status == "failed" for r in records):
+        sys.exit(EXIT_API_ERROR)
 
 
 def _work_item_ref_to_dict(ref: dict[str, Any]) -> dict[str, Any]:
@@ -699,13 +669,7 @@ def _link_work_item_to_pr(
     ]
     url = f"{ctx.config.base_url}/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
     try:
-        call_ado_api(
-            "PATCH",
-            url,
-            pat=ctx.pat,
-            data=patch_body,
-            content_type="application/json-patch+json",
-        )
+        call_ado_api("PATCH", url, pat=ctx.pat, data=patch_body, content_type="application/json-patch+json")
     except AdoApiError as exc:
         if "Relation already exists" in str(exc):
             return
@@ -733,17 +697,12 @@ def _unlink_work_item_from_pr(
     # Find the relation index matching this PR artifact URL
     relation_index: int | None = None
     for i, rel in enumerate(relations):
-        if (
-            rel.get("rel") == "ArtifactLink"
-            and (rel.get("url") or "").lower() == artifact_url.lower()
-        ):
+        if rel.get("rel") == "ArtifactLink" and (rel.get("url") or "").lower() == artifact_url.lower():
             relation_index = i
             break
 
     if relation_index is None:
-        msg = (
-            f"Work item {work_item_id} has no ArtifactLink relation for {artifact_url}"
-        )
+        msg = f"Work item {work_item_id} has no ArtifactLink relation for {artifact_url}"
         raise AdoApiError(msg)
 
     patch_body = [
@@ -753,9 +712,7 @@ def _unlink_work_item_from_pr(
         }
     ]
     patch_url = f"{ctx.config.base_url}/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
-    # relation_index is only valid against the relations array as fetched above --
-    # a retry after a successful-but-unacknowledged first PATCH would remove
-    # whatever relation shifted into that slot instead. Not safe to retry.
+    # Removal is by array index, so a retry after an unacknowledged success would remove another relation.
     call_ado_api(
         "PATCH",
         patch_url,
@@ -775,7 +732,7 @@ def _run_az_pr_work_item(
     """Add or remove work items from a PR via the Work Item Tracking API.
 
     Links are ArtifactLink relations on the work item pointing to the PR's
-    artifact URL. This mirrors what ``az repos pr work-item add/remove`` does.
+    artifact URL.
 
     Args:
         action: "add" or "remove"
@@ -824,47 +781,45 @@ def cmd_pr_work_item_list(
         json_output([_work_item_ref_to_dict(ref) for ref in refs])
     else:
         rows = [_work_item_ref_to_row(ref) for ref in refs]
-        tsv_table(rows, headers=("ID", "URL"))
+        print_table(rows, headers=("ID", "URL"), empty=f"No work items linked to PR #{pr_id}.")
+
+
+class WorkItemLink(Record):
+    """One work item a ``work-item-add``/``-remove`` call linked, unlinked, or failed on."""
+
+    work_item_id: int
+    status: Literal["linked", "unlinked", "failed"]
+    error: str | None = None
 
 
 def _cmd_pr_work_item_mutate(
-    action: str,
+    action: Literal["add", "remove"],
     ctx: AdoContext,
     pr_id: int | None = None,
     work_item_ids: list[int] | None = None,
     *,
     as_json: bool = False,
 ) -> None:
-    """Shared logic for add/remove work items on a pull request.
-
-    Implements partial success model: continues on per-item failures, reports
-    all results, exits 1 if any item fails.
-    """
+    """Link or unlink each work item, continuing past failures; exits 5 if any failed."""
     if pr_id is None:
         pr_id = detect_pr_id(ctx)
+    done_status, verb = ("linked", "Linked") if action == "add" else ("unlinked", "Unlinked")
 
-    if work_item_ids is None:
-        work_item_ids = []
-
-    results: list[dict[str, Any]] = []
-    any_failed = False
-
-    for work_item_id in work_item_ids:
+    results: list[WorkItemLink] = []
+    for work_item_id in work_item_ids or []:
         try:
             _run_az_pr_work_item(action, pr_id, ctx, [work_item_id])
-            results.append({"id": work_item_id, "status": "ok"})
         except AdoApiError as exc:
-            any_failed = True
-            results.append({"id": work_item_id, "status": "error", "message": str(exc)})
+            print(f"Failed work item {work_item_id}: {exc}", file=sys.stderr)
+            results.append(WorkItemLink(work_item_id=work_item_id, status="failed", error=str(exc)))
+            continue
+        print_result(f"{verb} work item {work_item_id}", as_json=as_json)
+        results.append(WorkItemLink(work_item_id=work_item_id, status=done_status))
 
     if as_json:
         json_output(results)
-    else:
-        rows = [(str(r["id"]), r["status"]) for r in results]
-        tsv_table(rows, headers=("ID", "STATUS"))
-
-    if any_failed:
-        sys.exit(1)
+    if any(r.status == "failed" for r in results):
+        sys.exit(EXIT_API_ERROR)
 
 
 def cmd_pr_work_item_add(
@@ -914,8 +869,8 @@ def cmd_pr_work_item_create(
 
     Workflow:
       1. Pre-flight: verify PR exists and user has permissions
-      2. Create work item via az CLI
-      3. Link work item to PR via az CLI
+      2. Create the work item
+      3. Link it to the PR
 
     On link failure, prints recovery command. Exit code is 1 on any failure.
     """
@@ -927,24 +882,19 @@ def cmd_pr_work_item_create(
         url = f"{_pr_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
         call_ado_api("GET", url, pat=ctx.pat)
     except AdoApiError:
-        print(f"PR #{pr_id} not found or insufficient permissions", file=sys.stderr)
-        sys.exit(1)
+        print(f"Error: PR #{pr_id} not found, or no permission to read it.", file=sys.stderr)
+        sys.exit(EXIT_API_ERROR)
 
-    # Create work item
-    try:
-        work_item = _create_work_item(
-            ctx,
-            title,
-            type_name,
-            assigned_to=assigned_to,
-            area=area,
-            iteration=iteration,
-            description=description,
-            fields=fields,
-        )
-    except AdoApiError as exc:
-        print(f"Error creating work item: {exc}", file=sys.stderr)
-        sys.exit(1)
+    work_item = _create_work_item(
+        ctx,
+        title,
+        type_name,
+        assigned_to=assigned_to,
+        area=area,
+        iteration=iteration,
+        description=description,
+        fields=fields,
+    )
 
     work_item_id = work_item["id"]
     print(f"Created work item #{work_item_id}", file=sys.stderr)
@@ -959,7 +909,7 @@ def cmd_pr_work_item_create(
             f"Link manually: ado-api pr work-item-add {pr_id} --work-items {work_item_id}",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_API_ERROR)
 
     # Output
     if as_json:
@@ -967,7 +917,7 @@ def cmd_pr_work_item_create(
         json_output(output)
     else:
         title_val = work_item.get("title") or ""
-        title_truncated = truncate(title_val, 60)
+        title_truncated = title_val[:57] + "..." if len(title_val) > 60 else title_val
         assigned_display = work_item.get("assignedTo") or "(unassigned)"
         rows = [
             [
@@ -979,4 +929,4 @@ def cmd_pr_work_item_create(
                 str(linked_to_pr),
             ]
         ]
-        tsv_table(rows, ["ID", "TYPE", "TITLE", "STATE", "ASSIGNED_TO", "LINKED_TO_PR"])
+        print_table(rows, headers=("ID", "TYPE", "TITLE", "STATE", "ASSIGNED_TO", "LINKED_TO_PR"))

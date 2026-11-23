@@ -5,39 +5,36 @@ Business logic lives in ``ado_api.commands.work_item``; this module wires cyclop
 ``AdoCliContext`` to the ``AdoContext`` that function expects.
 """
 
-from typing import Annotated
-
-from cyclopts import Parameter
-
-from ado_api.cli.context import (
-    DEFAULT_CLI_CONTEXT,
-    AdoCliContextParam,
-    make_ado_context,
-    resolve_file_text,
+from ado_api.cli.context import DEFAULT_CLI_CONTEXT, AdoCliContextParam, make_ado_context, resolve_file_text
+from ado_api.cli.params import (
+    AreaParam,
+    AssignedToParam,
+    DescriptionFileParam,
+    DescriptionParam,
+    FieldsParam,
+    IterationParam,
+    WorkItemTitleParam,
+    WorkItemTypeParam,
 )
 from ado_api.commands.work_item import cmd_work_item_create
 
 
 def cli_work_item_create(
     *,
-    title: str,
+    title: WorkItemTitleParam,
     # Shadows the `type` builtin intentionally — matches ADO's work item `--type` flag.
-    type: Annotated[str, Parameter(name="--type")],
-    assigned_to: Annotated[str | None, Parameter(name="--assigned-to")] = None,
-    area: str | None = None,
-    iteration: str | None = None,
-    description: Annotated[str | None, Parameter(allow_leading_hyphen=True)] = None,
-    description_file: Annotated[
-        str | None, Parameter(name="--description-file", allow_leading_hyphen=True)
-    ] = None,
-    fields: Annotated[list[str] | None, Parameter(allow_leading_hyphen=True)] = None,
+    type: WorkItemTypeParam,
+    assigned_to: AssignedToParam = None,
+    area: AreaParam = None,
+    iteration: IterationParam = None,
+    description: DescriptionParam = None,
+    description_file: DescriptionFileParam = None,
+    fields: FieldsParam = None,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Create a work item."""
-    resolved_description = resolve_file_text(
-        description, description_file, "description"
-    )
-    ado_ctx = make_ado_context(ctx)
+    resolved_description = resolve_file_text(description, description_file, "description")
+    ado_ctx = make_ado_context(ctx, announce=True)
     cmd_work_item_create(
         ado_ctx,
         title,

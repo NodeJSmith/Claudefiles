@@ -5,15 +5,18 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoApiError
+from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
 from ado_api.commands.work_item import (
     _create_work_item,
     _parse_work_item_response,
     cmd_work_item_create,
 )
-from tests.conftest import FAKE_CTX
 
 # ── Fixtures ──────────────────────────────────────────────────────────
+
+FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="My Project")
+FAKE_PAT = "fake-pat-token"
+FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
 
 
 def _make_work_item_response(
@@ -207,9 +210,7 @@ class TestCmdWorkItemCreate:
     """cmd_work_item_create — command handler with TSV/JSON output."""
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_tsv_output(
-        self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_tsv_output(self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         mock_create.return_value = {
             "id": 12345,
             "rev": 1,
@@ -240,14 +241,10 @@ class TestCmdWorkItemCreate:
         # Verify title truncation (60 chars)
         title_col = lines[1].split("\t")[2]
         assert len(title_col) == 60
-        assert (
-            title_col == "This is a really long title that should be truncated to s..."
-        )
+        assert title_col == "This is a really long title that should be truncated to s..."
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_tsv_output_unassigned(
-        self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_tsv_output_unassigned(self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         mock_create.return_value = {
             "id": 12345,
             "rev": 1,
@@ -275,9 +272,7 @@ class TestCmdWorkItemCreate:
         assert "(unassigned)" in lines[1]
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_json_output(
-        self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_json_output(self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         mock_create.return_value = {
             "id": 12345,
             "rev": 1,
@@ -310,10 +305,10 @@ class TestCmdWorkItemCreate:
         assert parsed["url"] == "https://dev.azure.com/myorg/_apis/wit/workItems/12345"
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_error_exits_1(self, mock_create: MagicMock) -> None:
+    def test_error_propagates(self, mock_create: MagicMock) -> None:
         mock_create.side_effect = AdoApiError("Failed to create work item")
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(AdoApiError):
             cmd_work_item_create(
                 FAKE_CTX,
                 title="New task",
@@ -325,5 +320,3 @@ class TestCmdWorkItemCreate:
                 description=None,
                 fields=None,
             )
-
-        assert exc_info.value.code == 1

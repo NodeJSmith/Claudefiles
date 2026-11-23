@@ -42,16 +42,10 @@ class TestBuildsListIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        ),
+        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
     )
     def test_builds_list_tsv(
-        self,
-        _mock_config: MagicMock,
-        _mock_pat: MagicMock,
-        mock_api: MagicMock,
-        capsys: pytest.CaptureFixture[str],
+        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
     ) -> None:
         mock_api.return_value = {"value": _BUILDS_LIST_DATA}
         with pytest.raises(SystemExit):
@@ -66,20 +60,14 @@ class TestBuildsListIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        ),
+        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
     )
     def test_builds_list_json(
-        self,
-        _mock_config: MagicMock,
-        _mock_pat: MagicMock,
-        mock_api: MagicMock,
-        capsys: pytest.CaptureFixture[str],
+        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
     ) -> None:
         mock_api.return_value = {"value": _BUILDS_LIST_DATA}
         with pytest.raises(SystemExit):
-            main(["builds", "list", "--json", "--tags", "abc1234"])
+            main(["builds", "list", "--json", "--tag", "abc1234"])
 
         result = json.loads(capsys.readouterr().out)
         assert isinstance(result, list)
@@ -89,16 +77,14 @@ class TestBuildsListIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        ),
+        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
     )
     def test_builds_list_with_tags_passes_flag(
         self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock
     ) -> None:
         mock_api.return_value = {"value": []}
         with pytest.raises(SystemExit):
-            main(["builds", "list", "--tags", "abc1234"])
+            main(["builds", "list", "--tag", "abc1234"])
 
         url = mock_api.call_args[0][1]
         assert "tagFilters=abc1234" in url
@@ -111,26 +97,20 @@ class TestBuildsCancelIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        ),
+        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
     )
     def test_builds_cancel_full_cli(
-        self,
-        _mock_config: MagicMock,
-        _mock_pat: MagicMock,
-        mock_api: MagicMock,
-        capsys: pytest.CaptureFixture[str],
+        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
     ) -> None:
         mock_api.side_effect = [
             {"id": 1002, "status": "inProgress"},  # GET show
             None,  # PATCH cancel
         ]
         with pytest.raises(SystemExit):
-            main(["builds", "cancel", "1002"])
+            main(["builds", "cancel", "1002", "--yes"])
 
         output = capsys.readouterr().out
-        assert "Cancelled 1002" in output
+        assert "Cancelled build 1002" in output
 
 
 class TestBuildsStepsIntegration:
@@ -146,9 +126,7 @@ class TestBuildsStepsIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         mock_pat.return_value = "fake-pat"
         mock_api.return_value = {
             "records": [
@@ -176,6 +154,7 @@ class TestBuildsStepsIntegration:
 class TestLogsReadIntegration:
     """Full CLI path: ado-api logs read <build-id> --failed --issues — replaces logs errors."""
 
+    @patch("ado_api.commands.logs.call_ado_api_text", return_value="")
     @patch("ado_api.commands.builds.call_ado_api")
     @patch("ado_api.az_client.get_pat")
     @patch("ado_api.az_client.get_ado_config")
@@ -184,11 +163,10 @@ class TestLogsReadIntegration:
         mock_config: MagicMock,
         mock_pat: MagicMock,
         mock_api: MagicMock,
+        _mock_log_text: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         mock_pat.return_value = "fake-pat"
         mock_api.return_value = {
             "records": [
@@ -227,9 +205,7 @@ class TestPrThreadsIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         mock_pat.return_value = "fake-pat"
         mock_repo.return_value = "my-repo"
         mock_api.return_value = {
@@ -290,9 +266,7 @@ class TestPrThreadsIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(
-            organization="https://dev.azure.com/org", project="Proj"
-        )
+        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         mock_pat.return_value = "fake-pat"
         mock_repo.return_value = "my-repo"
         mock_api.return_value = {
@@ -300,24 +274,12 @@ class TestPrThreadsIntegration:
                 {
                     "id": 1,
                     "status": "active",
-                    "comments": [
-                        {
-                            "id": 1,
-                            "content": "Active thread",
-                            "author": {"uniqueName": "a@b.com"},
-                        }
-                    ],
+                    "comments": [{"id": 1, "content": "Active thread", "author": {"uniqueName": "a@b.com"}}],
                 },
                 {
                     "id": 2,
                     "status": "fixed",
-                    "comments": [
-                        {
-                            "id": 1,
-                            "content": "Resolved thread",
-                            "author": {"uniqueName": "c@d.com"},
-                        }
-                    ],
+                    "comments": [{"id": 1, "content": "Resolved thread", "author": {"uniqueName": "c@d.com"}}],
                 },
             ],
         }
@@ -358,7 +320,9 @@ def _fake_ado_config() -> AdoConfig:
 class TestApprovePartialFailure:
     """Verify approve command continues processing after per-item failures."""
 
+    @patch("ado_api.commands.builds.call_ado_api", return_value={"value": []})
     @patch("ado_api.commands.approve.call_ado_api")
+    @patch("ado_api.cli.context.get_remote_project", return_value=None)
     @patch("ado_api.git.get_repo_name", return_value="my-repo")
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch("ado_api.az_client.get_ado_config")
@@ -367,7 +331,9 @@ class TestApprovePartialFailure:
         mock_config: MagicMock,
         _mock_pat: MagicMock,
         _mock_repo: MagicMock,
+        _mock_remote: MagicMock,
         mock_api: MagicMock,
+        _mock_history: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """When one approval fails and another succeeds, both are reported and exit code is 1."""
@@ -383,11 +349,7 @@ class TestApprovePartialFailure:
                     "pipeline": {
                         "name": "deploy-prod",
                         "owner": {
-                            "_links": {
-                                "self": {
-                                    "href": "https://dev.azure.com/org/Proj/_apis/build/builds/1001"
-                                }
-                            }
+                            "_links": {"self": {"href": "https://dev.azure.com/org/Proj/_apis/build/builds/1001"}}
                         },
                     },
                 },
@@ -397,11 +359,7 @@ class TestApprovePartialFailure:
                     "pipeline": {
                         "name": "deploy-stage",
                         "owner": {
-                            "_links": {
-                                "self": {
-                                    "href": "https://dev.azure.com/org/Proj/_apis/build/builds/1002"
-                                }
-                            }
+                            "_links": {"self": {"href": "https://dev.azure.com/org/Proj/_apis/build/builds/1002"}}
                         },
                     },
                 },
@@ -416,6 +374,13 @@ class TestApprovePartialFailure:
             # First call: _get_pending_approvals (GET)
             if method == "GET" and "approvals" in url and "approvalIds" not in url:
                 return pending_approvals
+            if method == "GET" and "buildIds=" in url:
+                return {
+                    "value": [
+                        {"id": 1001, "definition": {"id": 1, "name": "deploy-prod"}, "sourceVersion": "aaa"},
+                        {"id": 1002, "definition": {"id": 2, "name": "deploy-stage"}, "sourceVersion": "bbb"},
+                    ]
+                }
             # PATCH calls for approvals
             if method == "PATCH":
                 data = _kwargs.get("data", [])
@@ -433,7 +398,7 @@ class TestApprovePartialFailure:
             main(["builds", "approve", "-b", "1001", "1002", "-y"])
 
         # Should exit 1 because one failed
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 5
 
         captured = capsys.readouterr()
         # Successful approval reported on stdout
@@ -443,8 +408,8 @@ class TestApprovePartialFailure:
         assert "Failed" in captured.err
         assert "1002" in captured.err
         # Summary should include both counts
-        assert "Approved: 1" in captured.out
-        assert "Failed: 1" in captured.out
+        assert "Approved: 1" in captured.err
+        assert "Failed: 1" in captured.err
 
         # Compare against golden baseline (exclude non-deterministic temp file lines)
         golden_path = _GOLDEN_DIR / "approve_partial_failure_baseline.txt"
@@ -453,16 +418,11 @@ class TestApprovePartialFailure:
         stderr_deterministic = "\n".join(
             line
             for line in captured.err.splitlines()
-            if not line.startswith("Failed build IDs written to:")
-            and not line.startswith("Retry with:")
+            if not line.startswith("Failed build IDs written to:") and not line.startswith("Retry with:")
         ).strip()
-        actual_combined = (
-            f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{stderr_deterministic}\n"
-        )
+        actual_combined = f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{stderr_deterministic}\n"
         expected = golden_path.read_text()
-        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(
-            expected
-        ), (
+        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(expected), (
             f"Output does not match golden file {golden_path.name}.\nActual:\n{actual_combined}"
         )
 
@@ -504,14 +464,15 @@ class TestResolveSkipsAlreadyResolved:
 
         captured = capsys.readouterr()
         # Thread 100 reported as skipped on stderr
-        assert "Thread #100: already 'fixed'" in captured.err
+        assert "Skipped thread 100: already fixed" in captured.out
         # Thread 200 resolved on stdout
-        assert "Thread #200: resolved as 'fixed'" in captured.out
+        assert "Resolved thread 200: fixed" in captured.out
 
 
 class TestResolvePartialFailure:
     """Verify resolve command continues processing when one thread resolution fails."""
 
+    @patch("ado_api.cli.context.get_remote_project", return_value=None)
     @patch("ado_api.commands.pr.call_ado_api")
     @patch("ado_api.git.get_repo_name", return_value="my-repo")
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
@@ -522,6 +483,7 @@ class TestResolvePartialFailure:
         _mock_pat: MagicMock,
         _mock_repo: MagicMock,
         mock_api: MagicMock,
+        _mock_remote_project: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Thread 300 fails on PATCH, thread 400 still resolves. Exit code is 1."""
@@ -548,34 +510,28 @@ class TestResolvePartialFailure:
             main(["pr", "resolve", "42", "300", "400"])
 
         # Should exit 1 because one failed
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 5
 
         captured = capsys.readouterr()
 
         # Compare against golden baseline
-        golden_path = (
-            Path(__file__).parent / "golden" / "resolve_partial_failure_baseline.txt"
-        )
+        golden_path = Path(__file__).parent / "golden" / "resolve_partial_failure_baseline.txt"
         assert golden_path.exists(), f"Golden file missing: {golden_path}"
 
-        actual_combined = (
-            f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{captured.err.strip()}\n"
-        )
+        actual_combined = f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{captured.err.strip()}\n"
         expected = golden_path.read_text()
-        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(
-            expected
-        ), (
+        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(expected), (
             f"Output does not match golden file {golden_path.name}.\nActual:\n{actual_combined}"
         )
 
         # Also verify key behaviors inline
         # Thread 300 failure reported on stderr
-        assert "Thread #300: failed" in captured.err
+        assert "Failed thread 300" in captured.err
         # Thread 400 resolved on stdout
-        assert "Thread #400: resolved as 'fixed'" in captured.out
+        assert "Resolved thread 400: fixed" in captured.out
         # Summary includes both counts
-        assert "Resolved: 1" in captured.out
-        assert "Failed: 1" in captured.out
+        assert "Resolved: 1" in captured.err
+        assert "Failed: 1" in captured.err
 
 
 class TestWorkItemAddPartialFailure:
@@ -593,12 +549,10 @@ class TestWorkItemAddPartialFailure:
         mock_run: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """When one work item link fails and another succeeds, both are reported and exit is 1."""
+        """When one work item link fails and another succeeds, both are reported and exit is 5."""
         mock_config.return_value = _fake_ado_config()
 
-        def run_side_effect(
-            _action: str, _pr_id: int, _ctx: object, work_item_ids: list[int]
-        ) -> None:
+        def run_side_effect(_action: str, _pr_id: int, _ctx: object, work_item_ids: list[int]) -> None:
             wid = work_item_ids[0]
             if wid == 100:
                 return  # success
@@ -608,23 +562,89 @@ class TestWorkItemAddPartialFailure:
         mock_run.side_effect = run_side_effect
 
         with pytest.raises(SystemExit) as exc_info:
-            main(
-                [
-                    "pr",
-                    "work-item-add",
-                    "42",
-                    "--work-items",
-                    "100",
-                    "--work-items",
-                    "200",
-                ]
-            )
+            main(["pr", "work-item-add", "42", "--work-items", "100", "--work-items", "200"])
 
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 5
 
         captured = capsys.readouterr()
-        # Both items reported in TSV output
-        assert "100" in captured.out
-        assert "200" in captured.out
-        assert "ok" in captured.out
-        assert "error" in captured.out
+        assert captured.out.splitlines() == ["Linked work item 100"]
+        assert "Failed work item 200: TF401320" in captured.err
+
+
+class TestMutatingCommandsNameTheirProject:
+    """The resolved project goes to stderr and into the JSON; stdout stays one parseable document."""
+
+    @patch("ado_api.commands.approve.call_ado_api", return_value={"value": []})
+    @patch("ado_api.cli.context.get_remote_project", return_value="Proj")
+    @patch("ado_api.az_client.get_pat", return_value="fake-pat")
+    @patch(
+        "ado_api.az_client.get_ado_config",
+        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Default"),
+    )
+    def test_cancel_superseded_json(
+        self,
+        _config: MagicMock,
+        _pat: MagicMock,
+        _remote: MagicMock,
+        _api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            main(["builds", "cancel-superseded", "--dry-run", "--json"])
+        assert exc_info.value.code == 0
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out)["project"] == "Proj"
+        assert "https://dev.azure.com/org/Proj (from cwd checkout)" in captured.err
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["builds", "approve", "-b", "1", "-y"],
+            ["builds", "cancel", "1"],
+            ["builds", "cancel-by-tag", "pr=1"],
+            ["builds", "retry-stage", "--build", "1", "--dry-run"],
+        ],
+    )
+    @patch("ado_api.cli.commands.builds.make_ado_context")
+    def test_announces(self, mock_ctx: MagicMock, argv: list[str]) -> None:
+        with (
+            patch("ado_api.cli.commands.builds.cmd_builds_approve", return_value=[]),
+            patch("ado_api.cli.commands.builds.cmd_builds_cancel"),
+            patch("ado_api.cli.commands.builds.cmd_builds_cancel_by_tag"),
+            patch("ado_api.cli.commands.builds.cmd_builds_retry_stage"),
+            patch("ado_api.cli.commands.builds.fetch_build_refs", return_value=[]),
+            pytest.raises(SystemExit),
+        ):
+            main(argv)
+
+        assert mock_ctx.call_args.kwargs.get("announce") is True
+
+    @pytest.mark.parametrize(
+        ("module", "command", "argv"),
+        [
+            ("pr", "cmd_pr_create", ["pr", "create", "t"]),
+            ("pr", "cmd_pr_update", ["pr", "update", "1", "--title", "t"]),
+            ("pr", "cmd_pr_thread_add", ["pr", "thread-add", "1", "--body", "b"]),
+            ("pr", "cmd_pr_reply", ["pr", "reply", "1", "2", "b"]),
+            ("pr", "cmd_pr_resolve", ["pr", "resolve", "1", "2"]),
+            ("pr", "cmd_pr_resolve_pattern", ["pr", "resolve-pattern", "1", "x"]),
+            ("pr", "cmd_pr_work_item_add", ["pr", "work-item-add", "1", "--work-items", "2"]),
+            ("pr", "cmd_pr_work_item_remove", ["pr", "work-item-remove", "1", "--work-items", "2"]),
+            ("pr", "cmd_pr_work_item_create", ["pr", "work-item-create", "1", "--title", "t", "--type", "Task"]),
+            ("work_item", "cmd_work_item_create", ["work-item", "create", "--title", "t", "--type", "Task"]),
+            ("pipeline", "cmd_pipeline_create", ["pipeline", "create", "p", "--branch", "master"]),
+            ("pipeline", "cmd_pipeline_validate", ["pipeline", "build-validate", "1"]),
+        ],
+    )
+    def test_every_other_change_announces(self, module: str, command: str, argv: list[str]) -> None:
+        target = f"ado_api.cli.commands.{module}"
+        with (
+            patch(f"{target}.make_ado_context") as mock_ctx,
+            patch(f"{target}.{command}"),
+            patch(f"{target}.get_repo_or_exit", return_value="repo", create=True),
+            pytest.raises(SystemExit),
+        ):
+            main(argv)
+
+        assert mock_ctx.call_args.kwargs.get("announce") is True

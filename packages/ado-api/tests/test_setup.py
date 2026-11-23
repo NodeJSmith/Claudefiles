@@ -4,12 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.commands.setup import (
-    _has_az,
-    _has_defaults,
-    _has_devops_extension,
-    cmd_setup,
-)
+from ado_api.commands.setup import _has_az, _has_defaults, _has_devops_extension, cmd_setup
 
 _GOOD_DEFAULTS = (
     "name      value\n"
@@ -75,9 +70,7 @@ class TestHasDevopsExtension:
 
 class TestHasDefaults:
     @patch("ado_api.commands.setup.shutil.which", return_value="/usr/bin/az")
-    @patch(
-        "ado_api.commands.setup._run", return_value=_completed(stdout=_GOOD_DEFAULTS)
-    )
+    @patch("ado_api.commands.setup._run", return_value=_completed(stdout=_GOOD_DEFAULTS))
     def test_configured(self, _mock_run: MagicMock, _mock_which: MagicMock) -> None:
         assert _has_defaults() is True
 
@@ -90,9 +83,7 @@ class TestHasDefaults:
         assert _has_defaults() is False
 
     @patch("ado_api.commands.setup.shutil.which", return_value="/usr/bin/az")
-    @patch(
-        "ado_api.commands.setup._run", return_value=_completed(stdout=_NOT_SET_DEFAULTS)
-    )
+    @patch("ado_api.commands.setup._run", return_value=_completed(stdout=_NOT_SET_DEFAULTS))
     def test_not_set_values(self, _mock_run: MagicMock, _mock_which: MagicMock) -> None:
         assert _has_defaults() is False
 
@@ -149,8 +140,9 @@ class TestCmdSetup:
         _mock_has_defaults: MagicMock,
         capsys: MagicMock,
     ) -> None:
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc:
             cmd_setup()
+        assert exc.value.code == 2
         out = capsys.readouterr().out
         assert "[missing] az devops defaults" in out
         assert "az devops configure --defaults" in out

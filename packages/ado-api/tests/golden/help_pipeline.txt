@@ -3,11 +3,13 @@ Usage: ado-api pipeline COMMAND [OPTIONS]
 Pipeline operations
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
-│ build-validate  Create a build validation policy on a branch.                                    │
+│ build-validate  Create a build validation policy on a branch (default: the repo's default        │
+│                 branch).                                                                         │
 │ create          Register a YAML pipeline in ADO.                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
-│            [default: False]                                                                      │
-│ --project                                                                                        │
+│ --json     Output as JSON. No effect on setup. [default: False]                                  │
+│ --project  ADO project. Default: --repo's project, else the cwd checkout's, else the az devops   │
+│            default.                                                                              │
+│ --repo     Repository name; also picks the project. Default: the cwd's git origin.               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
