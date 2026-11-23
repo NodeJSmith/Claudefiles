@@ -2,6 +2,7 @@
 
 import os
 import runpy
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -118,7 +119,7 @@ def test_reports_remote_branch_and_missing_directory(repo: Path) -> None:
     wt = add_worktree(repo, "pushed")
     commit(wt, "a.py", "a\n")
     git(wt, "push", "-q", "origin", "pushed")
-    subprocess.run(["rm", "-rf", str(wt)], check=True)
+    shutil.rmtree(wt)
 
     result = facts(repo)["pushed"]
 
@@ -135,7 +136,7 @@ def test_failed_pr_lookup_is_reported_per_worktree(repo: Path) -> None:
 
     result = audit(repo, fetch=False, pr_lookup=broken)["worktrees"][0]
 
-    assert result["error"] == "OSError: ado-api not reachable"
+    assert result["error"] == "PR lookup: OSError: ado-api not reachable"
 
 
 def test_cli_prints_json_and_fails_instead_of_guessing_the_default_branch(
@@ -211,7 +212,7 @@ def test_remove_refuses_a_parent_holding_an_unselected_nested_worktree(
     )
 
     assert result.returncode == 1
-    assert "unselected nested worktree" in result.stderr
+    assert "still contains nested worktree" in result.stderr
     assert (inner / "work.txt").exists()
 
 
@@ -230,7 +231,7 @@ def test_reports_gitignored_files_but_not_regenerable_caches(repo: Path) -> None
 
 def test_unknown_file_state_is_none_not_empty(repo: Path) -> None:
     wt = add_worktree(repo, "gone")
-    subprocess.run(["rm", "-rf", str(wt)], check=True)
+    shutil.rmtree(wt)
 
     result = facts(repo)["gone"]
 
@@ -242,3 +243,20 @@ def test_parse_status_skips_rename_sources() -> None:
     raw = "R  new.py\0old.py\0 M edited.py\0?? notes/a b.md\0!! .env\0"
 
     assert parse_status(raw) == (["new.py", "edited.py"], ["notes/a b.md"], [".env"])
+
+
+def test_remove_keeps_a_parent_whose_selected_nested_worktree_was_refused(
+    repo: Path,
+) -> None:
+    commit(repo, ".gitignore", ".claude/\n")
+    git(repo, "push", "-q", "origin", "main")
+    outer = add_worktree(repo, "outer")
+    inner = outer / ".claude" / "worktrees" / "inner"
+    git(repo, "worktree", "add", "-q", "-b", "inner", str(inner), "origin/main")
+    (inner / "work.txt").write_text("only here\n")
+
+    result = run_cli("-C", str(repo), "remove", str(outer), str(inner))
+
+    assert result.returncode == 1
+    assert (inner / "work.txt").exists()
+    assert outer.exists()
