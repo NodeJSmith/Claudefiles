@@ -7,6 +7,8 @@ ado-api on Azure DevOps), whether the branch tip is still the PR's last
 commit, commits ahead of the default branch, uncommitted, untracked and
 gitignored files (gitignored ones because git deletes them without asking),
 whether the remote branch still exists, and when it was last active.
+It reports the same branch facts for local branches no worktree has checked
+out, which are left behind when a worktree is removed without its branch.
 
 It reports and never decides. Judging what's safe to remove is left to the
 reader. `remove` without --force relies on git refusing any worktree that
@@ -76,6 +78,20 @@ class PullRequest:
     head: str | None  # the PR's last source commit, when the platform reports it
     author: str
     url: str
+
+
+@dataclass
+class Branch:
+    """A local branch that no worktree, the main clone included, has checked out."""
+
+    branch: str
+    head: str
+    age_days: float | None = None  # since the tip's commit
+    ahead_of_default: int | None = None  # None: couldn't be computed
+    remote_branch: bool = False
+    pr: PullRequest | None = None
+    tip_is_pr_head: bool | None = None  # None: no PR, or the PR's head is unknown
+    error: str | None = None
 
 
 @dataclass
@@ -293,32 +309,53 @@ def is_regenerable(rel: str) -> bool:
     ) or rel.endswith(".pyc")
 
 
-def gather(
-    wt: Worktree, main_clone: Path, base: str, lookup, cwds: list[Path], now: float
+def fill_branch_facts(
+    target: Worktree | Branch, main_clone: Path, base: str, lookup, errors: list[str]
 ) -> None:
-    """Fill in a worktree's facts. Anything that fails stays None, and the first error is recorded."""
-    errors = []
-    rev = wt.branch or wt.head  # a missing worktree's branch is still in the main clone
+    """Fill in commits ahead, remote branch, and PR facts, shared by worktrees and bare branches."""
+    # A missing worktree's branch is still in the main clone; refs/heads/ keeps a same-named tag out.
+    rev = f"refs/heads/{target.branch}" if target.branch else target.head
     if rev:
         ahead = git(
             main_clone, "rev-list", "--count", f"{base}..{rev}", allow_fail=True
         ).strip()
-        wt.ahead_of_default = int(ahead) if ahead.isdigit() else None
-    if wt.branch:
-        wt.remote_branch = git_ok(
-            main_clone,
-            "show-ref",
-            "--verify",
-            "--quiet",
-            f"refs/remotes/{REMOTE}/{wt.branch}",
-        )
-        if lookup:
-            try:
-                wt.pr = lookup(wt.branch)
-            except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as e:
-                errors.append(f"PR lookup: {type(e).__name__}: {e}")
-            if wt.pr and wt.pr.head:
-                wt.tip_is_pr_head = wt.pr.head == wt.head
+        target.ahead_of_default = int(ahead) if ahead.isdigit() else None
+    if not target.branch:
+        return
+    target.remote_branch = git_ok(
+        main_clone,
+        "show-ref",
+        "--verify",
+        "--quiet",
+        f"refs/remotes/{REMOTE}/{target.branch}",
+    )
+    if lookup:
+        try:
+            target.pr = lookup(target.branch)
+        except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as e:
+            errors.append(f"PR lookup: {type(e).__name__}: {e}")
+        if target.pr and target.pr.head:
+            target.tip_is_pr_head = target.pr.head == target.head
+
+
+def gather_branch(br: Branch, main_clone: Path, base: str, lookup, now: float) -> None:
+    errors: list[str] = []
+    fill_branch_facts(br, main_clone, base, lookup, errors)
+    stamp = git(
+        main_clone, "log", "-1", "--format=%ct", br.head, allow_fail=True
+    ).strip()
+    br.age_days = (
+        round((now - int(stamp)) / SECONDS_PER_DAY, 1) if stamp.isdigit() else None
+    )
+    br.error = "; ".join(errors) or None
+
+
+def gather(
+    wt: Worktree, main_clone: Path, base: str, lookup, cwds: list[Path], now: float
+) -> None:
+    """Fill in a worktree's facts. Anything that fails stays None, and the first error is recorded."""
+    errors: list[str] = []
+    fill_branch_facts(wt, main_clone, base, lookup, errors)
     if not wt.missing:
         path = Path(wt.path)
         resolved = path.resolve()
@@ -344,8 +381,46 @@ def gather(
     wt.error = "; ".join(errors) or None
 
 
+def unattached_branches(
+    main_clone: Path, main_entry: dict, entries: list[dict], base: str
+) -> list[Branch]:
+    """Local branches no worktree has checked out, minus the default branch.
+
+    A worktree stopped mid-rebase lists as detached, so its branch comes from the rebase state instead.
+    """
+    checked_out = {
+        branch_of(e) or rebasing_branch(e["worktree"]) for e in (main_entry, *entries)
+    }
+    default = base.removeprefix(f"{REMOTE}/")
+    out = git(
+        main_clone,
+        "for-each-ref",
+        "refs/heads",
+        # refname:short becomes heads/<name> when a tag shares the name
+        "--format=%(refname:lstrip=2) %(objectname)",
+    )
+    branches = []
+    for line in out.splitlines():
+        name, _, head = line.rpartition(" ")
+        if name and name not in checked_out and name != default:
+            branches.append(Branch(branch=name, head=head))
+    return branches
+
+
+def rebasing_branch(path: str) -> str | None:
+    """The branch a worktree is rebasing, from the rebase state git keeps in its git dir."""
+    git_dir = git(path, "rev-parse", "--absolute-git-dir", allow_fail=True).strip()
+    if not git_dir:
+        return None
+    for state in ("rebase-merge", "rebase-apply"):
+        head_name = Path(git_dir, state, "head-name")
+        if head_name.is_file():
+            return head_name.read_text().strip().removeprefix("refs/heads/")
+    return None
+
+
 def audit(repo: str | Path, fetch: bool, pr_lookup=None) -> dict:
-    """Facts for every worktree except the main clone. Pass `pr_lookup` to replace platform detection."""
+    """Facts for every worktree except the main clone, plus local branches no worktree has checked out. Pass `pr_lookup` to replace platform detection."""
     main_entry, entries = list_worktrees(repo)
     main_clone = Path(main_entry["worktree"]).resolve()
     fetched = None  # None: not attempted; False: attempted and failed
@@ -365,6 +440,7 @@ def audit(repo: str | Path, fetch: bool, pr_lookup=None) -> dict:
         )
         for e in entries
     ]
+    branches = unattached_branches(main_clone, main_entry, entries, base)
     lookup = pr_lookup if pr_lookup is not None else pr_lookup_for(main_clone)
     cwds = cwds_of_running_processes()
     now = time.time()
@@ -374,16 +450,25 @@ def audit(repo: str | Path, fetch: bool, pr_lookup=None) -> dict:
                 lambda w: gather(w, main_clone, base, lookup, cwds, now), worktrees
             )
         )
-    worktrees.sort(
-        key=lambda w: -(w.age_days if w.age_days is not None else float("inf"))
-    )
+        list(
+            pool.map(
+                lambda b: gather_branch(b, main_clone, base, lookup, now), branches
+            )
+        )
+    for items in (worktrees, branches):
+        items.sort(key=oldest_first)
     return {
         "repo": str(main_clone),
         "default_branch": base,
         "fetched": fetched,
         "pr_lookup": lookup is not None,
         "worktrees": [asdict(w) for w in worktrees],
+        "branches": [asdict(b) for b in branches],
     }
+
+
+def oldest_first(item: Worktree | Branch) -> float:
+    return -(item.age_days if item.age_days is not None else float("inf"))
 
 
 def count(paths: list[str] | None) -> str:
@@ -433,6 +518,35 @@ def print_table(report: dict) -> None:
         "PATH",
         "NOTES",
     )
+    print_rows(headers, rows)
+    print(
+        f"\n{len(rows)} worktrees; AHEAD counts commits not on {report['default_branch']}"
+    )
+    if report["branches"]:
+        branch_rows = [
+            (
+                b["branch"],
+                "?" if b["age_days"] is None else f"{b['age_days']:.0f}d",
+                f"{b['pr']['id']}:{b['pr']['state']}" if b["pr"] else "-",
+                {True: "pr-head", False: "moved", None: "-"}[b["tip_is_pr_head"]],
+                "?" if b["ahead_of_default"] is None else str(b["ahead_of_default"]),
+                ", ".join(
+                    (["remote"] if b["remote_branch"] else [])
+                    + ([f"error: {b['error']}"] if b["error"] else [])
+                ),
+            )
+            for b in report["branches"]
+        ]
+        print("\nLocal branches with no worktree (AGE is since the tip's commit):")
+        print_rows(("BRANCH", "AGE", "PR", "TIP", "AHEAD", "NOTES"), branch_rows)
+    if not report["pr_lookup"]:
+        print(
+            "PR lookup unavailable (unknown platform, or gh/ado-api not installed)",
+            file=sys.stderr,
+        )
+
+
+def print_rows(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> None:
     widths = [max([len(h), *(len(r[i]) for r in rows)]) for i, h in enumerate(headers)]
     for row in (headers, *rows):
         print(
@@ -440,14 +554,6 @@ def print_table(report: dict) -> None:
                 c if i == len(row) - 1 else c.ljust(widths[i])
                 for i, c in enumerate(row)
             ).rstrip()
-        )
-    print(
-        f"\n{len(rows)} worktrees; AHEAD counts commits not on {report['default_branch']}"
-    )
-    if not report["pr_lookup"]:
-        print(
-            "PR lookup unavailable (unknown platform, or gh/ado-api not installed)",
-            file=sys.stderr,
         )
 
 

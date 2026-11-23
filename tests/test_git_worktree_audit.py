@@ -260,3 +260,44 @@ def test_remove_keeps_a_parent_whose_selected_nested_worktree_was_refused(
     assert result.returncode == 1
     assert (inner / "work.txt").exists()
     assert outer.exists()
+
+
+def test_reports_local_branches_no_worktree_has_checked_out(repo: Path) -> None:
+    add_worktree(repo, "attached")
+    git(repo, "branch", "leftover", "origin/main")
+    git(repo, "checkout", "-q", "leftover")
+    tip = commit(repo, "a.py", "a\n")
+    git(repo, "checkout", "-q", "main")
+
+    report = audit(
+        repo,
+        fetch=False,
+        pr_lookup=lambda b: {
+            "leftover": PullRequest("9", "merged", tip, "me", "u")
+        }.get(b),
+    )
+
+    assert [b["branch"] for b in report["branches"]] == [
+        "leftover"
+    ]  # not main, not attached
+    leftover = report["branches"][0]
+    assert leftover["pr"]["state"] == "merged"
+    assert leftover["tip_is_pr_head"] is True
+    assert leftover["ahead_of_default"] == 1
+    assert leftover["age_days"] >= 29
+
+
+def test_branch_being_rebased_in_a_worktree_is_not_unattached(repo: Path) -> None:
+    wt = add_worktree(repo, "rebasing")
+    commit(wt, "README.md", "branch side\n")
+    commit(repo, "README.md", "main side\n")
+    rebase = subprocess.run(
+        ["git", "-C", str(wt), "rebase", "main"], capture_output=True, env=GIT_ENV
+    )
+    assert (
+        rebase.returncode != 0
+    )  # stopped on the conflict, so the worktree is detached
+
+    report = audit(repo, fetch=False, pr_lookup=lambda b: None)
+
+    assert report["branches"] == []
